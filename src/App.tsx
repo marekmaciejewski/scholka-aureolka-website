@@ -36,6 +36,30 @@ const languageLocale: Record<Language, string> = {
   en: 'en-US',
 }
 
+function getBasePath() {
+  return import.meta.env.BASE_URL.endsWith('/')
+    ? import.meta.env.BASE_URL
+    : `${import.meta.env.BASE_URL}/`
+}
+
+function withBasePath(path: string) {
+  if (path.startsWith('#') || /^[a-z][a-z\d+.-]*:/i.test(path)) {
+    return path
+  }
+
+  return `${getBasePath()}${path.replace(/^\/+/, '')}`
+}
+
+function removeBasePath(pathname: string) {
+  const basePath = new URL(getBasePath(), window.location.origin).pathname
+
+  if (basePath !== '/' && pathname.startsWith(basePath)) {
+    return `/${pathname.slice(basePath.length)}`
+  }
+
+  return pathname
+}
+
 function translate(text: LocalizedText, language: Language) {
   return text[language]
 }
@@ -61,7 +85,7 @@ function getInitialTheme(): ThemeName {
 }
 
 function getPageFromPath(pathname: string): PageKey {
-  const path = pathname.replace(/\/+$/, '') || '/'
+  const path = removeBasePath(pathname).replace(/\/+$/, '') || '/'
 
   if (path === '/gallery') {
     return 'gallery'
@@ -192,8 +216,8 @@ function Header({
   return (
     <header className={isMenuOpen ? 'site-header is-menu-open' : 'site-header'}>
       <div className="content-width header-inner">
-        <a className="brand-link" href="/" aria-label="Scholka Aureolka">
-          <img className="brand-logo" src={getLogoForTheme(theme, 'header')} alt="" />
+        <a className="brand-link" href={withBasePath('/')} aria-label="Scholka Aureolka">
+          <img className="brand-logo" src={withBasePath(getLogoForTheme(theme, 'header'))} alt="" />
           <span>
             <strong>Scholka Aureolka</strong>
             <small>{translate(commonText.siteKicker, language)}</small>
@@ -221,7 +245,7 @@ function Header({
             <a
               key={item.key}
               className="nav-link"
-              href={item.href}
+              href={withBasePath(item.href)}
               aria-current={activePage === item.key ? 'page' : undefined}
             >
               {translate(item.label, language)}
@@ -326,7 +350,7 @@ function AlbumGrid({ language }: { language: Language }) {
       {albums.map((album) => (
         <article className="album-card" key={translate(album.title, language)}>
           <div className={`album-cover ${album.tone}`}>
-            <img src={getLogoForTheme('light', 'purple')} alt="" />
+            <img src={withBasePath(getLogoForTheme('light', 'purple'))} alt="" />
           </div>
           <div className="album-body">
             <p className="eyebrow">{translate(album.date, language)}</p>
@@ -382,7 +406,7 @@ function HomePage({
                 <a
                   key={action.href}
                   className={index === 0 ? 'button primary' : 'button secondary'}
-                  href={action.href}
+                  href={withBasePath(action.href)}
                 >
                   {translate(action.label, language)}
                 </a>
@@ -390,7 +414,7 @@ function HomePage({
             </div>
           </div>
           <div className="hero-logo-panel" aria-hidden="true">
-            <img src={getLogoForTheme(theme, 'purple')} alt="" />
+            <img src={withBasePath(getLogoForTheme(theme, 'purple'))} alt="" />
           </div>
         </div>
       </section>
@@ -411,7 +435,7 @@ function HomePage({
             <p className="eyebrow">{translate(commonText.upcoming, language)}</p>
             <h2>{translate(pageIntro.calendar.lead, language)}</h2>
             <p>{translate(commonText.sourceOfTruth, language)}</p>
-            <a className="text-link" href="/calendar/">
+            <a className="text-link" href={withBasePath('/calendar/')}>
               {translate(commonText.viewCalendar, language)}
             </a>
           </div>
@@ -528,7 +552,7 @@ function Footer({ language }: { language: Language }) {
         </div>
         <nav aria-label={translate(commonText.footerNavigation, language)}>
           {navigationItems.map((item) => (
-            <a key={item.key} href={item.href}>
+            <a key={item.key} href={withBasePath(item.href)}>
               {translate(item.label, language)}
             </a>
           ))}

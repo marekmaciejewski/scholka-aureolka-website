@@ -2,7 +2,7 @@
 
 Static multi-page website for the children's Polish Christian choir "Scholka Aureolka".
 
-The site is built with React, TypeScript, and Vite, and is intended to be hosted on GitHub Pages as a user/organization site.
+The site is built with React, TypeScript, and Vite, and is hosted on GitHub Pages.
 
 ## Goals
 
@@ -47,15 +47,25 @@ npm run lint
 
 ## Deployment
 
-This repository is intended for a GitHub Pages user/organization site, served from:
+This repository currently uses the default GitHub Pages project-site URL:
 
 ```text
-https://<owner>.github.io/
+https://marekmaciejewski.github.io/scholka-aureolka-website/
 ```
 
-Because the site is served from the domain root, Vite's `base` should remain `/`.
+Deployment is handled by GitHub Actions in `.github/workflows/pages.yml`.
 
-If the repository is later changed to a project page, update Vite's `base` to the repository path before deploying.
+The workflow sets `GITHUB_PAGES=true` during the production build. In that mode, Vite uses `/scholka-aureolka-website/` as the asset base path so the generated files work under the GitHub Pages project URL. Local development keeps Vite's base path at `/`.
+
+In the repository settings on GitHub:
+
+1. Open **Settings** -> **Pages**.
+2. Set **Build and deployment** -> **Source** to **GitHub Actions**.
+3. Push to `dev`, `main`, or `master`, or run the **Deploy to GitHub Pages** workflow manually.
+
+The workflow installs dependencies with `npm ci`, builds the static site with `npm run build`, uploads `dist/` as a Pages artifact, and deploys it to GitHub Pages. The generated `dist/` directory stays ignored in git.
+
+If a custom domain is added later, the production base path can return to `/`.
 
 ## Project Structure
 
