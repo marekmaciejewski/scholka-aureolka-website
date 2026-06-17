@@ -45,6 +45,26 @@ Run linting:
 npm run lint
 ```
 
+## Code Quality
+
+SonarQube Cloud analysis is configured with `sonar-project.properties`.
+
+The project key is:
+
+```text
+marekmaciejewski_scholka-aureolka-website
+```
+
+The report URL is:
+
+```text
+https://sonarcloud.io/summary/overall?id=marekmaciejewski_scholka-aureolka-website&branch=master
+```
+
+The project uses SonarQube Cloud Automatic Analysis, so no GitHub Actions scan workflow or `SONAR_TOKEN` repository secret is required for now.
+
+Local Codex MCP configuration for SonarQube belongs in `.codex/config.toml`. The `.codex/` directory is ignored because it contains a personal token.
+
 ## Deployment
 
 This repository currently uses the default GitHub Pages project-site URL:
