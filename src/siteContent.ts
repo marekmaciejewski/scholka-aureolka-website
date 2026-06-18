@@ -153,10 +153,10 @@ export const pageIntro: Record<
   },
   contact: {
     eyebrow: { pl: 'Kontakt', en: 'Contact' },
-    title: { pl: 'Porozmawiajmy podczas spotkań', en: 'Let’s talk during choir gatherings' },
+    title: { pl: 'Porozmawiajmy', en: 'Let’s talk' },
     lead: {
-      pl: 'Bez formularzy, telefonów i adresów e-mail. Najprostszy kontakt to rozmowa osobista przy okazji zaplanowanych spotkań scholi.',
-      en: 'No forms, phone numbers, or email addresses. The simplest contact is an in-person conversation around scheduled choir gatherings.',
+      pl: 'Z osobą prowadzącą można porozmawiać osobiście, najlepiej przed próbą scholi zarówno w czwartek jak i niedzielę.',
+      en: 'You can speak with the organizer in person, preferably before choir rehearsal on both Thursday and Sunday.',
     },
   },
 }
@@ -271,14 +271,43 @@ export const organizationSections: InfoSection[] = [
 ]
 
 export const contactDetails = {
-  organizerLabel: { pl: 'Osoba prowadząca', en: 'Organizer' },
-  organizerName: { pl: 'do uzupełnienia', en: 'to be added' },
-  inPerson: {
-    pl: 'Z organizatorem można porozmawiać osobiście podczas zaplanowanych spotkań scholi oraz po odpowiednich wydarzeniach parafialnych.',
-    en: 'The organizer can be contacted in person during scheduled choir meetings and after relevant parish gatherings.',
-  },
-  facebook: { pl: 'Facebook scholi', en: 'Choir Facebook' },
-  parish: { pl: 'Strona parafii', en: 'Parish page' },
+  people: [
+    {
+      role: { pl: 'Prowadzący', en: 'Lead Organizer' },
+      name: 'Marek Maciejewski',
+    },
+    {
+      role: { pl: 'Duszpasterz', en: 'Chaplain' },
+      name: { pl: 'ks. Marek Styn', en: 'Fr. Marek Styn' },
+    },
+    {
+      role: { pl: 'Wsparcie organizacyjne', en: 'Organizational Support' },
+      name: 'Anna Maciejewska',
+    },
+    {
+      role: { pl: 'Wsparcie muzyczne', en: 'Musical Support' },
+      name: 'Olga Andrzejewska',
+    },
+    {
+      role: { pl: 'Wsparcie techniczne', en: 'Technical Support' },
+      name: 'Piotr Andrzejewski',
+    },
+  ],
+  linksLabel: { pl: 'Przydatne linki', en: 'Useful Links' },
+  links: [
+    {
+      href: 'https://www.facebook.com/people/Scholka-Aureolka/61569393120295/',
+      label: 'Facebook',
+    },
+    {
+      href: 'https://www.urszula-gdynia.pl/kontakt.html',
+      label: { pl: 'Kontakt Do Parafii', en: 'Parish Contact' },
+    },
+    {
+      href: 'https://www.urszula-gdynia.pl/maloletni.html',
+      label: { pl: 'Standardy Ochrony Małoletnich', en: 'Safeguarding Standards For Minors' },
+    },
+  ],
 }
 
 export const recurringCalendarNotes: InfoSection[] = [

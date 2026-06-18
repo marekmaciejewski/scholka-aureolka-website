@@ -72,6 +72,10 @@ function translate(text: LocalizedText, language: Language) {
   return text[language]
 }
 
+function translateOptional(text: LocalizedText | string, language: Language) {
+  return typeof text === 'string' ? text : translate(text, language)
+}
+
 function getInitialLanguage(): Language {
   const storedLanguage = window.localStorage.getItem(languageStorageKey)
 
@@ -551,24 +555,39 @@ function ContactPage({ language }: { language: Language }) {
     <>
       <PageHeading page="contact" language={language} />
       <section className="content-section">
-        <div className="content-width split-section align-start">
-          <article className="contact-card">
-            <p className="eyebrow">{translate(contactDetails.organizerLabel, language)}</p>
-            <h2>{translate(contactDetails.organizerName, language)}</h2>
-            <p>{translate(contactDetails.inPerson, language)}</p>
-          </article>
+        <div className="content-width contact-layout">
+          <div className="contact-copy">
+            <div className="contact-people">
+              {contactDetails.people.map((person, index) => {
+                const HeadingTag = index === 0 ? 'h2' : 'h3'
 
-          <article className="contact-card">
-            <p className="eyebrow">{translate(commonText.externalLinks, language)}</p>
-            <div className="placeholder-link">
-              <span>{translate(contactDetails.facebook, language)}</span>
-              <strong>{language === 'pl' ? 'do uzupełnienia' : 'to be added'}</strong>
+                return (
+                  <section className="contact-person" key={translateOptional(person.name, defaultLanguage)}>
+                    <p className="eyebrow">{translate(person.role, language)}</p>
+                    <HeadingTag>{translateOptional(person.name, language)}</HeadingTag>
+                  </section>
+                )
+              })}
             </div>
-            <div className="placeholder-link">
-              <span>{translate(contactDetails.parish, language)}</span>
-              <strong>{language === 'pl' ? 'do uzupełnienia' : 'to be added'}</strong>
+          </div>
+          <nav className="contact-links" aria-labelledby="contact-links-heading">
+            <p id="contact-links-heading" className="contact-links-heading">
+              {translate(contactDetails.linksLabel, language)}
+            </p>
+            <div className="contact-link-actions">
+              {contactDetails.links.map((link) => (
+                <a
+                  key={link.href}
+                  className="contact-link"
+                  href={link.href}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <span>{translateOptional(link.label, language)}</span>
+                </a>
+              ))}
             </div>
-          </article>
+          </nav>
         </div>
       </section>
     </>
