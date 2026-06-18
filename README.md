@@ -1,6 +1,6 @@
 # Scholka Aureolka Website
 
-Static multi-page website for the children's Polish Christian choir "Scholka Aureolka".
+Static React website for the children's Polish Christian choir "Scholka Aureolka".
 
 The site is built with React, TypeScript, and Vite, and is hosted on GitHub Pages.
 
@@ -8,10 +8,29 @@ The site is built with React, TypeScript, and Vite, and is hosted on GitHub Page
 
 - Polish-first website with complete English translation.
 - Light and dark themes using colors from the choir logo.
-- Static multi-page structure, not SPA-style client routing.
+- Simple static page delivery with reusable React components.
+- Architecture that can grow toward content-driven sections such as songs, albums, and event detail pages.
 - Public pages for start, gallery, calendar, organization, and contact.
 - Dynamic upcoming-events view backed by a public Google Calendar.
 - No contact forms, phone numbers, or email addresses.
+
+## Routing and Page Architecture
+
+The current implementation uses Vite's static multi-page app pattern: `/`, `/gallery/`, `/calendar/`, `/organization/`, and `/contact/` each have an `index.html` entry point. Those pages mount the same shared React application, and React selects the visible page content from the current pathname.
+
+React Router is not currently installed. For the present shallow public site, that is intentional: normal document URLs work naturally on GitHub Pages, refreshes and direct links are straightforward, and page-specific HTML metadata remains simple.
+
+This is not a permanent anti-router rule. React Router would become reasonable if the site grows into nested or content-driven routes, for example:
+
+- `/songs/` and `/songs/:songSlug`
+- `/gallery/` and `/gallery/:albumSlug`
+- event detail pages
+- URL-driven filters or search
+- route-level data loading, pending states, or error boundaries
+
+Until that need is clear, prefer a small shared page registry and structured content collections over introducing SPA routing. That keeps the current site simple while making a future move to React Router route configuration easier.
+
+If React Router is introduced later, direct links and refresh behavior on GitHub Pages must be handled deliberately. For public choir content, shareable URLs that work on refresh and can carry meaningful metadata should remain the priority.
 
 ## Local Development
 
@@ -67,15 +86,15 @@ Local Codex MCP configuration for SonarQube belongs in `.codex/config.toml`. The
 
 ## Deployment
 
-This repository currently uses the default GitHub Pages project-site URL:
+This repository is intended to be deployed as a GitHub Pages user/organization site:
 
 ```text
-https://marekmaciejewski.github.io/scholka-aureolka-website/
+https://marekmaciejewski.github.io/
 ```
 
 Deployment is handled by GitHub Actions in `.github/workflows/pages.yml`.
 
-The workflow sets `GITHUB_PAGES=true` during the production build. In that mode, Vite uses `/scholka-aureolka-website/` as the asset base path so the generated files work under the GitHub Pages project URL. Local development keeps Vite's base path at `/`.
+For that deployment target, Vite's base path should remain `/`. If the site is temporarily hosted as a GitHub Pages project site, the production base path must be adjusted for that URL before deployment.
 
 In the repository settings on GitHub:
 
@@ -85,7 +104,7 @@ In the repository settings on GitHub:
 
 The workflow installs dependencies with `npm ci`, builds the static site with `npm run build`, uploads `dist/` as a Pages artifact, and deploys it to GitHub Pages. The generated `dist/` directory stays ignored in git.
 
-If a custom domain is added later, the production base path can return to `/`.
+If a custom domain is added later, the production base path should also remain `/`.
 
 ## Project Structure
 

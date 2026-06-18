@@ -12,6 +12,11 @@ export type NavigationItem = {
   label: LocalizedText
 }
 
+export type FooterCredit = {
+  label: string
+  value: string
+}
+
 export type ScheduleCard = {
   title: LocalizedText
   time: LocalizedText
@@ -26,6 +31,12 @@ export type Album = {
 }
 
 export type InfoSection = {
+  title: LocalizedText
+  body: LocalizedText
+}
+
+export type ImportantNotice = {
+  isActive: boolean
   title: LocalizedText
   body: LocalizedText
 }
@@ -61,9 +72,8 @@ export const navigationItems: NavigationItem[] = [
 
 export const commonText = {
   skipToContent: { pl: 'Przejdź do treści', en: 'Skip to content' },
-  siteKicker: { pl: 'Parafialna schola dziecięca', en: "Children's parish choir" },
+  siteKicker: { pl: 'Parafia Św. Urszuli w Gdyni', en: 'St. Ursula Parish in Gdynia' },
   mainNavigation: { pl: 'Nawigacja główna', en: 'Main navigation' },
-  footerNavigation: { pl: 'Nawigacja w stopce', en: 'Footer navigation' },
   sitePreferences: { pl: 'Ustawienia strony', en: 'Site preferences' },
   openMenu: { pl: 'Otwórz menu', en: 'Open menu' },
   closeMenu: { pl: 'Zamknij menu', en: 'Close menu' },
@@ -81,16 +91,29 @@ export const commonText = {
     pl: 'Docelowo ta lista będzie zasilana z publicznego Kalendarza Google i pokaże wydarzenia do 3 miesięcy naprzód.',
     en: 'This list is intended to be powered by a public Google Calendar and show events up to 3 months ahead.',
   },
-  footerNote: {
-    pl: 'Prosta strona informacyjna dla rodziców, dzieci i parafian.',
-    en: 'A simple information site for parents, children, and parish visitors.',
-  },
   viewCalendar: { pl: 'Zobacz kalendarz', en: 'View calendar' },
   viewGallery: { pl: 'Zobacz galerię', en: 'View gallery' },
   readOrganization: { pl: 'Informacje organizacyjne', en: 'Organization details' },
   goToContact: { pl: 'Jak porozmawiać', en: 'How to get in touch' },
   externalLinks: { pl: 'Linki zewnętrzne', en: 'External links' },
 }
+
+export const footerQuote = '„Qui cantat, bis orat”'
+
+export const footerCredits: FooterCredit[] = [
+  {
+    label: 'Site creator',
+    value: 'Marek Maciejewski',
+  },
+  {
+    label: 'Logo creator',
+    value: 'Kamil Jadczuk',
+  },
+  {
+    label: 'Tech stack',
+    value: 'React, TypeScript, Vite, GitHub Pages',
+  },
+]
 
 export const pageIntro: Record<
   PageKey,
@@ -143,6 +166,24 @@ export const homeActions = [
   { href: '/organization/', label: commonText.readOrganization },
   { href: '/gallery/', label: commonText.viewGallery },
 ]
+
+export const homeHeroText = {
+  description: {
+    pl: 'Śpiewamy z dziećmi podczas spotkań parafialnych i Mszy dziecięcej. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum euismod sem at urna luctus, vitae facilisis mi cursus.',
+    en: "We sing with children during parish gatherings and Children's Mass. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum euismod sem at urna luctus, vitae facilisis mi cursus.",
+  },
+  rehearsalsLabel: { pl: 'Próby', en: 'Rehearsals' },
+  massLabel: { pl: 'Msza dziecięca', en: "Children's Mass" },
+}
+
+export const homeImportantNotice: ImportantNotice = {
+  isActive: true,
+  title: { pl: 'Ważne!', en: 'Important!' },
+  body: {
+    pl: 'Najbliższa czwartkowa próba odwołana z powodu święta państwowego.',
+    en: 'The next Thursday rehearsal is canceled because of a national holiday.',
+  },
+}
 
 export const scheduleCards: ScheduleCard[] = [
   {

@@ -5,7 +5,11 @@ import {
   contactDetails,
   defaultLanguage,
   eventTemplates,
+  footerCredits,
+  footerQuote,
   homeActions,
+  homeHeroText,
+  homeImportantNotice,
   languageOptions,
   logoPaths,
   navigationItems,
@@ -17,6 +21,7 @@ import {
   type Language,
   type LocalizedText,
   type PageKey,
+  type ScheduleCard,
   type ThemeName,
 } from './siteContent'
 
@@ -30,6 +35,9 @@ type UpcomingEvent = {
 
 const languageStorageKey = 'scholka-aureolka-language'
 const themeStorageKey = 'scholka-aureolka-theme'
+const homeScheduleCards = scheduleCards.slice(0, 2)
+const homeHeroActions = homeActions.slice(0, 2)
+const childrenMassCard = scheduleCards[2]
 
 const languageLocale: Record<Language, string> = {
   pl: 'pl-PL',
@@ -302,16 +310,39 @@ function PageHeading({ page, language }: { page: PageKey; language: Language }) 
   )
 }
 
-function ScheduleGrid({ language }: { language: Language }) {
+function ScheduleGrid({
+  language,
+  cards = scheduleCards,
+}: {
+  language: Language
+  cards?: ScheduleCard[]
+}) {
   return (
     <div className="card-grid schedule-grid">
-      {scheduleCards.map((card) => (
+      {cards.map((card) => (
         <article className="info-card" key={translate(card.title, language)}>
           <h3>{translate(card.title, language)}</h3>
           <p className="card-time">{translate(card.time, language)}</p>
           <p>{translate(card.note, language)}</p>
         </article>
       ))}
+    </div>
+  )
+}
+
+function HeroScheduleRibbon({ language }: { language: Language }) {
+  return (
+    <div className="hero-schedule-ribbon" aria-label={translate(commonText.schedule, language)}>
+      <div className="hero-ribbon-line">
+        <span>{translate(homeHeroText.rehearsalsLabel, language)}</span>
+        <strong>
+          {homeScheduleCards.map((card) => translate(card.time, language)).join(' / ')}
+        </strong>
+      </div>
+      <div className="hero-ribbon-line">
+        <span>{translate(homeHeroText.massLabel, language)}</span>
+        <strong>{translate(childrenMassCard.time, language)}</strong>
+      </div>
     </div>
   )
 }
@@ -341,6 +372,19 @@ function EventList({
         </article>
       ))}
     </div>
+  )
+}
+
+function ImportantNotice({ language }: { language: Language }) {
+  if (!homeImportantNotice.isActive) {
+    return null
+  }
+
+  return (
+    <aside className="important-notice" role="status">
+      <strong>{translate(homeImportantNotice.title, language)}</strong>
+      <span>{translate(homeImportantNotice.body, language)}</span>
+    </aside>
   )
 }
 
@@ -391,54 +435,45 @@ function HomePage({
   theme: ThemeName
   upcomingEvents: UpcomingEvent[]
 }) {
-  const intro = pageIntro.home
-
   return (
     <>
       <section className="hero-band">
         <div className="content-width hero-layout">
           <div className="hero-copy">
-            <p className="eyebrow">{translate(intro.eyebrow, language)}</p>
-            <h1>{translate(intro.title, language)}</h1>
-            <p>{translate(intro.lead, language)}</p>
-            <div className="hero-actions" aria-label={translate(commonText.quickLinks, language)}>
-              {homeActions.map((action, index) => (
-                <a
-                  key={action.href}
-                  className={index === 0 ? 'button primary' : 'button secondary'}
-                  href={withBasePath(action.href)}
-                >
-                  {translate(action.label, language)}
-                </a>
-              ))}
+            <h1>Scholka Aureolka</h1>
+            <p className="hero-description">{translate(homeHeroText.description, language)}</p>
+
+            <div className="hero-info-block">
+              <HeroScheduleRibbon language={language} />
+
+              <div className="hero-actions" aria-label={translate(commonText.quickLinks, language)}>
+                {homeHeroActions.map((action, index) => (
+                  <a
+                    key={action.href}
+                    className={index === 0 ? 'button primary' : 'button secondary'}
+                    href={withBasePath(action.href)}
+                  >
+                    {translate(action.label, language)}
+                  </a>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="hero-logo-panel" aria-hidden="true">
-            <img src={withBasePath(getLogoForTheme(theme, 'purple'))} alt="" />
-          </div>
+          <img
+            className="hero-logo-mark"
+            src={withBasePath(getLogoForTheme(theme, 'purple'))}
+            alt=""
+            aria-hidden="true"
+          />
         </div>
       </section>
 
-      <section className="content-section">
-        <div className="content-width">
-          <div className="section-heading">
-            <p className="eyebrow">{translate(commonText.schedule, language)}</p>
-            <h2>{translate(pageIntro.calendar.title, language)}</h2>
-          </div>
-          <ScheduleGrid language={language} />
-        </div>
-      </section>
-
-      <section className="content-section section-muted">
-        <div className="content-width split-section">
-          <div>
-            <p className="eyebrow">{translate(commonText.upcoming, language)}</p>
-            <h2>{translate(pageIntro.calendar.lead, language)}</h2>
-            <p>{translate(commonText.sourceOfTruth, language)}</p>
-            <a className="text-link" href={withBasePath('/calendar/')}>
-              {translate(commonText.viewCalendar, language)}
-            </a>
-          </div>
+      <section
+        className="content-section section-muted home-upcoming-section"
+        aria-label={translate(commonText.upcoming, language)}
+      >
+        <div className="content-width home-upcoming-inner">
+          <ImportantNotice language={language} />
           <EventList events={upcomingEvents.slice(0, 4)} language={language} compact />
         </div>
       </section>
@@ -540,7 +575,7 @@ function ContactPage({ language }: { language: Language }) {
   )
 }
 
-function Footer({ language }: { language: Language }) {
+function Footer() {
   const year = new Date().getFullYear()
 
   return (
@@ -548,15 +583,16 @@ function Footer({ language }: { language: Language }) {
       <div className="content-width footer-inner">
         <div>
           <strong>Scholka Aureolka</strong>
-          <p>{translate(commonText.footerNote, language)}</p>
+          <p lang="la">{footerQuote}</p>
         </div>
-        <nav aria-label={translate(commonText.footerNavigation, language)}>
-          {navigationItems.map((item) => (
-            <a key={item.key} href={withBasePath(item.href)}>
-              {translate(item.label, language)}
-            </a>
+        <dl className="footer-credits" aria-label="Site credits">
+          {footerCredits.map((credit) => (
+            <div className="footer-credit" key={credit.label}>
+              <dt>{credit.label}</dt>
+              <dd>{credit.value}</dd>
+            </div>
           ))}
-        </nav>
+        </dl>
         <p className="footer-meta">© {year}</p>
       </div>
     </footer>
@@ -610,7 +646,7 @@ function App() {
         {activePage === 'organization' && <OrganizationPage language={language} />}
         {activePage === 'contact' && <ContactPage language={language} />}
       </main>
-      <Footer language={language} />
+      <Footer />
     </div>
   )
 }
