@@ -7,21 +7,18 @@ import {
   eventTemplates,
   footerCredits,
   footerQuote,
-  homeActions,
+  homeHeroCta,
   homeHeroText,
   homeImportantNotice,
   languageOptions,
   logoPaths,
   navigationItems,
-  organizationSections,
   pageIntro,
-  recurringCalendarNotes,
+  firstStepsModal,
   scheduleCards,
-  type InfoSection,
   type Language,
   type LocalizedText,
   type PageKey,
-  type ScheduleCard,
   type ThemeName,
 } from './siteContent'
 
@@ -36,7 +33,6 @@ type UpcomingEvent = {
 const languageStorageKey = 'scholka-aureolka-language'
 const themeStorageKey = 'scholka-aureolka-theme'
 const homeScheduleCards = scheduleCards.slice(0, 2)
-const homeHeroActions = homeActions.slice(0, 2)
 const childrenMassCard = scheduleCards[2]
 
 const languageLocale: Record<Language, string> = {
@@ -103,12 +99,8 @@ function getPageFromPath(pathname: string): PageKey {
     return 'gallery'
   }
 
-  if (path === '/calendar') {
-    return 'calendar'
-  }
-
-  if (path === '/organization') {
-    return 'organization'
+  if (path === '/schedule') {
+    return 'schedule'
   }
 
   if (path === '/contact') {
@@ -249,7 +241,6 @@ function Header({
             <span />
             <span />
           </span>
-          <span>{translate(commonText.menu, language)}</span>
         </button>
 
         <nav id="site-menu" className="main-nav" aria-label={translate(commonText.mainNavigation, language)}>
@@ -311,26 +302,6 @@ function PageHeading({ page, language }: { page: PageKey; language: Language }) 
         <p>{translate(intro.lead, language)}</p>
       </div>
     </section>
-  )
-}
-
-function ScheduleGrid({
-  language,
-  cards = scheduleCards,
-}: {
-  language: Language
-  cards?: ScheduleCard[]
-}) {
-  return (
-    <div className="card-grid schedule-grid">
-      {cards.map((card) => (
-        <article className="info-card" key={translate(card.title, language)}>
-          <h3>{translate(card.title, language)}</h3>
-          <p className="card-time">{translate(card.time, language)}</p>
-          <p>{translate(card.note, language)}</p>
-        </article>
-      ))}
-    </div>
   )
 }
 
@@ -411,21 +382,106 @@ function AlbumGrid({ language }: { language: Language }) {
   )
 }
 
-function InfoSectionList({
-  sections,
+function FirstStepsModal({
   language,
+  onClose,
 }: {
-  sections: InfoSection[]
   language: Language
+  onClose: () => void
 }) {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', closeOnEscape)
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [onClose])
+
   return (
-    <div className="info-list">
-      {sections.map((section) => (
-        <article className="info-row" key={translate(section.title, language)}>
-          <h2>{translate(section.title, language)}</h2>
-          <p>{translate(section.body, language)}</p>
-        </article>
-      ))}
+    <div
+      className="modal-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose()
+        }
+      }}
+    >
+      <section
+        className="parent-info-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="first-steps-title"
+      >
+        <button
+          type="button"
+          className="modal-close"
+          aria-label={translate(commonText.closeModal, language)}
+          onClick={onClose}
+          autoFocus
+        >
+          X
+        </button>
+        <div className="modal-heading">
+          <h2 id="first-steps-title">{translate(firstStepsModal.title, language)}</h2>
+        </div>
+        <ul className="parent-info-list">
+          {firstStepsModal.items.map((item) => (
+            <li key={translate(item.title, language)}>
+              <strong>{translate(item.title, language)}</strong>
+              {item.body && <span>{translate(item.body, language)}</span>}
+              {item.note && <em className="parent-info-note">{translate(item.note, language)}</em>}
+              {item.bodyLink && (
+                <span>
+                  {translate(item.bodyLink.prefix, language)}
+                  <a
+                    className="parent-info-inline-link"
+                    href={withBasePath(item.bodyLink.href)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {translate(item.bodyLink.label, language)}
+                  </a>
+                  {item.bodyLink.suffix && translate(item.bodyLink.suffix, language)}
+                </span>
+              )}
+              {item.details && (
+                <div className="parent-info-detail-list">
+                  {item.details.map((detail) => (
+                    <div className="parent-info-detail" key={translate(detail.title, language)}>
+                      <b>{translate(detail.title, language)}</b>
+                      <span>{translate(detail.body, language)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {item.link && (
+                <a
+                  className={
+                    item.link.tone === 'strong'
+                      ? 'parent-info-link strong'
+                      : 'parent-info-link'
+                  }
+                  href={withBasePath(item.link.href)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {translate(item.link.label, language)}
+                </a>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
   )
 }
@@ -439,6 +495,8 @@ function HomePage({
   theme: ThemeName
   upcomingEvents: UpcomingEvent[]
 }) {
+  const [isFirstStepsOpen, setIsFirstStepsOpen] = useState(false)
+
   return (
     <>
       <section className="hero-band">
@@ -451,15 +509,16 @@ function HomePage({
               <HeroScheduleRibbon language={language} />
 
               <div className="hero-actions" aria-label={translate(commonText.quickLinks, language)}>
-                {homeHeroActions.map((action, index) => (
-                  <a
-                    key={action.href}
-                    className={index === 0 ? 'button primary' : 'button secondary'}
-                    href={withBasePath(action.href)}
-                  >
-                    {translate(action.label, language)}
-                  </a>
-                ))}
+                <a className="button primary" href={withBasePath(homeHeroCta.schedule.href)}>
+                  {translate(homeHeroCta.schedule.label, language)}
+                </a>
+                <button
+                  type="button"
+                  className="button secondary"
+                  onClick={() => setIsFirstStepsOpen(true)}
+                >
+                  {translate(homeHeroCta.firstSteps.label, language)}
+                </button>
               </div>
             </div>
           </div>
@@ -481,6 +540,9 @@ function HomePage({
           <EventList events={upcomingEvents.slice(0, 4)} language={language} compact />
         </div>
       </section>
+      {isFirstStepsOpen && (
+        <FirstStepsModal language={language} onClose={() => setIsFirstStepsOpen(false)} />
+      )}
     </>
   )
 }
@@ -498,7 +560,7 @@ function GalleryPage({ language }: { language: Language }) {
   )
 }
 
-function CalendarPage({
+function SchedulePage({
   language,
   upcomingEvents,
 }: {
@@ -509,41 +571,19 @@ function CalendarPage({
 
   return (
     <>
-      <PageHeading page="calendar" language={language} />
+      <PageHeading page="schedule" language={language} />
       <section className="content-section">
-        <div className="content-width split-section align-start">
-          <div className="calendar-notes">
-            <ScheduleGrid language={language} />
-            <InfoSectionList sections={recurringCalendarNotes} language={language} />
-          </div>
-          <div className="month-list">
-            {groupedEvents.map((group, index) => {
-              const headingId = `month-${index}`
+        <div className="content-width narrow month-list">
+          {groupedEvents.map((group, index) => {
+            const headingId = `month-${index}`
 
-              return (
-                <section className="month-group" key={group.month} aria-labelledby={headingId}>
-                  <h2 id={headingId}>{group.month}</h2>
-                  <EventList events={group.events} language={language} />
-                </section>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-    </>
-  )
-}
-
-function OrganizationPage({ language }: { language: Language }) {
-  return (
-    <>
-      <PageHeading page="organization" language={language} />
-      <section className="content-section">
-        <div className="content-width split-section align-start">
-          <div>
-            <ScheduleGrid language={language} />
-          </div>
-          <InfoSectionList sections={organizationSections} language={language} />
+            return (
+              <section className="month-group" key={group.month} aria-labelledby={headingId}>
+                <h2 id={headingId}>{group.month}</h2>
+                <EventList events={group.events} language={language} />
+              </section>
+            )
+          })}
         </div>
       </section>
     </>
@@ -659,10 +699,9 @@ function App() {
           <HomePage language={language} theme={theme} upcomingEvents={upcomingEvents} />
         )}
         {activePage === 'gallery' && <GalleryPage language={language} />}
-        {activePage === 'calendar' && (
-          <CalendarPage language={language} upcomingEvents={upcomingEvents} />
+        {activePage === 'schedule' && (
+          <SchedulePage language={language} upcomingEvents={upcomingEvents} />
         )}
-        {activePage === 'organization' && <OrganizationPage language={language} />}
         {activePage === 'contact' && <ContactPage language={language} />}
       </main>
       <Footer />

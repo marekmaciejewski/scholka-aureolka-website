@@ -15,8 +15,7 @@ export default defineConfig({
       input: {
         main: pagePath('./index.html'),
         gallery: pagePath('./gallery/index.html'),
-        calendar: pagePath('./calendar/index.html'),
-        organization: pagePath('./organization/index.html'),
+        schedule: pagePath('./schedule/index.html'),
         contact: pagePath('./contact/index.html'),
       },
     },

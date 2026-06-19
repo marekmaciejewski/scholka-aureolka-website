@@ -2,7 +2,7 @@ export type Language = 'pl' | 'en'
 
 export type ThemeName = 'light' | 'dark'
 
-export type PageKey = 'home' | 'gallery' | 'calendar' | 'organization' | 'contact'
+export type PageKey = 'home' | 'schedule' | 'gallery' | 'contact'
 
 export type LocalizedText = Record<Language, string>
 
@@ -30,9 +30,25 @@ export type Album = {
   tone: 'gold' | 'violet' | 'purple'
 }
 
-export type InfoSection = {
+export type ParentInfoItem = {
   title: LocalizedText
-  body: LocalizedText
+  body?: LocalizedText
+  note?: LocalizedText
+  bodyLink?: {
+    prefix: LocalizedText
+    href: string
+    label: LocalizedText
+    suffix?: LocalizedText
+  }
+  details?: Array<{
+    title: LocalizedText
+    body: LocalizedText
+  }>
+  link?: {
+    href: string
+    label: LocalizedText
+    tone?: 'subtle' | 'strong'
+  }
 }
 
 export type ImportantNotice = {
@@ -60,13 +76,8 @@ export const logoPaths: Record<
 
 export const navigationItems: NavigationItem[] = [
   { key: 'home', href: '/', label: { pl: 'Start', en: 'Home' } },
+  { key: 'schedule', href: '/schedule/', label: { pl: 'Ogarniajzer', en: 'Schedule' } },
   { key: 'gallery', href: '/gallery/', label: { pl: 'Galeria', en: 'Gallery' } },
-  { key: 'calendar', href: '/calendar/', label: { pl: 'Kalendarz', en: 'Calendar' } },
-  {
-    key: 'organization',
-    href: '/organization/',
-    label: { pl: 'Organizacja', en: 'Organization' },
-  },
   { key: 'contact', href: '/contact/', label: { pl: 'Kontakt', en: 'Contact' } },
 ]
 
@@ -77,7 +88,6 @@ export const commonText = {
   sitePreferences: { pl: 'Ustawienia strony', en: 'Site preferences' },
   openMenu: { pl: 'Otwórz menu', en: 'Open menu' },
   closeMenu: { pl: 'Zamknij menu', en: 'Close menu' },
-  menu: { pl: 'Menu', en: 'Menu' },
   languageLabel: { pl: 'Język', en: 'Language' },
   themeLabel: { pl: 'Motyw', en: 'Theme' },
   lightTheme: { pl: 'Jasny', en: 'Light' },
@@ -87,13 +97,10 @@ export const commonText = {
   upcoming: { pl: 'Najbliższe wydarzenia', en: 'Upcoming events' },
   galleryPreview: { pl: 'Ostatnie albumy', en: 'Recent albums' },
   contactTeaser: { pl: 'Kontakt na miejscu', en: 'Contact in person' },
-  sourceOfTruth: {
-    pl: 'Docelowo ta lista będzie zasilana z publicznego Kalendarza Google i pokaże wydarzenia do 3 miesięcy naprzód.',
-    en: 'This list is intended to be powered by a public Google Calendar and show events up to 3 months ahead.',
-  },
-  viewCalendar: { pl: 'Zobacz kalendarz', en: 'View calendar' },
+  viewSchedule: { pl: 'Ogarniajzer', en: 'Schedule' },
   viewGallery: { pl: 'Zobacz galerię', en: 'View gallery' },
-  readOrganization: { pl: 'Informacje organizacyjne', en: 'Organization details' },
+  firstSteps: { pl: 'Pierwsze kroki', en: 'First steps' },
+  closeModal: { pl: 'Zamknij', en: 'Close' },
   goToContact: { pl: 'Jak porozmawiać', en: 'How to get in touch' },
   externalLinks: { pl: 'Linki zewnętrzne', en: 'External links' },
 }
@@ -123,8 +130,8 @@ export const pageIntro: Record<
     eyebrow: { pl: 'Scholka Aureolka', en: 'Scholka Aureolka' },
     title: { pl: 'Śpiewamy razem przy parafii', en: 'Singing together at the parish' },
     lead: {
-      pl: 'Ciepłe i praktyczne miejsce dla rodziców: terminy prób, najbliższe wydarzenia, zdjęcia i informacje organizacyjne w jednym miejscu.',
-      en: 'A warm, practical place for parents: rehearsal times, upcoming events, photos, and organization details in one place.',
+      pl: 'Ciepłe i praktyczne miejsce dla rodziców: terminy prób, najbliższe wydarzenia, zdjęcia i najważniejsze informacje w jednym miejscu.',
+      en: 'A warm, practical place for parents: rehearsal times, upcoming events, photos, and key practical information in one place.',
     },
   },
   gallery: {
@@ -135,20 +142,12 @@ export const pageIntro: Record<
       en: 'Albums can show rehearsals, Masses, and parish events. Parents have signed photo consents, so the gallery can grow.',
     },
   },
-  calendar: {
-    eyebrow: { pl: 'Terminy', en: 'Dates' },
-    title: { pl: 'Kalendarz spotkań i wydarzeń', en: 'Calendar of meetings and events' },
+  schedule: {
+    eyebrow: { pl: 'Terminy i aktualności', en: 'Dates and updates' },
+    title: { pl: 'Ogarniajzer', en: 'Schedule' },
     lead: {
-      pl: 'Najważniejszy widok dla rodziców: kiedy jest próba, Msza dziecięca albo specjalne spotkanie.',
-      en: 'The most important parent view: when rehearsals, Children’s Mass, or special gatherings happen.',
-    },
-  },
-  organization: {
-    eyebrow: { pl: 'Dla rodziców', en: 'For parents' },
-    title: { pl: 'Informacje organizacyjne', en: 'Organization details' },
-    lead: {
-      pl: 'Krótki zestaw praktycznych informacji: kiedy przyjść, gdzie się zebrać i co warto mieć ze sobą.',
-      en: 'A short set of practical details: when to arrive, where to gather, and what to bring.',
+      pl: 'Aktualne miejsce na najbliższe próby, Msze dziecięce, specjalne spotkania, wyjątki i odwołania.',
+      en: 'The current place for upcoming rehearsals, Children’s Masses, special gatherings, exceptions, and cancellations.',
     },
   },
   contact: {
@@ -161,11 +160,10 @@ export const pageIntro: Record<
   },
 }
 
-export const homeActions = [
-  { href: '/calendar/', label: commonText.viewCalendar },
-  { href: '/organization/', label: commonText.readOrganization },
-  { href: '/gallery/', label: commonText.viewGallery },
-]
+export const homeHeroCta = {
+  schedule: { href: '/schedule/', label: commonText.viewSchedule },
+  firstSteps: { label: commonText.firstSteps },
+}
 
 export const homeHeroText = {
   description: {
@@ -239,36 +237,84 @@ export const albums: Album[] = [
   },
 ]
 
-export const organizationSections: InfoSection[] = [
-  {
-    title: { pl: 'Kiedy są próby', en: 'When rehearsals happen' },
-    body: {
-      pl: 'Regularne próby są planowane w czwartki o 18:30 oraz w niedziele o 11:00 przed Mszą dziecięcą.',
-      en: 'Regular rehearsals are planned on Thursdays at 18:30 and Sundays at 11:00 before Children’s Mass.',
+const consentPdfHref = '/Zgoda.pdf'
+const safeguardingStandardsUrl = 'https://www.urszula-gdynia.pl/maloletni.html'
+
+export const firstStepsModal: {
+  title: LocalizedText
+  items: ParentInfoItem[]
+} = {
+  title: { pl: 'Pierwsze kroki', en: 'First steps' },
+  items: [
+    {
+      title: { pl: 'Gdzie', en: 'Where' },
+      body: {
+        pl: 'Czwartki - salka pod schodami.\nNiedziele - kościół.',
+        en: 'Thursdays - the room under the stairs.\nSundays - the church.',
+      },
     },
-  },
-  {
-    title: { pl: 'Gdzie się zebrać', en: 'Where to gather' },
-    body: {
-      pl: 'Dokładne miejsce zbiórki zostanie dopisane po potwierdzeniu z organizatorem i parafią.',
-      en: 'The exact gathering point will be added after confirmation with the organizer and parish.',
+    {
+      title: { pl: 'Co zabrać', en: 'What to bring' },
+      body: {
+        pl: 'Coś niesłodkiego do picia i dobry humor.',
+        en: 'A non-sweet drink and a good mood.',
+      },
     },
-  },
-  {
-    title: { pl: 'Co zabrać', en: 'What to bring' },
-    body: {
-      pl: 'Na start wystarczy obecność dziecka i gotowość do wspólnego śpiewu. Szczegóły dla konkretnych wydarzeń mogą pojawić się w kalendarzu.',
-      en: 'To start, a child only needs to be present and ready to sing together. Details for specific events can appear in the calendar.',
+    {
+      title: { pl: 'Toaleta', en: 'Toilet' },
+      body: {
+        pl: 'Dostępna na miejscu.',
+        en: 'Available on site.',
+      },
     },
-  },
-  {
-    title: { pl: 'Kontekst parafialny', en: 'Parish context' },
-    body: {
-      pl: 'Msza dziecięca odbywa się w niedziele o 12:00 poza okresami świątecznymi.',
-      en: 'Children’s Mass takes place on Sundays at 12:00 outside holiday periods.',
+    {
+      title: { pl: 'Papierologia', en: 'Paperwork' },
+      body: {
+        pl: 'Zgoda na udział i niezależna zgoda na publikację wizerunku dziecka.',
+        en: "Consent to participate and separate permission to publish the child's image.",
+      },
+      note: {
+        pl: 'Najlepiej wydrukować dwustronnie.',
+        en: 'It is best to print it double-sided.',
+      },
+      link: consentPdfHref
+        ? {
+            href: consentPdfHref,
+            label: { pl: 'PDF zgody', en: 'Consent PDF' },
+            tone: 'strong',
+          }
+        : undefined,
     },
-  },
-]
+    {
+      title: { pl: 'Strój', en: 'Outfit' },
+      details: [
+        {
+          title: { pl: 'Odświętny, chłodniejszy', en: 'Formal, cooler' },
+          body: {
+            pl: 'Fioletowa spódnica, złota apaszka i logo mocowane na magnesy. Zwrotna kaucja zestawu to 60,- zł. Czarna baza z długim rękawem we własnym zakresie.',
+            en: 'Purple skirt, gold scarf, and logo attached with magnets. The refundable set deposit is PLN 60. The black long-sleeve base is arranged individually.',
+          },
+        },
+        {
+          title: { pl: 'Casualowy, cieplejszy', en: 'Casual, warmer' },
+          body: {
+            pl: 'Fioletowa bluza z logo i fioletowe ogrzewacze na nogi. Zestaw: ~100,- zł; cena zależy od liczby sztuk zamawianych jednorazowo ze względu na stałe koszty nadruku. Czarne gerty we własnym zakresie',
+            en: 'Purple hoodie with logo and purple leg warmers. Set: about PLN 100; the price depends on the number of items ordered at one time because printing has fixed setup costs. The black gaiters are arranged individually.',
+          },
+        },
+      ],
+    },
+    {
+      title: { pl: 'Bezpieczeństwo', en: 'Safeguarding' },
+      bodyLink: {
+        prefix: { pl: 'Obowiązują ', en: '' },
+        href: safeguardingStandardsUrl,
+        label: { pl: 'standardy ochrony małoletnich', en: 'Safeguarding standards for minors' },
+        suffix: { pl: '.', en: ' apply.' },
+      },
+    },
+  ],
+}
 
 export const contactDetails = {
   people: [
@@ -304,28 +350,11 @@ export const contactDetails = {
       label: { pl: 'Kontakt Do Parafii', en: 'Parish Contact' },
     },
     {
-      href: 'https://www.urszula-gdynia.pl/maloletni.html',
+      href: safeguardingStandardsUrl,
       label: { pl: 'Standardy Ochrony Małoletnich', en: 'Safeguarding Standards For Minors' },
     },
   ],
 }
-
-export const recurringCalendarNotes: InfoSection[] = [
-  {
-    title: { pl: 'Zakres widoku', en: 'View range' },
-    body: {
-      pl: 'Kalendarz powinien pokazywać wydarzenia od dziś do 3 miesięcy naprzód.',
-      en: 'The calendar should show events from today through 3 months ahead.',
-    },
-  },
-  {
-    title: { pl: 'Źródło danych', en: 'Data source' },
-    body: {
-      pl: 'Po podłączeniu publicznego Kalendarza Google ten widok powinien być źródłem aktualnych terminów na stronie.',
-      en: 'After connecting the public Google Calendar, this view should become the site’s current schedule source.',
-    },
-  },
-]
 
 export const weekdayLabels: Record<Language, string[]> = {
   pl: ['niedziela', 'poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota'],

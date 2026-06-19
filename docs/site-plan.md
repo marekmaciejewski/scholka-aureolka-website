@@ -9,6 +9,7 @@ The site should be simple, welcoming, and practical. The first things a visitor 
 - What Scholka Aureolka is
 - When the choir meets
 - Where current events and photos can be found
+- How to open practical parent information from the home hero
 - How to contact the organizer in person
 
 ## Confirmed Decisions
@@ -20,7 +21,7 @@ The site should be simple, welcoming, and practical. The first things a visitor 
 - Secondary language: English, with full translation
 - Theme support: light and dark
 - Contact: no forms, no phone numbers, no email addresses
-- Calendar: dynamic public Google Calendar, showing up to 3 months forward
+- Ogarniajzer/Schedule: dynamic public Google Calendar, showing up to 3 months forward
 - Gallery: allowed because photo consents are already signed by parents
 
 ## Brand Assets
@@ -92,17 +93,17 @@ Future enhancement:
 - Lightbox
 - Filtering by year or event type
 
-### Calendar
+### Ogarniajzer / Schedule
 
-Purpose: show rehearsals, Masses, and special events.
+Purpose: show current dates, exceptions, cancellations, rehearsals, Masses, and special events.
+
+Public URL: `/schedule/`
 
 Recommended layout:
 
 - Upcoming event list for the next 3 months
 - Month grouping
 - Event date, time, title, location, and notes
-- Recurring event explanation
-- Link or note that Google Calendar is the source of truth
 
 Implementation direction:
 
@@ -111,20 +112,18 @@ Implementation direction:
 - Render in React using the site theme
 - Keep an iframe fallback only if API integration is delayed
 
-### Organization
+### First Steps Modal
 
-Purpose: give parents practical information.
+Purpose: give parents the shortest practical checklist without adding a separate page.
 
-Recommended sections:
+The home hero secondary action should open a modal with bullet points for:
 
-- Rehearsal schedule
-- Where children should gather
+- Where to gather
 - What to bring
-- General participation notes
-- Parish context
-- Photo consent note if needed
-
-Use placeholder text until final copy is available.
+- Toilet availability on premises
+- Consent paperwork
+- Outfit information
+- Safeguarding
 
 ### Contact
 
@@ -167,17 +166,15 @@ Recommended implementation:
 Main navigation:
 
 - Start
+- Ogarniajzer
 - Galeria
-- Kalendarz
-- Organizacja
 - Kontakt
 
 English labels:
 
 - Home
+- Schedule
 - Gallery
-- Calendar
-- Organization
 - Contact
 
 Navigation should remain usable on mobile and desktop. The active page should be clearly marked.

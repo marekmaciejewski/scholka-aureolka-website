@@ -10,13 +10,13 @@ The site is built with React, TypeScript, and Vite, and is hosted on GitHub Page
 - Light and dark themes using colors from the choir logo.
 - Simple static page delivery with reusable React components.
 - Architecture that can grow toward content-driven sections such as songs, albums, and event detail pages.
-- Public pages for start, gallery, calendar, organization, and contact.
+- Public pages for start, Ogarniajzer/Schedule, gallery, and contact.
 - Dynamic upcoming-events view backed by a public Google Calendar.
 - No contact forms, phone numbers, or email addresses.
 
 ## Routing and Page Architecture
 
-The current implementation uses Vite's static multi-page app pattern: `/`, `/gallery/`, `/calendar/`, `/organization/`, and `/contact/` each have an `index.html` entry point. Those pages mount the same shared React application, and React selects the visible page content from the current pathname.
+The current implementation uses Vite's static multi-page app pattern: `/`, `/schedule/`, `/gallery/`, and `/contact/` each have an `index.html` entry point. The `/schedule/` URL is the public Ogarniajzer/Schedule page. Those pages mount the same shared React application, and React selects the visible page content from the current pathname.
 
 React Router is not currently installed. For the present shallow public site, that is intentional: normal document URLs work naturally on GitHub Pages, refreshes and direct links are straightforward, and page-specific HTML metadata remains simple.
 
@@ -125,10 +125,10 @@ The visual palette should be derived from the prepared logo variants:
 - Gold: `#FFB400`
 - Dark gold: `#996C00`
 
-## Calendar
+## Ogarniajzer / Schedule
 
 The planned calendar source is a public Google Calendar.
 
-The website should display events up to 3 months forward, using a custom React view where possible. A Google Calendar iframe can be used as a temporary fallback, but it gives less control over theme, language, and layout.
+The website should display events up to 3 months forward on the Ogarniajzer/Schedule page at `/schedule/`, using a custom React view where possible. A Google Calendar iframe can be used as a temporary fallback, but it gives less control over theme, language, and layout.
 
 Do not commit private credentials. Any browser API key should be restricted to the GitHub Pages domain and necessary local development origins.
