@@ -90,6 +90,7 @@ export const commonText = {
   closeMenu: { pl: 'Zamknij menu', en: 'Close menu' },
   languageLabel: { pl: 'Język', en: 'Language' },
   themeLabel: { pl: 'Motyw', en: 'Theme' },
+  darkThemeToggle: { pl: 'Ciemny motyw', en: 'Dark theme' },
   lightTheme: { pl: 'Jasny', en: 'Light' },
   darkTheme: { pl: 'Ciemny', en: 'Dark' },
   quickLinks: { pl: 'Szybkie przejścia', en: 'Quick links' },

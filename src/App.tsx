@@ -272,17 +272,17 @@ function Header({
           </div>
 
           <label className="theme-switch">
-            <span className="visually-hidden">{translate(commonText.themeLabel, language)}</span>
+            <span className="visually-hidden">{translate(commonText.darkThemeToggle, language)}</span>
             <input
               type="checkbox"
+              role="switch"
               checked={theme === 'dark'}
               onChange={(event) => setTheme(event.currentTarget.checked ? 'dark' : 'light')}
             />
             <span className="switch-track" aria-hidden="true">
-              <span className="switch-thumb" />
-            </span>
-            <span className="switch-label">
-              {translate(theme === 'dark' ? commonText.darkTheme : commonText.lightTheme, language)}
+              <span className="switch-thumb">
+                <img src={withBasePath(getLogoForTheme(theme, 'purple'))} alt="" />
+              </span>
             </span>
           </label>
         </div>
