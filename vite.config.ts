@@ -3,7 +3,6 @@ import react from '@vitejs/plugin-react'
 import { fileURLToPath, URL } from 'node:url'
 
 const repositoryPagesBase = '/scholka-aureolka-website/'
-
 const pagePath = (path: string) => fileURLToPath(new URL(path, import.meta.url))
 
 // https://vite.dev/config/

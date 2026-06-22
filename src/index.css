@@ -796,6 +796,7 @@ main {
 .event-card {
   --event-accent: var(--color-gold);
 
+  position: relative;
   display: grid;
   gap: 1rem;
   padding: 1rem;
@@ -809,7 +810,7 @@ main {
   align-items: start;
 }
 
-.event-card.is-expandable {
+.event-card.has-details {
   cursor: pointer;
   transition:
     border-color 160ms ease,
@@ -818,15 +819,23 @@ main {
     transform 160ms ease;
 }
 
-.event-card.is-expandable:hover,
-.event-card.is-expandable:focus-visible {
+.event-card.has-details:hover,
+.event-card.has-details:focus-visible {
   border-left-color: var(--event-accent);
   background: color-mix(in srgb, var(--event-accent) 10%, var(--color-surface));
   outline: 0;
   transform: translateY(-1px);
 }
 
-.event-card.is-expandable:focus-visible {
+.event-card.has-details:focus-visible {
+  box-shadow:
+    var(--shadow-soft),
+    0 0 0 3px color-mix(in srgb, var(--event-accent) 48%, transparent);
+}
+
+.event-card.is-linked {
+  border-left-color: var(--event-accent);
+  background: color-mix(in srgb, var(--event-accent) 10%, var(--color-surface));
   box-shadow:
     var(--shadow-soft),
     0 0 0 3px color-mix(in srgb, var(--event-accent) 48%, transparent);
@@ -843,9 +852,8 @@ main {
   background: var(--color-important-surface);
 }
 
-.event-card--important.is-expandable:hover,
-.event-card--important.is-expandable:focus-visible,
-.event-card--important.is-expanded {
+.event-card--important.is-expanded,
+.event-card--important.is-linked {
   background: var(--color-important-surface-strong);
 }
 
@@ -868,49 +876,62 @@ main {
   display: inline-flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 0.45rem;
+  gap: 0.38rem;
   align-items: flex-start;
   min-width: 0;
 }
 
-.event-birthday-cake {
+.event-birthday-cake,
+.event-expand-status-icon {
   display: grid;
   place-items: center;
-  width: 1.9rem;
-  height: 1.9rem;
-  border: 1px solid color-mix(in srgb, var(--event-accent) 58%, var(--color-border));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--event-accent) 18%, var(--color-surface));
-  font-size: 1.05rem;
-  line-height: 1;
-}
-
-.event-important-marker {
-  display: grid;
-  place-items: center;
-  width: 1.9rem;
-  height: 1.9rem;
-  border: 1px solid var(--color-important-border);
-  border-radius: 8px;
+  width: 1.25rem;
+  height: 1.25rem;
   color: var(--color-heading);
-  background: var(--color-important-surface-strong);
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 950;
   line-height: 1;
 }
 
-.event-expand-indicator {
-  display: grid;
-  place-items: center;
-  width: 1.7rem;
-  height: 1.7rem;
+.event-action-button {
+  min-width: 0;
+  min-height: 0;
   border: 1px solid color-mix(in srgb, var(--event-accent) 58%, var(--color-border));
   border-radius: 8px;
   color: var(--color-heading);
-  background: color-mix(in srgb, var(--event-accent) 24%, var(--color-surface));
-  font-size: 1.2rem;
-  font-weight: 900;
-  line-height: 1;
+  background: color-mix(in srgb, var(--event-accent) 18%, var(--color-surface));
+  text-decoration: none;
+}
+
+.event-action-button:hover,
+.event-action-button:focus-visible {
+  outline: 0;
+  background: color-mix(in srgb, var(--event-accent) 32%, var(--color-surface));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--event-accent) 36%, transparent);
+}
+
+.event-copy-link-button {
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
+}
+
+.event-copy-link-button.is-copied {
+  border-color: color-mix(in srgb, var(--color-gold) 75%, var(--color-border));
+  color: #211800;
+  background: var(--color-gold);
+}
+
+.event-action-icon {
+  width: 1.05rem;
+  height: 1.05rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .event-details {
@@ -1034,6 +1055,11 @@ main {
 .schedule-status.error {
   border-color: color-mix(in srgb, var(--color-violet) 50%, var(--color-border));
   background: color-mix(in srgb, var(--color-violet) 10%, var(--color-surface));
+}
+
+.schedule-status.warning {
+  border-color: color-mix(in srgb, var(--color-important) 54%, var(--color-border));
+  background: color-mix(in srgb, var(--color-important) 9%, var(--color-surface));
 }
 
 .month-group h2 {
@@ -1347,13 +1373,36 @@ main {
   .card-grid,
   .home-upcoming-inner .event-list.compact,
   .event-card-summary,
-  .event-title-row,
   .event-detail-list div {
     grid-template-columns: 1fr;
   }
 
+  .event-card {
+    padding-right: 3.8rem;
+  }
+
+  .event-title-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
   .event-title-actions {
+    position: absolute;
+    top: 0.85rem;
+    right: 1rem;
+    flex-direction: column;
     justify-content: flex-start;
+    justify-self: end;
+    align-items: center;
+    gap: 0.28rem;
+  }
+
+  .event-birthday-cake,
+  .event-expand-status-icon {
+    order: 1;
+  }
+
+  .event-copy-link-button {
+    order: 2;
   }
 
   .footer-credits {

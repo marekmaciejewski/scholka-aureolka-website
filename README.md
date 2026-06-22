@@ -20,6 +20,8 @@ The current implementation uses Vite's static multi-page app pattern: `/`, `/sch
 
 React Router is not currently installed. For the present shallow public site, that is intentional: normal document URLs work naturally on GitHub Pages, refreshes and direct links are straightforward, and page-specific HTML metadata remains simple.
 
+Schedule event links use query-string state on the static schedule page, for example `/schedule/?event=koncert-koled-2026`. This keeps direct links refresh-safe on GitHub Pages without requiring per-event HTML files or an SPA fallback route.
+
 This is not a permanent anti-router rule. React Router would become reasonable if the site grows into nested or content-driven routes, for example:
 
 - `/songs/` and `/songs/:songSlug`
@@ -86,15 +88,15 @@ Local Codex MCP configuration for SonarQube belongs in `.codex/config.toml`. The
 
 ## Deployment
 
-This repository is intended to be deployed as a GitHub Pages user/organization site:
+This repository is currently deployed as a GitHub Pages project site:
 
 ```text
-https://marekmaciejewski.github.io/
+https://marekmaciejewski.github.io/scholka-aureolka-website/
 ```
 
 Deployment is handled by GitHub Actions in `.github/workflows/pages.yml`.
 
-For that deployment target, Vite's base path should remain `/`. If the site is temporarily hosted as a GitHub Pages project site, the production base path must be adjusted for that URL before deployment.
+For that deployment target, the workflow sets `GITHUB_PAGES=true`, and Vite builds production assets with the `/scholka-aureolka-website/` base path. Local development still uses `/`.
 
 In the repository settings on GitHub:
 
@@ -104,7 +106,7 @@ In the repository settings on GitHub:
 
 The workflow installs dependencies with `npm ci`, builds the static site with `npm run build`, uploads `dist/` as a Pages artifact, and deploys it to GitHub Pages. The generated `dist/` directory stays ignored in git.
 
-If a custom domain is added later, the production base path should also remain `/`.
+If this moves to a user/organization Pages repository or a custom domain later, the production base path should return to `/`.
 
 ## Project Structure
 
@@ -137,7 +139,15 @@ VITE_GOOGLE_CALENDAR_API_KEY=your-restricted-browser-api-key
 
 For local development, copy `.env.example` to `.env.local` and fill in the real values. The birthday calendar ID is optional. The schedule does not generate recurring fallback events; if Google Calendar config is missing or all configured calendar requests fail, the page shows a calendar status instead of local template events.
 
-The site fetches events from now through 3 months forward with `singleEvents=true`, so recurring Google Calendar events are expanded into individual occurrences. When both the main calendar and birthday calendar are configured, events from both public calendars are merged and sorted together. If a Google Calendar event has a custom event color exposed as `colorId`, the site fetches the public Calendar API color palette and uses that color as the event-card accent. Events without a custom Google color use the site's default gold accent. The Ogarniajzer/Schedule page at `/schedule/` renders the events in React instead of using a Google Calendar iframe. Event cards can be clicked or focused with the keyboard and expanded; only one event is open at a time.
+The site fetches events from now through 3 months forward with `singleEvents=true`, so recurring Google Calendar events are expanded into individual occurrences. When both the main calendar and birthday calendar are configured, events from both public calendars are merged and sorted together. If a Google Calendar event has a custom event color exposed as `colorId`, the site fetches the public Calendar API color palette and uses that color as the event-card accent. Events without a custom Google color use the site's default gold accent. The Ogarniajzer/Schedule page at `/schedule/` renders the events in React instead of using a Google Calendar iframe. Event cards with details can be expanded; only one event is open at a time.
+
+Expandable schedule events get shareable URLs. Add a metadata line to the Google Calendar description to define the public slug:
+
+```text
+slug: koncert-koled-2026
+```
+
+That line is removed from the displayed event details. The resulting public URL is `/schedule/?event=koncert-koled-2026`, and opening it expands and scrolls to the matching event when it is still inside the 3-month schedule window. Expandable event cards can copy that URL from the icon button. Expandable events without explicit metadata receive an automatic date/title fallback slug, but explicit `slug:` metadata is preferred for links that will be sent to parents.
 
 Do not commit private credentials. Any browser API key should be restricted to the GitHub Pages domain and necessary local development origins.
 

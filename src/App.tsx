@@ -4,6 +4,7 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
 } from 'react'
 import {
   albums,
@@ -38,6 +39,7 @@ type UpcomingEvent = {
   title: string
   location?: string
   note?: string
+  slug?: string
   isAllDay?: boolean
   source: EventSource
   eventColor?: CalendarEventColor
@@ -116,6 +118,7 @@ type GoogleCalendarConfig = {
 
 const languageStorageKey = 'scholka-aureolka-language'
 const themeStorageKey = 'scholka-aureolka-theme'
+const eventSlugSearchParam = 'event'
 const homeScheduleCards = scheduleCards.slice(0, 2)
 const childrenMassCard = scheduleCards[2]
 const birthdayEventAccent = 'var(--color-violet)'
@@ -138,6 +141,35 @@ function withBasePath(path: string) {
   }
 
   return `${getBasePath()}${path.replace(/^\/+/, '')}`
+}
+
+function getScheduleEventHref(slug: string) {
+  return withBasePath(`/schedule/?${eventSlugSearchParam}=${encodeURIComponent(slug)}`)
+}
+
+function getAbsoluteScheduleEventHref(slug: string) {
+  return new URL(getScheduleEventHref(slug), window.location.origin).href
+}
+
+async function copyTextToClipboard(text: string) {
+  if (navigator.clipboard) {
+    await navigator.clipboard.writeText(text)
+    return
+  }
+
+  const textArea = document.createElement('textarea')
+  textArea.value = text
+  textArea.style.position = 'fixed'
+  textArea.style.left = '-9999px'
+  document.body.append(textArea)
+  textArea.focus()
+  textArea.select()
+
+  try {
+    document.execCommand('copy')
+  } finally {
+    textArea.remove()
+  }
 }
 
 function removeBasePath(pathname: string) {
@@ -253,6 +285,59 @@ function formatMonth(date: Date, language: Language) {
   }).format(date)
 }
 
+function formatEventSlugDateTime(date: Date) {
+  const pad = (value: number) => value.toString().padStart(2, '0')
+
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+    `${pad(date.getHours())}${pad(date.getMinutes())}`,
+  ].join('-')
+}
+
+function createEventSlug(value: string) {
+  const slug = value
+    .replace(/[łŁ]/g, 'l')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pl-PL')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-')
+    .slice(0, 96)
+    .replace(/-+$/g, '')
+
+  return slug || undefined
+}
+
+function createFallbackEventSlug(title: string, date: Date) {
+  return createEventSlug(`${formatEventSlugDateTime(date)}-${title}`)
+}
+
+function getEventSlugFromLocation() {
+  const slug = new URLSearchParams(window.location.search).get(eventSlugSearchParam)
+
+  return slug ? createEventSlug(slug) ?? null : null
+}
+
+function replaceScheduleEventUrl(slug: string | null) {
+  const url = new URL(window.location.href)
+
+  if (slug) {
+    url.pathname = new URL(withBasePath('/schedule/'), window.location.origin).pathname
+    url.searchParams.set(eventSlugSearchParam, slug)
+  } else {
+    url.searchParams.delete(eventSlugSearchParam)
+  }
+
+  window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+}
+
+function getEventDomId(event: UpcomingEvent) {
+  return `event-${(event.slug ?? event.id).replace(/[^a-zA-Z0-9_-]/g, '-')}`
+}
+
 function parseGoogleDateOnly(value: string) {
   const [year, month, day] = value.split('-').map(Number)
 
@@ -303,7 +388,36 @@ function normalizeCalendarText(value?: string) {
   }
 
   const parsedDocument = new DOMParser().parseFromString(trimmedValue, 'text/html')
-  return (parsedDocument.body.textContent ?? trimmedValue).trim()
+  parsedDocument.body.querySelectorAll('br').forEach((breakElement) => {
+    breakElement.replaceWith('\n')
+  })
+  parsedDocument.body.querySelectorAll('div, li, p').forEach((blockElement) => {
+    blockElement.append('\n')
+  })
+
+  return (parsedDocument.body.textContent ?? trimmedValue)
+    .replace(/\u00a0/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function extractCalendarNoteMetadata(note: string) {
+  let slug: string | undefined
+  const visibleLines = note.split(/\r?\n/).filter((line) => {
+    const slugLine = line.match(/^\s*(?:slug|event-slug)\s*:\s*(.+?)\s*$/i)
+
+    if (!slugLine) {
+      return true
+    }
+
+    slug = slug ?? createEventSlug(slugLine[1])
+    return false
+  })
+
+  return {
+    note: visibleLines.join('\n').replace(/\n{3,}/g, '\n\n').trim(),
+    slug,
+  }
 }
 
 function normalizeEventSearchText(value: string) {
@@ -395,7 +509,14 @@ function mapGoogleCalendarEvent(
   const eventHighlight = getCalendarEventHighlight(rawTitle, source)
   const title = getDisplayCalendarEventTitle(rawTitle, eventHighlight, language)
   const location = normalizeCalendarText(event.location)
-  const note = normalizeCalendarText(event.description)
+  const noteMetadata = extractCalendarNoteMetadata(normalizeCalendarText(event.description))
+  const canCreateExpandableSlug =
+    eventHighlight?.kind !== 'birthday' && Boolean(noteMetadata.note)
+  const slug =
+    noteMetadata.slug ??
+    (canCreateExpandableSlug
+      ? createFallbackEventSlug(rawTitle, start.date)
+      : undefined)
 
   return {
     id: `${calendarId}-${event.id ?? event.iCalUID ?? `${start.date.toISOString()}-${index}`}`,
@@ -403,7 +524,8 @@ function mapGoogleCalendarEvent(
     endDate: end?.date,
     title,
     location: location || undefined,
-    note: note || undefined,
+    note: noteMetadata.note || undefined,
+    slug,
     isAllDay: start.isAllDay,
     source,
     eventColor: event.colorId ? eventColors[event.colorId] : undefined,
@@ -641,20 +763,47 @@ function HeroScheduleRibbon({ language }: { language: Language }) {
   )
 }
 
+function CopyLinkIcon({ isCopied }: { isCopied: boolean }) {
+  return (
+    <svg
+      className="event-action-icon"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {isCopied ? (
+        <path d="m5 12 4 4L19 6" />
+      ) : (
+        <>
+          <path d="M10.5 13.5 13.5 10.5" />
+          <path d="M8.5 16.5 7.25 17.75a4 4 0 0 1-5.66-5.66l2.12-2.12a4 4 0 0 1 5.66 0" />
+          <path d="m15.5 7.5 1.25-1.25a4 4 0 0 1 5.66 5.66l-2.12 2.12a4 4 0 0 1-5.66 0" />
+        </>
+      )}
+    </svg>
+  )
+}
+
 function EventList({
   events,
   language,
   compact = false,
   expandable = false,
   expandedEventId = null,
+  linkedEventId = null,
+  copiedEventId = null,
   onExpandedEventChange,
+  onEventLinkCopy,
 }: {
   events: UpcomingEvent[]
   language: Language
   compact?: boolean
   expandable?: boolean
   expandedEventId?: string | null
+  linkedEventId?: string | null
+  copiedEventId?: string | null
   onExpandedEventChange?: (eventId: string | null) => void
+  onEventLinkCopy?: (event: UpcomingEvent) => void
 }) {
   return (
     <div className={compact ? 'event-list compact' : 'event-list'}>
@@ -664,13 +813,17 @@ function EventList({
         const isImportantEvent = eventHighlight?.kind === 'important'
         const canExpandEvent = expandable && !isBirthdayEvent && Boolean(event.note)
         const isExpanded = canExpandEvent && expandedEventId === event.id
+        const isLinked = linkedEventId === event.id
         const detailsId = `event-details-${event.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`
+        const canCopyEventLink = canExpandEvent && Boolean(event.slug)
+        const isCopied = copiedEventId === event.id
         const eventCardClassName = [
           'event-card',
           isBirthdayEvent ? 'event-card--birthday' : '',
           isImportantEvent ? 'event-card--important' : '',
-          canExpandEvent ? 'is-expandable' : '',
+          canExpandEvent ? 'has-details' : '',
           isExpanded ? 'is-expanded' : '',
+          isLinked ? 'is-linked' : '',
         ]
           .filter(Boolean)
           .join(' ')
@@ -684,6 +837,10 @@ function EventList({
         }
 
         function handleEventKeyDown(keyboardEvent: ReactKeyboardEvent<HTMLElement>) {
+          if (keyboardEvent.target !== keyboardEvent.currentTarget) {
+            return
+          }
+
           if (keyboardEvent.key !== 'Enter' && keyboardEvent.key !== ' ') {
             return
           }
@@ -692,10 +849,21 @@ function EventList({
           toggleEvent()
         }
 
+        function handleCopyEventLink(mouseEvent: ReactMouseEvent<HTMLButtonElement>) {
+          mouseEvent.stopPropagation()
+
+          if (!canCopyEventLink || !onEventLinkCopy) {
+            return
+          }
+
+          onEventLinkCopy(event)
+        }
+
         return (
           <article
             className={eventCardClassName}
             key={event.id}
+            id={getEventDomId(event)}
             style={getEventCardStyle(event)}
             role={canExpandEvent ? 'button' : undefined}
             tabIndex={canExpandEvent ? 0 : undefined}
@@ -734,16 +902,28 @@ function EventList({
                         {'\uD83C\uDF82'}
                       </span>
                     )}
-                    {isImportantEvent && (
-                      <span
-                        className="event-important-marker"
-                        aria-label={translate(calendarEventHighlightText.important, language)}
+                    {canCopyEventLink && (
+                      <button
+                        type="button"
+                        className={
+                          isCopied
+                            ? 'event-action-button event-copy-link-button is-copied'
+                            : 'event-action-button event-copy-link-button'
+                        }
+                        aria-label={`${translate(
+                          isCopied ? scheduleText.eventLinkCopied : scheduleText.copyEventLink,
+                          language,
+                        )}: ${event.title}`}
+                        onClick={handleCopyEventLink}
                       >
-                        !
-                      </span>
+                        <CopyLinkIcon isCopied={isCopied} />
+                      </button>
                     )}
                     {canExpandEvent && (
-                      <span className="event-expand-indicator" aria-hidden="true">
+                      <span
+                        className="event-expand-status-icon"
+                        aria-label={translate(scheduleText.eventInfoLabel, language)}
+                      >
                         {isExpanded ? '-' : '+'}
                       </span>
                     )}
@@ -994,10 +1174,19 @@ function SchedulePage({
   calendarStatus: CalendarLoadStatus
 }) {
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
+  const [linkedEventSlug, setLinkedEventSlug] = useState<string | null>(getEventSlugFromLocation)
+  const [copiedEventId, setCopiedEventId] = useState<string | null>(null)
   const groupedEvents = groupEventsByMonth(upcomingEvents, language)
-  const activeExpandedEventId = upcomingEvents.some((event) => event.id === expandedEventId)
+  const linkedEvent = linkedEventSlug
+    ? upcomingEvents.find((event) => event.slug === linkedEventSlug)
+    : undefined
+  const stateExpandedEventId = upcomingEvents.some((event) => event.id === expandedEventId)
     ? expandedEventId
     : null
+  const linkedExpandedEventId =
+    linkedEvent?.note && linkedEvent.eventHighlight?.kind !== 'birthday' ? linkedEvent.id : null
+  const activeExpandedEventId = linkedExpandedEventId ?? stateExpandedEventId
+  const linkedEventId = linkedEvent?.id ?? null
 
   const statusMessage =
     calendarStatus === 'loading'
@@ -1008,6 +1197,55 @@ function SchedulePage({
           ? scheduleText.notConfiguredNotice
           : null
   const shouldShowEmptyState = calendarStatus === 'ready' && upcomingEvents.length === 0
+  const shouldShowMissingLinkedEvent =
+    calendarStatus === 'ready' && Boolean(linkedEventSlug) && !linkedEvent
+
+  function handleExpandedEventChange(eventId: string | null) {
+    setExpandedEventId(eventId)
+
+    if (linkedEventSlug) {
+      setLinkedEventSlug(null)
+      replaceScheduleEventUrl(null)
+    }
+  }
+
+  function copyEventLink(event: UpcomingEvent) {
+    if (!event.slug) {
+      return
+    }
+
+    copyTextToClipboard(getAbsoluteScheduleEventHref(event.slug))
+      .then(() => setCopiedEventId(event.id))
+      .catch(() => setCopiedEventId(null))
+  }
+
+  useEffect(() => {
+    function handlePopState() {
+      setLinkedEventSlug(getEventSlugFromLocation())
+    }
+
+    window.addEventListener('popstate', handlePopState)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!linkedEvent) {
+      return
+    }
+
+    const scrollTimeout = window.setTimeout(() => {
+      document
+        .getElementById(getEventDomId(linkedEvent))
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }, 0)
+
+    return () => {
+      window.clearTimeout(scrollTimeout)
+    }
+  }, [linkedEvent])
 
   return (
     <>
@@ -1017,6 +1255,12 @@ function SchedulePage({
           {statusMessage && (
             <p className={`schedule-status ${calendarStatus}`} role="status">
               {translate(statusMessage, language)}
+            </p>
+          )}
+
+          {shouldShowMissingLinkedEvent && (
+            <p className="schedule-status warning" role="status">
+              {translate(scheduleText.eventLinkNotFound, language)}
             </p>
           )}
 
@@ -1034,7 +1278,10 @@ function SchedulePage({
                     language={language}
                     expandable
                     expandedEventId={activeExpandedEventId}
-                    onExpandedEventChange={setExpandedEventId}
+                    linkedEventId={linkedEventId}
+                    copiedEventId={copiedEventId}
+                    onExpandedEventChange={handleExpandedEventChange}
+                    onEventLinkCopy={copyEventLink}
                   />
                 </section>
               )

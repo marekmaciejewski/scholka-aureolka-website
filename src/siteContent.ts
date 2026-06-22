@@ -125,6 +125,13 @@ export const scheduleText = {
   },
   expandEvent: { pl: 'Pokaż szczegóły wydarzenia', en: 'Show event details' },
   collapseEvent: { pl: 'Ukryj szczegóły wydarzenia', en: 'Hide event details' },
+  copyEventLink: { pl: 'Kopiuj link do wydarzenia', en: 'Copy event link' },
+  eventLinkCopied: { pl: 'Skopiowano link do wydarzenia', en: 'Event link copied' },
+  eventInfoLabel: { pl: 'Wydarzenie ma dodatkowe informacje', en: 'This event has additional information' },
+  eventLinkNotFound: {
+    pl: 'Nie znaleziono wydarzenia z podanego linku w najbliższych 3 miesiącach.',
+    en: 'The event from this link was not found in the next 3 months.',
+  },
   whenLabel: { pl: 'Kiedy', en: 'When' },
   whereLabel: { pl: 'Gdzie', en: 'Where' },
   noteLabel: { pl: 'Informacje', en: 'Details' },
