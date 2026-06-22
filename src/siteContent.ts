@@ -106,6 +106,37 @@ export const commonText = {
   externalLinks: { pl: 'Linki zewnętrzne', en: 'External links' },
 }
 
+export const scheduleText = {
+  loading: {
+    pl: 'Pobieramy aktualne wydarzenia z kalendarza.',
+    en: 'Loading current events from the calendar.',
+  },
+  notConfiguredNotice: {
+    pl: 'Kalendarz Google nie jest jeszcze podłączony. Po konfiguracji pokażemy tutaj wydarzenia z najbliższych 3 miesięcy.',
+    en: 'Google Calendar is not connected yet. After configuration, events from the next 3 months will appear here.',
+  },
+  errorNotice: {
+    pl: 'Nie udało się pobrać wydarzeń z kalendarza Google. Spróbuj odświeżyć stronę później.',
+    en: 'Google Calendar events could not be loaded. Try refreshing the page later.',
+  },
+  emptyState: {
+    pl: 'Brak zaplanowanych wydarzeń w najbliższych 3 miesiącach.',
+    en: 'There are no scheduled events in the next 3 months.',
+  },
+  expandEvent: { pl: 'Pokaż szczegóły wydarzenia', en: 'Show event details' },
+  collapseEvent: { pl: 'Ukryj szczegóły wydarzenia', en: 'Hide event details' },
+  whenLabel: { pl: 'Kiedy', en: 'When' },
+  whereLabel: { pl: 'Gdzie', en: 'Where' },
+  noteLabel: { pl: 'Informacje', en: 'Details' },
+  allDay: { pl: 'cały dzień', en: 'all day' },
+  untitledEvent: { pl: 'Wydarzenie', en: 'Event' },
+}
+
+export const calendarEventHighlightText = {
+  birthday: { pl: 'Urodziny', en: 'Birthday' },
+  important: { pl: 'Wa\u017cne', en: 'Important' },
+}
+
 export const footerQuote = '„Qui cantat, bis orat”'
 
 export const footerCredits: FooterCredit[] = [
@@ -361,36 +392,3 @@ export const weekdayLabels: Record<Language, string[]> = {
   pl: ['niedziela', 'poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota'],
   en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
 }
-
-export const eventTemplates = [
-  {
-    weekday: 4,
-    hour: 18,
-    minute: 30,
-    title: { pl: 'Próba scholi', en: 'Choir rehearsal' },
-    location: { pl: 'Parafia', en: 'Parish' },
-    note: { pl: 'Stała próba czwartkowa.', en: 'Regular Thursday rehearsal.' },
-  },
-  {
-    weekday: 0,
-    hour: 11,
-    minute: 0,
-    title: { pl: 'Próba przed Mszą dziecięcą', en: 'Rehearsal before Children’s Mass' },
-    location: { pl: 'Parafia', en: 'Parish' },
-    note: {
-      pl: 'Niedzielna próba poza okresami świątecznymi.',
-      en: 'Sunday rehearsal outside holiday periods.',
-    },
-  },
-  {
-    weekday: 0,
-    hour: 12,
-    minute: 0,
-    title: { pl: 'Msza dziecięca', en: 'Children’s Mass' },
-    location: { pl: 'Kościół parafialny', en: 'Parish church' },
-    note: {
-      pl: 'Niedzielna Msza dziecięca poza okresami świątecznymi.',
-      en: 'Sunday Children’s Mass outside holiday periods.',
-    },
-  },
-]

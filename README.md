@@ -127,8 +127,40 @@ The visual palette should be derived from the prepared logo variants:
 
 ## Ogarniajzer / Schedule
 
-The planned calendar source is a public Google Calendar.
+The schedule source is a public Google Calendar when these Vite env variables are present:
 
-The website should display events up to 3 months forward on the Ogarniajzer/Schedule page at `/schedule/`, using a custom React view where possible. A Google Calendar iframe can be used as a temporary fallback, but it gives less control over theme, language, and layout.
+```bash
+VITE_GOOGLE_CALENDAR_ID=your-public-calendar-id@group.calendar.google.com
+VITE_GOOGLE_BIRTHDAY_CALENDAR_ID=your-public-birthday-calendar-id@group.calendar.google.com
+VITE_GOOGLE_CALENDAR_API_KEY=your-restricted-browser-api-key
+```
+
+For local development, copy `.env.example` to `.env.local` and fill in the real values. The birthday calendar ID is optional. The schedule does not generate recurring fallback events; if Google Calendar config is missing or all configured calendar requests fail, the page shows a calendar status instead of local template events.
+
+The site fetches events from now through 3 months forward with `singleEvents=true`, so recurring Google Calendar events are expanded into individual occurrences. When both the main calendar and birthday calendar are configured, events from both public calendars are merged and sorted together. If a Google Calendar event has a custom event color exposed as `colorId`, the site fetches the public Calendar API color palette and uses that color as the event-card accent. Events without a custom Google color use the site's default gold accent. The Ogarniajzer/Schedule page at `/schedule/` renders the events in React instead of using a Google Calendar iframe. Event cards can be clicked or focused with the keyboard and expanded; only one event is open at a time.
 
 Do not commit private credentials. Any browser API key should be restricted to the GitHub Pages domain and necessary local development origins.
+
+For GitHub Pages, set these repository settings before deploying:
+
+- Repository variable `VITE_GOOGLE_CALENDAR_ID`
+- Optional repository variable `VITE_GOOGLE_BIRTHDAY_CALENDAR_ID`
+- Repository secret `VITE_GOOGLE_CALENDAR_API_KEY`
+
+Google Calendar setup:
+
+1. Create a dedicated public calendar for Scholka Aureolka events.
+2. In Calendar settings, enable public availability for the calendar, then copy the Calendar ID from **Integrate calendar**.
+3. Add regular rehearsals and Masses as recurring events in Google Calendar.
+4. Add exceptions directly in Google Calendar: move a single occurrence, delete a skipped occurrence, or add a visible cancellation/special-event entry.
+5. Put parent-facing details in the event description and location fields. If English content is required for public visitors, include bilingual details in the calendar event text.
+6. In Google Cloud, enable the Google Calendar API, create a browser API key, and restrict it by HTTP referrer to the production GitHub Pages origin and local development origins such as `http://localhost:5173/*`.
+
+Birthday calendar setup:
+
+1. The built-in Google **Birthdays** calendar is a special Google Contacts calendar. It does not expose the normal **Integrate calendar** section, and it is not readable by the site's anonymous public API-key integration.
+2. For the current static GitHub Pages site, use a dedicated normal Google Calendar for birthdays.
+3. Make that dedicated birthday calendar public with event details visible.
+4. Copy the birthday calendar ID and add it locally as `VITE_GOOGLE_BIRTHDAY_CALENDAR_ID`.
+5. Add it in GitHub as the repository variable `VITE_GOOGLE_BIRTHDAY_CALENDAR_ID`.
+6. Keep birthday event text parent-approved and minimal because the site is public. Prefer first names or choir-friendly labels over full personal data.

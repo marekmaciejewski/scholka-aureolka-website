@@ -12,6 +12,8 @@ dist
 dist-ssr
 .scannerwork
 .codex/
+.env
+.env.*.local
 *.local
 
 # Editor directories and files

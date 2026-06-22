@@ -1,10 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react'
 import {
   albums,
+  calendarEventHighlightText,
   commonText,
   contactDetails,
   defaultLanguage,
-  eventTemplates,
   footerCredits,
   footerQuote,
   homeHeroCta,
@@ -16,24 +22,104 @@ import {
   pageIntro,
   firstStepsModal,
   scheduleCards,
+  scheduleText,
   type Language,
   type LocalizedText,
   type PageKey,
   type ThemeName,
 } from './siteContent'
 
+type EventSource = 'google-calendar' | 'birthday-calendar'
+
 type UpcomingEvent = {
   id: string
   date: Date
+  endDate?: Date
   title: string
-  location: string
-  note: string
+  location?: string
+  note?: string
+  isAllDay?: boolean
+  source: EventSource
+  eventColor?: CalendarEventColor
+  eventHighlight?: EventHighlight
+}
+
+type CalendarLoadStatus = 'unconfigured' | 'loading' | 'ready' | 'error'
+
+type CalendarState = {
+  status: CalendarLoadStatus
+  events: UpcomingEvent[]
+}
+
+type GoogleCalendarEventDate = {
+  date?: string
+  dateTime?: string
+  timeZone?: string
+}
+
+type GoogleCalendarEvent = {
+  id?: string
+  iCalUID?: string
+  summary?: string
+  location?: string
+  description?: string
+  colorId?: string
+  status?: string
+  start?: GoogleCalendarEventDate
+  end?: GoogleCalendarEventDate
+}
+
+type GoogleCalendarResponse = {
+  items?: GoogleCalendarEvent[]
+  error?: {
+    message?: string
+  }
+}
+
+type GoogleCalendarColor = {
+  background?: string
+  foreground?: string
+}
+
+type GoogleCalendarColorsResponse = {
+  event?: Record<string, GoogleCalendarColor>
+  error?: {
+    message?: string
+  }
+}
+
+type CalendarEventColor = {
+  background: string
+  foreground?: string
+}
+
+type CalendarEventColorMap = Record<string, CalendarEventColor>
+
+type EventHighlightKind = 'birthday' | 'important'
+
+type EventHighlight = {
+  kind: EventHighlightKind
+  accent?: string
+}
+
+type EventCardStyle = CSSProperties & {
+  '--event-accent'?: string
+}
+
+type GoogleCalendarConfig = {
+  apiKey: string
+  calendars: Array<{
+    calendarId: string
+    source: EventSource
+  }>
 }
 
 const languageStorageKey = 'scholka-aureolka-language'
 const themeStorageKey = 'scholka-aureolka-theme'
 const homeScheduleCards = scheduleCards.slice(0, 2)
 const childrenMassCard = scheduleCards[2]
+const birthdayEventAccent = 'var(--color-violet)'
+const importantEventAccent = 'var(--color-important)'
 
 const languageLocale: Record<Language, string> = {
   pl: 'pl-PL',
@@ -70,6 +156,33 @@ function translate(text: LocalizedText, language: Language) {
 
 function translateOptional(text: LocalizedText | string, language: Language) {
   return typeof text === 'string' ? text : translate(text, language)
+}
+
+function getGoogleCalendarConfig(): GoogleCalendarConfig | null {
+  const calendarId = import.meta.env.VITE_GOOGLE_CALENDAR_ID?.trim()
+  const birthdayCalendarId = import.meta.env.VITE_GOOGLE_BIRTHDAY_CALENDAR_ID?.trim()
+  const apiKey = import.meta.env.VITE_GOOGLE_CALENDAR_API_KEY?.trim()
+  const calendars: GoogleCalendarConfig['calendars'] = []
+
+  if (calendarId) {
+    calendars.push({
+      calendarId,
+      source: 'google-calendar',
+    })
+  }
+
+  if (birthdayCalendarId) {
+    calendars.push({
+      calendarId: birthdayCalendarId,
+      source: 'birthday-calendar',
+    })
+  }
+
+  if (!apiKey || calendars.length === 0) {
+    return null
+  }
+
+  return { apiKey, calendars }
 }
 
 function getInitialLanguage(): Language {
@@ -140,50 +253,256 @@ function formatMonth(date: Date, language: Language) {
   }).format(date)
 }
 
-function getNextTemplateDate(
-  weekday: number,
-  hour: number,
-  minute: number,
-  fromDate: Date,
-) {
-  const date = new Date(fromDate)
-  date.setHours(hour, minute, 0, 0)
+function parseGoogleDateOnly(value: string) {
+  const [year, month, day] = value.split('-').map(Number)
 
-  const dayOffset = (weekday - date.getDay() + 7) % 7
-  date.setDate(date.getDate() + dayOffset)
-
-  if (date <= fromDate) {
-    date.setDate(date.getDate() + 7)
+  if (!year || !month || !day) {
+    return null
   }
 
-  return date
+  return new Date(year, month - 1, day)
 }
 
-function createUpcomingEvents(language: Language) {
+function parseGoogleEventDate(value?: GoogleCalendarEventDate) {
+  if (!value) {
+    return null
+  }
+
+  if (value.dateTime) {
+    return {
+      date: new Date(value.dateTime),
+      isAllDay: false,
+    }
+  }
+
+  if (value.date) {
+    const date = parseGoogleDateOnly(value.date)
+
+    if (!date) {
+      return null
+    }
+
+    return {
+      date,
+      isAllDay: true,
+    }
+  }
+
+  return null
+}
+
+function normalizeCalendarText(value?: string) {
+  const trimmedValue = value?.trim()
+
+  if (!trimmedValue) {
+    return ''
+  }
+
+  if (!trimmedValue.includes('<')) {
+    return trimmedValue
+  }
+
+  const parsedDocument = new DOMParser().parseFromString(trimmedValue, 'text/html')
+  return (parsedDocument.body.textContent ?? trimmedValue).trim()
+}
+
+function normalizeEventSearchText(value: string) {
+  return value.toLocaleLowerCase('pl-PL')
+}
+
+function includesEventKeyword(value: string, keywords: string[]) {
+  const normalizedValue = normalizeEventSearchText(value)
+  return keywords.some((keyword) => normalizedValue.includes(keyword))
+}
+
+function getCalendarEventHighlight(title: string, source: EventSource): EventHighlight | undefined {
+  if (
+    source === 'birthday-calendar' ||
+    includesEventKeyword(title, ['urodziny', 'birthday'])
+  ) {
+    return {
+      kind: 'birthday',
+      accent: birthdayEventAccent,
+    }
+  }
+
+  if (title.includes('!')) {
+    return {
+      kind: 'important',
+      accent: importantEventAccent,
+    }
+  }
+
+  return undefined
+}
+
+function getDisplayCalendarEventTitle(
+  title: string,
+  eventHighlight: EventHighlight | undefined,
+  language: Language,
+) {
+  if (eventHighlight?.kind === 'birthday') {
+    return translate(calendarEventHighlightText.birthday, language)
+  }
+
+  if (eventHighlight?.kind === 'important') {
+    return title.replace(/!/g, '').replace(/\s{2,}/g, ' ').trim() || title
+  }
+
+  return title.trim() || title
+}
+
+function isValidHexColor(value?: string): value is string {
+  return /^#[\da-f]{6}$/i.test(value ?? '')
+}
+
+function getValidCalendarEventColor(color?: GoogleCalendarColor): CalendarEventColor | undefined {
+  const background = color?.background
+
+  if (!isValidHexColor(background)) {
+    return undefined
+  }
+
+  const foreground = color?.foreground
+
+  return {
+    background,
+    foreground: isValidHexColor(foreground) ? foreground : undefined,
+  }
+}
+
+function mapGoogleCalendarEvent(
+  event: GoogleCalendarEvent,
+  index: number,
+  language: Language,
+  source: EventSource,
+  calendarId: string,
+  eventColors: CalendarEventColorMap,
+): UpcomingEvent | null {
+  if (event.status === 'cancelled') {
+    return null
+  }
+
+  const start = parseGoogleEventDate(event.start)
+
+  if (!start) {
+    return null
+  }
+
+  const end = parseGoogleEventDate(event.end)
+  const rawTitle =
+    normalizeCalendarText(event.summary) || translate(scheduleText.untitledEvent, language)
+  const eventHighlight = getCalendarEventHighlight(rawTitle, source)
+  const title = getDisplayCalendarEventTitle(rawTitle, eventHighlight, language)
+  const location = normalizeCalendarText(event.location)
+  const note = normalizeCalendarText(event.description)
+
+  return {
+    id: `${calendarId}-${event.id ?? event.iCalUID ?? `${start.date.toISOString()}-${index}`}`,
+    date: start.date,
+    endDate: end?.date,
+    title,
+    location: location || undefined,
+    note: note || undefined,
+    isAllDay: start.isAllDay,
+    source,
+    eventColor: event.colorId ? eventColors[event.colorId] : undefined,
+    eventHighlight,
+  }
+}
+
+async function fetchGoogleCalendarColors(apiKey: string): Promise<CalendarEventColorMap> {
+  const url = new URL('https://www.googleapis.com/calendar/v3/colors')
+  url.searchParams.set('key', apiKey)
+
+  const response = await fetch(url)
+  const data = (await response.json()) as GoogleCalendarColorsResponse
+
+  if (!response.ok) {
+    throw new Error(data.error?.message ?? 'Google Calendar colors request failed')
+  }
+
+  return Object.fromEntries(
+    Object.entries(data.event ?? {})
+      .map(([colorId, color]) => [colorId, getValidCalendarEventColor(color)] as const)
+      .filter((entry): entry is readonly [string, CalendarEventColor] => entry[1] !== undefined),
+  )
+}
+
+async function fetchGoogleCalendarEvents(
+  calendar: GoogleCalendarConfig['calendars'][number],
+  apiKey: string,
+  language: Language,
+  eventColors: CalendarEventColorMap,
+): Promise<UpcomingEvent[]> {
   const now = new Date()
   const endDate = new Date(now)
   endDate.setMonth(endDate.getMonth() + 3)
 
-  const events: UpcomingEvent[] = []
+  const url = new URL(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar.calendarId)}/events`,
+  )
+  url.searchParams.set('key', apiKey)
+  url.searchParams.set('timeMin', now.toISOString())
+  url.searchParams.set('timeMax', endDate.toISOString())
+  url.searchParams.set('singleEvents', 'true')
+  url.searchParams.set('orderBy', 'startTime')
+  url.searchParams.set('showDeleted', 'false')
+  url.searchParams.set('maxResults', '250')
 
-  eventTemplates.forEach((template) => {
-    let date = getNextTemplateDate(template.weekday, template.hour, template.minute, now)
+  const response = await fetch(url)
+  const data = (await response.json()) as GoogleCalendarResponse
 
-    while (date <= endDate) {
-      events.push({
-        id: `${template.weekday}-${template.hour}-${template.minute}-${date.toISOString()}`,
-        date: new Date(date),
-        title: translate(template.title, language),
-        location: translate(template.location, language),
-        note: translate(template.note, language),
-      })
+  if (!response.ok) {
+    throw new Error(data.error?.message ?? 'Google Calendar request failed')
+  }
 
-      date = new Date(date)
-      date.setDate(date.getDate() + 7)
-    }
-  })
+  return (data.items ?? [])
+    .map((event, index) =>
+      mapGoogleCalendarEvent(
+        event,
+        index,
+        language,
+        calendar.source,
+        calendar.calendarId,
+        eventColors,
+      ),
+    )
+    .filter((event): event is UpcomingEvent => event !== null)
+    .sort((first, second) => first.date.getTime() - second.date.getTime())
+}
 
-  return events.sort((first, second) => first.date.getTime() - second.date.getTime())
+async function fetchConfiguredCalendarEvents(
+  config: GoogleCalendarConfig,
+  language: Language,
+): Promise<UpcomingEvent[]> {
+  const eventColors = await fetchGoogleCalendarColors(config.apiKey).catch(() => ({}))
+  const calendarResults = await Promise.allSettled(
+    config.calendars.map((calendar) =>
+      fetchGoogleCalendarEvents(calendar, config.apiKey, language, eventColors),
+    ),
+  )
+  const successfulEvents = calendarResults.flatMap((result) =>
+    result.status === 'fulfilled' ? result.value : [],
+  )
+
+  if (successfulEvents.length === 0 && calendarResults.some((result) => result.status === 'rejected')) {
+    throw new Error('Google Calendar requests failed')
+  }
+
+  return successfulEvents.sort((first, second) => first.date.getTime() - second.date.getTime())
+}
+
+function getEventCardStyle(event: UpcomingEvent): EventCardStyle | undefined {
+  const accent = event.eventHighlight?.accent ?? event.eventColor?.background
+
+  if (!accent) {
+    return undefined
+  }
+
+  return {
+    '--event-accent': accent,
+  }
 }
 
 function groupEventsByMonth(events: UpcomingEvent[], language: Language) {
@@ -326,26 +645,131 @@ function EventList({
   events,
   language,
   compact = false,
+  expandable = false,
+  expandedEventId = null,
+  onExpandedEventChange,
 }: {
   events: UpcomingEvent[]
   language: Language
   compact?: boolean
+  expandable?: boolean
+  expandedEventId?: string | null
+  onExpandedEventChange?: (eventId: string | null) => void
 }) {
   return (
     <div className={compact ? 'event-list compact' : 'event-list'}>
-      {events.map((event) => (
-        <article className="event-card" key={event.id}>
-          <div className="event-date">
-            <strong>{formatEventDate(event.date, language)}</strong>
-            <span>{formatEventTime(event.date, language)}</span>
-          </div>
-          <div>
-            <h3>{event.title}</h3>
-            <p className="muted">{event.location}</p>
-            {!compact && <p>{event.note}</p>}
-          </div>
-        </article>
-      ))}
+      {events.map((event) => {
+        const eventHighlight = event.eventHighlight
+        const isBirthdayEvent = eventHighlight?.kind === 'birthday'
+        const isImportantEvent = eventHighlight?.kind === 'important'
+        const canExpandEvent = expandable && !isBirthdayEvent && Boolean(event.note)
+        const isExpanded = canExpandEvent && expandedEventId === event.id
+        const detailsId = `event-details-${event.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`
+        const eventCardClassName = [
+          'event-card',
+          isBirthdayEvent ? 'event-card--birthday' : '',
+          isImportantEvent ? 'event-card--important' : '',
+          canExpandEvent ? 'is-expandable' : '',
+          isExpanded ? 'is-expanded' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')
+
+        function toggleEvent() {
+          if (!canExpandEvent || !onExpandedEventChange) {
+            return
+          }
+
+          onExpandedEventChange(isExpanded ? null : event.id)
+        }
+
+        function handleEventKeyDown(keyboardEvent: ReactKeyboardEvent<HTMLElement>) {
+          if (keyboardEvent.key !== 'Enter' && keyboardEvent.key !== ' ') {
+            return
+          }
+
+          keyboardEvent.preventDefault()
+          toggleEvent()
+        }
+
+        return (
+          <article
+            className={eventCardClassName}
+            key={event.id}
+            style={getEventCardStyle(event)}
+            role={canExpandEvent ? 'button' : undefined}
+            tabIndex={canExpandEvent ? 0 : undefined}
+            aria-expanded={canExpandEvent ? isExpanded : undefined}
+            aria-controls={canExpandEvent ? detailsId : undefined}
+            aria-label={
+              canExpandEvent
+                ? `${translate(
+                    isExpanded ? scheduleText.collapseEvent : scheduleText.expandEvent,
+                    language,
+                  )}: ${event.title}`
+                : undefined
+            }
+            onClick={canExpandEvent ? toggleEvent : undefined}
+            onKeyDown={canExpandEvent ? handleEventKeyDown : undefined}
+          >
+            <div className="event-card-summary">
+              <div className="event-date">
+                <strong>{formatEventDate(event.date, language)}</strong>
+                <span>
+                  {event.isAllDay
+                    ? translate(scheduleText.allDay, language)
+                    : formatEventTime(event.date, language)}
+                </span>
+              </div>
+              <div className="event-body">
+                <div className="event-title-row">
+                  <h3>{event.title}</h3>
+                  <div className="event-title-actions">
+                    {isBirthdayEvent && (
+                      <span
+                        className="event-birthday-cake"
+                        role="img"
+                        aria-label={translate(calendarEventHighlightText.birthday, language)}
+                      >
+                        {'\uD83C\uDF82'}
+                      </span>
+                    )}
+                    {isImportantEvent && (
+                      <span
+                        className="event-important-marker"
+                        aria-label={translate(calendarEventHighlightText.important, language)}
+                      >
+                        !
+                      </span>
+                    )}
+                    {canExpandEvent && (
+                      <span className="event-expand-indicator" aria-hidden="true">
+                        {isExpanded ? '-' : '+'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {event.location && <p className="muted">{event.location}</p>}
+                {!compact && !expandable && event.note && <p>{event.note}</p>}
+              </div>
+            </div>
+
+            {canExpandEvent && isExpanded && (
+              <div className="event-details" id={detailsId}>
+                {event.location && (
+                  <dl className="event-detail-list">
+                    <div>
+                      <dt>{translate(scheduleText.whereLabel, language)}</dt>
+                      <dd>{event.location}</dd>
+                    </div>
+                  </dl>
+                )}
+                {event.note && <p className="event-detail-note">{event.note}</p>}
+              </div>
+            )}
+          </article>
+        )
+      })}
     </div>
   )
 }
@@ -563,27 +987,59 @@ function GalleryPage({ language }: { language: Language }) {
 function SchedulePage({
   language,
   upcomingEvents,
+  calendarStatus,
 }: {
   language: Language
   upcomingEvents: UpcomingEvent[]
+  calendarStatus: CalendarLoadStatus
 }) {
+  const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
   const groupedEvents = groupEventsByMonth(upcomingEvents, language)
+  const activeExpandedEventId = upcomingEvents.some((event) => event.id === expandedEventId)
+    ? expandedEventId
+    : null
+
+  const statusMessage =
+    calendarStatus === 'loading'
+      ? scheduleText.loading
+      : calendarStatus === 'error'
+        ? scheduleText.errorNotice
+        : calendarStatus === 'unconfigured'
+          ? scheduleText.notConfiguredNotice
+          : null
+  const shouldShowEmptyState = calendarStatus === 'ready' && upcomingEvents.length === 0
 
   return (
     <>
       <PageHeading page="schedule" language={language} />
       <section className="content-section">
         <div className="content-width narrow month-list">
-          {groupedEvents.map((group, index) => {
-            const headingId = `month-${index}`
+          {statusMessage && (
+            <p className={`schedule-status ${calendarStatus}`} role="status">
+              {translate(statusMessage, language)}
+            </p>
+          )}
 
-            return (
-              <section className="month-group" key={group.month} aria-labelledby={headingId}>
-                <h2 id={headingId}>{group.month}</h2>
-                <EventList events={group.events} language={language} />
-              </section>
-            )
-          })}
+          {shouldShowEmptyState ? (
+            <p className="schedule-empty">{translate(scheduleText.emptyState, language)}</p>
+          ) : upcomingEvents.length > 0 ? (
+            groupedEvents.map((group, index) => {
+              const headingId = `month-${index}`
+
+              return (
+                <section className="month-group" key={group.month} aria-labelledby={headingId}>
+                  <h2 id={headingId}>{group.month}</h2>
+                  <EventList
+                    events={group.events}
+                    language={language}
+                    expandable
+                    expandedEventId={activeExpandedEventId}
+                    onExpandedEventChange={setExpandedEventId}
+                  />
+                </section>
+              )
+            })
+          ) : null}
         </div>
       </section>
     </>
@@ -659,10 +1115,49 @@ function Footer() {
 }
 
 function App() {
+  const googleCalendarConfig = useMemo(() => getGoogleCalendarConfig(), [])
   const [language, setLanguage] = useState<Language>(getInitialLanguage)
   const [theme, setTheme] = useState<ThemeName>(getInitialTheme)
+  const [calendarState, setCalendarState] = useState<CalendarState>({
+    status: googleCalendarConfig ? 'loading' : 'unconfigured',
+    events: [],
+  })
   const activePage = getPageFromPath(window.location.pathname)
-  const upcomingEvents = useMemo(() => createUpcomingEvents(language), [language])
+  const upcomingEvents = calendarState.events
+
+  useEffect(() => {
+    if (!googleCalendarConfig) {
+      return
+    }
+
+    let isActive = true
+
+    fetchConfiguredCalendarEvents(googleCalendarConfig, language)
+      .then((events) => {
+        if (!isActive) {
+          return
+        }
+
+        setCalendarState({
+          status: 'ready',
+          events,
+        })
+      })
+      .catch(() => {
+        if (!isActive) {
+          return
+        }
+
+        setCalendarState({
+          status: 'error',
+          events: [],
+        })
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [googleCalendarConfig, language])
 
   useEffect(() => {
     document.documentElement.lang = language
@@ -700,7 +1195,11 @@ function App() {
         )}
         {activePage === 'gallery' && <GalleryPage language={language} />}
         {activePage === 'schedule' && (
-          <SchedulePage language={language} upcomingEvents={upcomingEvents} />
+          <SchedulePage
+            language={language}
+            upcomingEvents={upcomingEvents}
+            calendarStatus={calendarState.status}
+          />
         )}
         {activePage === 'contact' && <ContactPage language={language} />}
       </main>
