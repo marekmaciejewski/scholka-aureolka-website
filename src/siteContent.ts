@@ -51,12 +51,6 @@ export type ParentInfoItem = {
   }
 }
 
-export type ImportantNotice = {
-  isActive: boolean
-  title: LocalizedText
-  body: LocalizedText
-}
-
 export const defaultLanguage: Language = 'pl'
 
 export const languageOptions: Array<{ key: Language; label: string }> = [
@@ -144,6 +138,11 @@ export const calendarEventHighlightText = {
   important: { pl: 'Wa\u017cne', en: 'Important' },
 }
 
+export const noticeText = {
+  listLabel: { pl: 'Wa\u017cne informacje', en: 'Important notices' },
+  defaultTitle: { pl: 'Wa\u017cna informacja', en: 'Important notice' },
+}
+
 export const footerQuote = '„Qui cantat, bis orat”'
 
 export const footerCredits: FooterCredit[] = [
@@ -211,15 +210,6 @@ export const homeHeroText = {
   },
   rehearsalsLabel: { pl: 'Próby', en: 'Rehearsals' },
   massLabel: { pl: 'Msza dziecięca', en: "Children's Mass" },
-}
-
-export const homeImportantNotice: ImportantNotice = {
-  isActive: true,
-  title: { pl: 'Ważne!', en: 'Important!' },
-  body: {
-    pl: 'Najbliższa czwartkowa próba odwołana z powodu święta państwowego.',
-    en: 'The next Thursday rehearsal is canceled because of a national holiday.',
-  },
 }
 
 export const scheduleCards: ScheduleCard[] = [

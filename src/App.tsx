@@ -16,10 +16,10 @@ import {
   footerQuote,
   homeHeroCta,
   homeHeroText,
-  homeImportantNotice,
   languageOptions,
   logoPaths,
   navigationItems,
+  noticeText,
   pageIntro,
   firstStepsModal,
   scheduleCards,
@@ -44,6 +44,7 @@ type UpcomingEvent = {
   source: EventSource
   eventColor?: CalendarEventColor
   eventHighlight?: EventHighlight
+  isNotice?: boolean
 }
 
 type CalendarLoadStatus = 'unconfigured' | 'loading' | 'ready' | 'error'
@@ -119,6 +120,7 @@ type GoogleCalendarConfig = {
 const languageStorageKey = 'scholka-aureolka-language'
 const themeStorageKey = 'scholka-aureolka-theme'
 const eventSlugSearchParam = 'event'
+const calendarNoticePrefixPattern = /^\s*\[notice\]\s*:?\s*/i
 const homeScheduleCards = scheduleCards.slice(0, 2)
 const childrenMassCard = scheduleCards[2]
 const birthdayEventAccent = 'var(--color-violet)'
@@ -200,6 +202,16 @@ function translate(text: LocalizedText, language: Language) {
 
 function translateOptional(text: LocalizedText | string, language: Language) {
   return typeof text === 'string' ? text : translate(text, language)
+}
+
+function isNoticeCalendarTitle(title: string) {
+  return calendarNoticePrefixPattern.test(title)
+}
+
+function getNoticeCalendarTitle(title: string, language: Language) {
+  const noticeTitle = title.replace(calendarNoticePrefixPattern, '').trim()
+
+  return noticeTitle || translate(noticeText.defaultTitle, language)
 }
 
 function getGoogleCalendarConfig(): GoogleCalendarConfig | null {
@@ -413,6 +425,46 @@ function normalizeCalendarText(value?: string) {
     .trim()
 }
 
+function getLocalizedCalendarText(value: string, language: Language) {
+  const blocks: Partial<Record<Language, string[]>> = {}
+  let activeLanguage: Language | null = null
+  let hasLocalizedBlock = false
+
+  value.split(/\r?\n/).forEach((line) => {
+    const languageBlock = line.match(/^\s*(pl|en)\s*:\s*(.*)$/i)
+
+    if (languageBlock) {
+      hasLocalizedBlock = true
+      const blockLanguage = languageBlock[1].toLocaleLowerCase('en-US') as Language
+      const blockLines = blocks[blockLanguage] ?? []
+      activeLanguage = blockLanguage
+      blocks[blockLanguage] = blockLines
+
+      if (languageBlock[2].trim()) {
+        blockLines.push(languageBlock[2].trim())
+      }
+
+      return
+    }
+
+    if (activeLanguage) {
+      blocks[activeLanguage]?.push(line)
+    }
+  })
+
+  if (!hasLocalizedBlock) {
+    return value
+  }
+
+  const requestedText = blocks[language]?.join('\n').trim()
+
+  if (requestedText) {
+    return requestedText
+  }
+
+  return blocks[defaultLanguage]?.join('\n').trim() || value
+}
+
 function extractCalendarNoteMetadata(note: string) {
   let slug: string | undefined
   const visibleLines = note.split(/\r?\n/).filter((line) => {
@@ -518,12 +570,22 @@ function mapGoogleCalendarEvent(
   const end = parseGoogleEventDate(event.end)
   const rawTitle =
     normalizeCalendarText(event.summary) || translate(scheduleText.untitledEvent, language)
-  const eventHighlight = getCalendarEventHighlight(rawTitle, source)
-  const title = getDisplayCalendarEventTitle(rawTitle, eventHighlight, language)
+  const isNotice = isNoticeCalendarTitle(rawTitle)
+  const displayTitle = isNotice ? getNoticeCalendarTitle(rawTitle, language) : rawTitle
+  const eventHighlight: EventHighlight | undefined = isNotice
+    ? {
+        kind: 'important',
+        accent: importantEventAccent,
+      }
+    : getCalendarEventHighlight(displayTitle, source)
+  const title = getDisplayCalendarEventTitle(displayTitle, eventHighlight, language)
   const location = normalizeCalendarText(event.location)
   const noteMetadata = extractCalendarNoteMetadata(normalizeCalendarText(event.description))
+  const note = isNotice
+    ? getLocalizedCalendarText(noteMetadata.note, language)
+    : noteMetadata.note
   const canCreateExpandableSlug =
-    eventHighlight?.kind !== 'birthday' && Boolean(noteMetadata.note)
+    !isNotice && eventHighlight?.kind !== 'birthday' && Boolean(note)
   const slug =
     noteMetadata.slug ??
     (canCreateExpandableSlug
@@ -536,12 +598,13 @@ function mapGoogleCalendarEvent(
     endDate: end?.date,
     title,
     location: location || undefined,
-    note: noteMetadata.note || undefined,
+    note: note || undefined,
     slug,
     isAllDay: start.isAllDay,
     source,
     eventColor: event.colorId ? eventColors[event.colorId] : undefined,
     eventHighlight,
+    isNotice,
   }
 }
 
@@ -653,6 +716,13 @@ function groupEventsByMonth(events: UpcomingEvent[], language: Language) {
     month,
     events: monthEvents,
   }))
+}
+
+function splitCalendarEvents(events: UpcomingEvent[]) {
+  return {
+    noticeEvents: events.filter((event) => event.isNotice),
+    scheduleEvents: events.filter((event) => !event.isNotice),
+  }
 }
 
 function Header({
@@ -994,16 +1064,30 @@ function EventList({
   )
 }
 
-function ImportantNotice({ language }: { language: Language }) {
-  if (!homeImportantNotice.isActive) {
+function ImportantNotice({
+  language,
+  notices,
+}: {
+  language: Language
+  notices: UpcomingEvent[]
+}) {
+  if (notices.length === 0) {
     return null
   }
 
   return (
-    <aside className="important-notice" role="status">
-      <strong>{translate(homeImportantNotice.title, language)}</strong>
-      <span>{translate(homeImportantNotice.body, language)}</span>
-    </aside>
+    <div
+      className="important-notice-stack"
+      role="status"
+      aria-label={translate(noticeText.listLabel, language)}
+    >
+      {notices.map((notice) => (
+        <article className="important-notice" key={notice.id}>
+          <strong>{notice.title}</strong>
+          {notice.note && <p>{notice.note}</p>}
+        </article>
+      ))}
+    </div>
   )
 }
 
@@ -1133,10 +1217,12 @@ function FirstStepsModal({
 function HomePage({
   language,
   theme,
+  noticeEvents,
   upcomingEvents,
 }: {
   language: Language
   theme: ThemeName
+  noticeEvents: UpcomingEvent[]
   upcomingEvents: UpcomingEvent[]
 }) {
   const [isFirstStepsOpen, setIsFirstStepsOpen] = useState(false)
@@ -1180,7 +1266,7 @@ function HomePage({
         aria-label={translate(commonText.upcoming, language)}
       >
         <div className="content-width home-upcoming-inner">
-          <ImportantNotice language={language} />
+          <ImportantNotice language={language} notices={noticeEvents} />
           <EventList
             events={upcomingEvents.slice(0, 4)}
             language={language}
@@ -1416,7 +1502,10 @@ function App() {
     events: [],
   })
   const activePage = getPageFromPath(window.location.pathname)
-  const upcomingEvents = calendarState.events
+  const { noticeEvents, scheduleEvents } = useMemo(
+    () => splitCalendarEvents(calendarState.events),
+    [calendarState.events],
+  )
 
   useEffect(() => {
     if (!googleCalendarConfig) {
@@ -1484,13 +1573,18 @@ function App() {
       />
       <main id="main-content">
         {activePage === 'home' && (
-          <HomePage language={language} theme={theme} upcomingEvents={upcomingEvents} />
+          <HomePage
+            language={language}
+            theme={theme}
+            noticeEvents={noticeEvents}
+            upcomingEvents={scheduleEvents}
+          />
         )}
         {activePage === 'gallery' && <GalleryPage language={language} />}
         {activePage === 'schedule' && (
           <SchedulePage
             language={language}
-            upcomingEvents={upcomingEvents}
+            upcomingEvents={scheduleEvents}
             calendarStatus={calendarState.status}
           />
         )}

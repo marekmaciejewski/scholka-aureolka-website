@@ -141,6 +141,18 @@ For local development, copy `.env.example` to `.env.local` and fill in the real 
 
 The site fetches events from now through 3 months forward with `singleEvents=true`, so recurring Google Calendar events are expanded into individual occurrences. When both the main calendar and birthday calendar are configured, events from both public calendars are merged and sorted together. If a Google Calendar event has a custom event color exposed as `colorId`, the site fetches the public Calendar API color palette and uses that color as the event-card accent. Events without a custom Google color use the site's default gold accent. The Ogarniajzer/Schedule page at `/schedule/` renders the events in React instead of using a Google Calendar iframe. Event cards with details can be expanded; only one event is open at a time.
 
+Home page notices use the same public Google Calendar feed. Any event whose title starts with `[notice]` is shown only as an important notice on the home page and is excluded from the schedule event list. Multiple notice events are stacked. The visible notice title is the event title after `[notice]`; if nothing remains, the site uses a translated "Important notice" fallback. The event description becomes the notice body. The site does not cache notices, so removing the event or moving it outside the fetched 3-month window removes the notice from the next page load.
+
+Notice descriptions may use optional language blocks:
+
+```text
+PL:
+Próba w czwartek jest odwołana.
+
+EN:
+Thursday rehearsal is cancelled.
+```
+
 Expandable schedule events get shareable URLs. Add a metadata line to the Google Calendar description to define the public slug:
 
 ```text

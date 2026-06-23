@@ -782,6 +782,11 @@ main {
   right: 1rem;
 }
 
+.important-notice-stack {
+  display: grid;
+  gap: 0.75rem;
+}
+
 .important-notice {
   display: grid;
   gap: 0.25rem;
@@ -799,9 +804,11 @@ main {
   font-size: 0.95rem;
 }
 
-.important-notice span {
+.important-notice p {
+  margin-bottom: 0;
   color: var(--color-text);
   line-height: 1.55;
+  white-space: pre-line;
 }
 
 .event-card {
@@ -867,14 +874,31 @@ main {
 }
 
 .event-card--important {
-  border-color: var(--color-important-border);
-  border-left: 7px solid var(--event-accent);
-  background: var(--color-important-surface);
+  border-color: color-mix(in srgb, var(--color-important) 52%, var(--color-border));
+  border-left-width: 6px;
+  background: color-mix(in srgb, var(--color-important) 14%, var(--color-surface));
+}
+
+.event-card--important.has-details:hover,
+.event-card--important.has-details:focus-visible,
+.event-card--important.event-card-link:hover,
+.event-card--important.event-card-link:focus-visible {
+  background: color-mix(in srgb, var(--color-important) 17%, var(--color-surface));
+}
+
+.event-card--important.has-details:focus-visible,
+.event-card--important.event-card-link:focus-visible {
+  box-shadow:
+    var(--shadow-soft),
+    0 0 0 3px color-mix(in srgb, var(--color-important) 34%, transparent);
 }
 
 .event-card--important.is-expanded,
 .event-card--important.is-linked {
-  background: var(--color-important-surface-strong);
+  background: color-mix(in srgb, var(--color-important) 20%, var(--color-surface));
+  box-shadow:
+    var(--shadow-soft),
+    0 0 0 3px color-mix(in srgb, var(--color-important) 34%, transparent);
 }
 
 .event-body {
