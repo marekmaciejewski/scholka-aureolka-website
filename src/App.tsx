@@ -39,6 +39,8 @@ type UpcomingEvent = {
   title: string
   location?: string
   note?: string
+  noteBlocks?: CalendarRichBlock[]
+  attachments?: CalendarEventAttachment[]
   slug?: string
   isAllDay?: boolean
   source: EventSource
@@ -60,12 +62,21 @@ type GoogleCalendarEventDate = {
   timeZone?: string
 }
 
+type GoogleCalendarAttachment = {
+  fileUrl?: string
+  title?: string
+  mimeType?: string
+  iconLink?: string
+  fileId?: string
+}
+
 type GoogleCalendarEvent = {
   id?: string
   iCalUID?: string
   summary?: string
   location?: string
   description?: string
+  attachments?: GoogleCalendarAttachment[]
   colorId?: string
   status?: string
   start?: GoogleCalendarEventDate
@@ -109,6 +120,50 @@ type EventCardStyle = CSSProperties & {
   '--event-accent'?: string
 }
 
+type CalendarRichParagraphBlock = {
+  kind: 'paragraph'
+  html: string
+  text: string
+}
+
+type CalendarRichListBlock = {
+  kind: 'unordered-list' | 'ordered-list'
+  items: Array<{
+    html: string
+    text: string
+  }>
+}
+
+type CalendarRichSpacerBlock = {
+  kind: 'spacer'
+}
+
+type CalendarRichBlock = CalendarRichParagraphBlock | CalendarRichListBlock | CalendarRichSpacerBlock
+
+type CalendarRichInlineToken =
+  | {
+      kind: 'content'
+      html: string
+      text: string
+    }
+  | {
+      kind: 'break'
+    }
+
+type CalendarDescriptionMetadata = {
+  blocks: CalendarRichBlock[]
+  text: string
+  slug?: string
+}
+
+type CalendarEventAttachment = {
+  id: string
+  title: string
+  url: string
+  mimeType?: string
+  iconUrl?: string
+}
+
 type GoogleCalendarConfig = {
   apiKey: string
   calendars: Array<{
@@ -150,7 +205,10 @@ function getScheduleEventHref(slug: string) {
 }
 
 function isExpandableScheduleEvent(event: UpcomingEvent) {
-  return event.eventHighlight?.kind !== 'birthday' && Boolean(event.note)
+  return (
+    event.eventHighlight?.kind !== 'birthday' &&
+    (Boolean(event.note) || Boolean(event.attachments?.length))
+  )
 }
 
 function getHomeEventHref(event: UpcomingEvent) {
@@ -425,63 +483,550 @@ function normalizeCalendarText(value?: string) {
     .trim()
 }
 
-function getLocalizedCalendarText(value: string, language: Language) {
-  const blocks: Partial<Record<Language, string[]>> = {}
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function sanitizeCalendarUrl(value?: string | null) {
+  const trimmedValue = value?.trim()
+
+  if (!trimmedValue) {
+    return undefined
+  }
+
+  try {
+    const url = new URL(trimmedValue, window.location.origin)
+
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      return url.href
+    }
+  } catch {
+    return undefined
+  }
+
+  return undefined
+}
+
+function renderCalendarLinkHtml(url: string, label = url) {
+  const safeUrl = sanitizeCalendarUrl(url)
+
+  if (!safeUrl) {
+    return escapeHtml(label)
+  }
+
+  return `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noreferrer">${escapeHtml(label)}</a>`
+}
+
+function linkifyCalendarText(value: string) {
+  const urlPattern = /https?:\/\/[^\s<>"']+/gi
+  let html = ''
+  let lastIndex = 0
+
+  value.replace(urlPattern, (match, offset: number) => {
+    html += escapeHtml(value.slice(lastIndex, offset))
+    html += renderCalendarLinkHtml(match)
+    lastIndex = offset + match.length
+    return match
+  })
+
+  return html + escapeHtml(value.slice(lastIndex))
+}
+
+function createPlainTextParagraphBlock(value: string): CalendarRichParagraphBlock | null {
+  const text = value.replace(/\u00a0/g, ' ').trim()
+
+  if (!text) {
+    return null
+  }
+
+  return {
+    kind: 'paragraph',
+    html: linkifyCalendarText(text),
+    text,
+  }
+}
+
+function createPlainTextCalendarBlocks(value: string) {
+  const lines = value
+    .replace(/\u00a0/g, ' ')
+    .split(/\r?\n/)
+  const blocks: CalendarRichBlock[] = []
+
+  lines.forEach((line, index) => {
+    const block = createPlainTextParagraphBlock(line)
+
+    if (block) {
+      blocks.push(block)
+      return
+    }
+
+    const hasContentBefore = lines.slice(0, index).some((previousLine) => previousLine.trim())
+    const hasContentAfter = lines.slice(index + 1).some((nextLine) => nextLine.trim())
+
+    if (hasContentBefore && hasContentAfter) {
+      blocks.push({ kind: 'spacer' })
+    }
+  })
+
+  return blocks
+}
+
+const calendarDescriptionBlockTags = new Set([
+  'address',
+  'article',
+  'aside',
+  'blockquote',
+  'div',
+  'footer',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'header',
+  'li',
+  'main',
+  'nav',
+  'p',
+  'section',
+])
+
+function isCalendarElement(node: Node): node is Element {
+  return node.nodeType === 1
+}
+
+function isCalendarTextNode(node: Node) {
+  return node.nodeType === 3
+}
+
+function getCalendarNodeText(node: Node): string {
+  if (isCalendarTextNode(node)) {
+    return node.textContent ?? ''
+  }
+
+  if (!isCalendarElement(node)) {
+    return ''
+  }
+
+  const tagName = node.tagName.toLocaleLowerCase('en-US')
+
+  if (tagName === 'br') {
+    return '\n'
+  }
+
+  return Array.from(node.childNodes).map(getCalendarNodeText).join('')
+}
+
+function normalizeCalendarBlockText(value: string) {
+  return value
+    .replace(/\u00a0/g, ' ')
+    .replace(/\r\n?/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function tokenizeCalendarText(value: string): CalendarRichInlineToken[] {
+  const lines = value.replace(/\r\n?/g, '\n').split('\n')
+  const tokens: CalendarRichInlineToken[] = []
+
+  lines.forEach((line, index) => {
+    if (line) {
+      tokens.push({
+        kind: 'content',
+        html: escapeHtml(line),
+        text: line,
+      })
+    }
+
+    if (index < lines.length - 1) {
+      tokens.push({ kind: 'break' })
+    }
+  })
+
+  return tokens
+}
+
+function wrapCalendarInlineTokens(
+  tokens: CalendarRichInlineToken[],
+  tagName: string,
+  attributes = '',
+): CalendarRichInlineToken[] {
+  return tokens.map((token) =>
+    token.kind === 'break'
+      ? token
+      : {
+          kind: 'content',
+          html: `<${tagName}${attributes}>${token.html}</${tagName}>`,
+          text: token.text,
+        },
+  )
+}
+
+function tokenizeCalendarChildren(node: Node): CalendarRichInlineToken[] {
+  return Array.from(node.childNodes).flatMap(tokenizeCalendarNode)
+}
+
+function tokenizeCalendarNode(node: Node): CalendarRichInlineToken[] {
+  if (isCalendarTextNode(node)) {
+    return tokenizeCalendarText(node.textContent ?? '')
+  }
+
+  if (!isCalendarElement(node)) {
+    return []
+  }
+
+  const tagName = node.tagName.toLocaleLowerCase('en-US')
+
+  if (tagName === 'br') {
+    return [{ kind: 'break' }]
+  }
+
+  if (tagName === 'script' || tagName === 'style') {
+    return []
+  }
+
+  const children = tokenizeCalendarChildren(node)
+
+  if (tagName === 'a') {
+    const href = sanitizeCalendarUrl(node.getAttribute('href'))
+
+    if (!href) {
+      return children
+    }
+
+    const visibleChildren =
+      children.some((token) => token.kind === 'content' && token.text.trim())
+        ? children
+        : [
+            {
+              kind: 'content' as const,
+              html: escapeHtml(href),
+              text: href,
+            },
+          ]
+
+    return wrapCalendarInlineTokens(
+      visibleChildren,
+      'a',
+      ` href="${escapeHtml(href)}" target="_blank" rel="noreferrer"`,
+    )
+  }
+
+  if (tagName === 'strong' || tagName === 'b') {
+    return wrapCalendarInlineTokens(children, 'strong')
+  }
+
+  if (tagName === 'em' || tagName === 'i') {
+    return wrapCalendarInlineTokens(children, 'em')
+  }
+
+  if (tagName === 'u') {
+    return wrapCalendarInlineTokens(children, 'u')
+  }
+
+  if (tagName === 's' || tagName === 'strike' || tagName === 'del') {
+    return wrapCalendarInlineTokens(children, 's')
+  }
+
+  return children
+}
+
+function createCalendarBlocksFromInlineTokens(
+  tokens: CalendarRichInlineToken[],
+  preserveEmptyBlock = false,
+): CalendarRichBlock[] {
+  const blocks: CalendarRichBlock[] = []
+  let html = ''
+  let text = ''
+  let hasBreak = false
+
+  function hasContentAfter(index: number) {
+    return tokens
+      .slice(index + 1)
+      .some((token) => token.kind === 'content' && token.text.trim())
+  }
+
+  function flushContent() {
+    const normalizedText = normalizeCalendarBlockText(text)
+
+    if (!normalizedText) {
+      html = ''
+      text = ''
+      return false
+    }
+
+    blocks.push({
+      kind: 'paragraph',
+      html: html.trim(),
+      text: normalizedText,
+    })
+    html = ''
+    text = ''
+    return true
+  }
+
+  tokens.forEach((token, index) => {
+    if (token.kind === 'break') {
+      hasBreak = true
+
+      if (!flushContent() && hasContentAfter(index)) {
+        blocks.push({ kind: 'spacer' })
+      }
+
+      return
+    }
+
+    html += token.html
+    text += token.text
+  })
+
+  flushContent()
+
+  if (blocks.length === 0 && preserveEmptyBlock && hasBreak) {
+    blocks.push({ kind: 'spacer' })
+  }
+
+  return blocks
+}
+
+function createCalendarParagraphBlocks(node: Node): CalendarRichBlock[] {
+  return createCalendarBlocksFromInlineTokens(tokenizeCalendarChildren(node), true)
+}
+
+function createCalendarListBlock(element: Element): CalendarRichListBlock | null {
+  const tagName = element.tagName.toLocaleLowerCase('en-US')
+  const items = Array.from(element.children)
+    .filter((child) => child.tagName.toLocaleLowerCase('en-US') === 'li')
+    .map((child) => ({
+      html: createCalendarBlocksFromInlineTokens(tokenizeCalendarChildren(child))
+        .map((block) => (block.kind === 'paragraph' ? block.html : ''))
+        .filter(Boolean)
+        .join('<br>'),
+      text: normalizeCalendarBlockText(getCalendarNodeText(child)),
+    }))
+    .filter((item) => item.text)
+
+  if (items.length === 0) {
+    return null
+  }
+
+  return {
+    kind: tagName === 'ol' ? 'ordered-list' : 'unordered-list',
+    items,
+  }
+}
+
+function parseHtmlCalendarBlocks(value: string) {
+  const parsedDocument = new DOMParser().parseFromString(value, 'text/html')
+  const blocks: CalendarRichBlock[] = []
+  let inlineNodes: Node[] = []
+
+  function flushInlineNodes() {
+    if (inlineNodes.length === 0) {
+      return
+    }
+
+    const fragment = parsedDocument.createElement('span')
+    inlineNodes.forEach((node) => fragment.append(node.cloneNode(true)))
+    blocks.push(...createCalendarParagraphBlocks(fragment))
+    inlineNodes = []
+  }
+
+  function processNode(node: Node) {
+    if (isCalendarTextNode(node)) {
+      if (node.textContent) {
+        inlineNodes.push(node)
+      }
+
+      return
+    }
+
+    if (!isCalendarElement(node)) {
+      return
+    }
+
+    const tagName = node.tagName.toLocaleLowerCase('en-US')
+
+    if (tagName === 'script' || tagName === 'style') {
+      return
+    }
+
+    if (tagName === 'ul' || tagName === 'ol') {
+      flushInlineNodes()
+      const listBlock = createCalendarListBlock(node)
+
+      if (listBlock) {
+        blocks.push(listBlock)
+      }
+
+      return
+    }
+
+    if (calendarDescriptionBlockTags.has(tagName)) {
+      flushInlineNodes()
+
+      const nestedBlockChildren = Array.from(node.childNodes).filter(
+        (child) =>
+          isCalendarElement(child) &&
+          (calendarDescriptionBlockTags.has(child.tagName.toLocaleLowerCase('en-US')) ||
+            child.tagName.toLocaleLowerCase('en-US') === 'ul' ||
+            child.tagName.toLocaleLowerCase('en-US') === 'ol'),
+      )
+
+      if (nestedBlockChildren.length > 0) {
+        Array.from(node.childNodes).forEach(processNode)
+        flushInlineNodes()
+        return
+      }
+
+      blocks.push(...createCalendarParagraphBlocks(node))
+      return
+    }
+
+    inlineNodes.push(node)
+  }
+
+  Array.from(parsedDocument.body.childNodes).forEach(processNode)
+  flushInlineNodes()
+
+  return blocks
+}
+
+function getCalendarRichBlocks(value?: string) {
+  const trimmedValue = value?.trim()
+
+  if (!trimmedValue) {
+    return []
+  }
+
+  if (!trimmedValue.includes('<')) {
+    return createPlainTextCalendarBlocks(trimmedValue)
+  }
+
+  return parseHtmlCalendarBlocks(trimmedValue)
+}
+
+function getCalendarBlockText(block: CalendarRichBlock) {
+  if (block.kind === 'paragraph') {
+    return block.text
+  }
+
+  if (block.kind === 'spacer') {
+    return ''
+  }
+
+  return block.items.map((item) => item.text).join('\n')
+}
+
+function getCalendarBlocksText(blocks: CalendarRichBlock[]) {
+  return blocks
+    .map(getCalendarBlockText)
+    .filter(Boolean)
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function extractCalendarNoteMetadata(blocks: CalendarRichBlock[]): CalendarDescriptionMetadata {
+  let slug: string | undefined
+  const visibleBlocks = blocks
+    .map((block): CalendarRichBlock | null => {
+      if (block.kind === 'paragraph') {
+        const slugLine = block.text.match(/^\s*(?:slug|event-slug)\s*:\s*(.+?)\s*$/i)
+
+        if (slugLine) {
+          slug = slug ?? createEventSlug(slugLine[1])
+          return null
+        }
+
+        return block
+      }
+
+      if (block.kind === 'spacer') {
+        return block
+      }
+
+      const items = block.items.filter((item) => {
+        const slugLine = item.text.match(/^\s*(?:slug|event-slug)\s*:\s*(.+?)\s*$/i)
+
+        if (!slugLine) {
+          return true
+        }
+
+        slug = slug ?? createEventSlug(slugLine[1])
+        return false
+      })
+
+      return items.length > 0 ? { ...block, items } : null
+    })
+    .filter((block): block is CalendarRichBlock => block !== null)
+
+  return {
+    blocks: visibleBlocks,
+    text: getCalendarBlocksText(visibleBlocks),
+    slug,
+  }
+}
+
+function stripLanguageLabelFromBlock(
+  block: CalendarRichBlock,
+  languageBlock: RegExpMatchArray,
+): CalendarRichParagraphBlock | null {
+  if (block.kind !== 'paragraph') {
+    return null
+  }
+
+  return createPlainTextParagraphBlock(languageBlock[2] ?? '')
+}
+
+function getLocalizedCalendarBlocks(blocks: CalendarRichBlock[], language: Language) {
+  const localizedBlocks: Partial<Record<Language, CalendarRichBlock[]>> = {}
   let activeLanguage: Language | null = null
   let hasLocalizedBlock = false
 
-  value.split(/\r?\n/).forEach((line) => {
-    const languageBlock = line.match(/^\s*(pl|en)\s*:\s*(.*)$/i)
+  blocks.forEach((block) => {
+    const languageBlock =
+      block.kind === 'paragraph'
+        ? block.text.match(/^\s*(pl|en)\s*:\s*(.*)$/i)
+        : null
 
     if (languageBlock) {
       hasLocalizedBlock = true
-      const blockLanguage = languageBlock[1].toLocaleLowerCase('en-US') as Language
-      const blockLines = blocks[blockLanguage] ?? []
-      activeLanguage = blockLanguage
-      blocks[blockLanguage] = blockLines
+      activeLanguage = languageBlock[1].toLocaleLowerCase('en-US') as Language
+      localizedBlocks[activeLanguage] = localizedBlocks[activeLanguage] ?? []
 
-      if (languageBlock[2].trim()) {
-        blockLines.push(languageBlock[2].trim())
+      const strippedBlock = stripLanguageLabelFromBlock(block, languageBlock)
+
+      if (strippedBlock) {
+        localizedBlocks[activeLanguage]?.push(strippedBlock)
       }
 
       return
     }
 
     if (activeLanguage) {
-      blocks[activeLanguage]?.push(line)
+      localizedBlocks[activeLanguage] = localizedBlocks[activeLanguage] ?? []
+      localizedBlocks[activeLanguage]?.push(block)
     }
   })
 
   if (!hasLocalizedBlock) {
-    return value
+    return blocks
   }
 
-  const requestedText = blocks[language]?.join('\n').trim()
+  const requestedBlocks = localizedBlocks[language]
 
-  if (requestedText) {
-    return requestedText
+  if (requestedBlocks && requestedBlocks.length > 0) {
+    return requestedBlocks
   }
 
-  return blocks[defaultLanguage]?.join('\n').trim() || value
-}
-
-function extractCalendarNoteMetadata(note: string) {
-  let slug: string | undefined
-  const visibleLines = note.split(/\r?\n/).filter((line) => {
-    const slugLine = line.match(/^\s*(?:slug|event-slug)\s*:\s*(.+?)\s*$/i)
-
-    if (!slugLine) {
-      return true
-    }
-
-    slug = slug ?? createEventSlug(slugLine[1])
-    return false
-  })
-
-  return {
-    note: visibleLines.join('\n').replace(/\n{3,}/g, '\n\n').trim(),
-    slug,
-  }
+  return localizedBlocks[defaultLanguage] ?? blocks
 }
 
 function normalizeEventSearchText(value: string) {
@@ -549,6 +1094,34 @@ function getValidCalendarEventColor(color?: GoogleCalendarColor): CalendarEventC
   }
 }
 
+function mapGoogleCalendarAttachments(
+  attachments: GoogleCalendarAttachment[] | undefined,
+  language: Language,
+) {
+  return (attachments ?? [])
+    .map((attachment, index): CalendarEventAttachment | null => {
+      const url = sanitizeCalendarUrl(attachment.fileUrl)
+
+      if (!url) {
+        return null
+      }
+
+      const title =
+        normalizeCalendarText(attachment.title) ||
+        `${translate(scheduleText.attachmentFallbackTitle, language)} ${index + 1}`
+      const iconUrl = sanitizeCalendarUrl(attachment.iconLink)
+
+      return {
+        id: attachment.fileId ?? `${url}-${index}`,
+        title,
+        url,
+        mimeType: normalizeCalendarText(attachment.mimeType) || undefined,
+        iconUrl,
+      }
+    })
+    .filter((attachment): attachment is CalendarEventAttachment => attachment !== null)
+}
+
 function mapGoogleCalendarEvent(
   event: GoogleCalendarEvent,
   index: number,
@@ -580,12 +1153,15 @@ function mapGoogleCalendarEvent(
     : getCalendarEventHighlight(displayTitle, source)
   const title = getDisplayCalendarEventTitle(displayTitle, eventHighlight, language)
   const location = normalizeCalendarText(event.location)
-  const noteMetadata = extractCalendarNoteMetadata(normalizeCalendarText(event.description))
-  const note = isNotice
-    ? getLocalizedCalendarText(noteMetadata.note, language)
-    : noteMetadata.note
+  const noteMetadata = extractCalendarNoteMetadata(getCalendarRichBlocks(event.description))
+  const noteBlocks = isNotice
+    ? getLocalizedCalendarBlocks(noteMetadata.blocks, language)
+    : noteMetadata.blocks
+  const note = getCalendarBlocksText(noteBlocks)
+  const attachments = mapGoogleCalendarAttachments(event.attachments, language)
+  const hasDetails = Boolean(note) || attachments.length > 0
   const canCreateExpandableSlug =
-    !isNotice && eventHighlight?.kind !== 'birthday' && Boolean(note)
+    !isNotice && eventHighlight?.kind !== 'birthday' && hasDetails
   const slug =
     noteMetadata.slug ??
     (canCreateExpandableSlug
@@ -599,6 +1175,8 @@ function mapGoogleCalendarEvent(
     title,
     location: location || undefined,
     note: note || undefined,
+    noteBlocks: noteBlocks.length > 0 ? noteBlocks : undefined,
+    attachments: attachments.length > 0 ? attachments : undefined,
     slug,
     isAllDay: start.isAllDay,
     source,
@@ -866,6 +1444,81 @@ function CopyLinkIcon({ isCopied }: { isCopied: boolean }) {
   )
 }
 
+function stopCalendarLinkPropagation(mouseEvent: ReactMouseEvent<HTMLElement>) {
+  if ((mouseEvent.target as HTMLElement).closest('a')) {
+    mouseEvent.stopPropagation()
+  }
+}
+
+function CalendarRichContent({
+  blocks,
+  className = 'calendar-rich-text',
+}: {
+  blocks: CalendarRichBlock[] | undefined
+  className?: string
+}) {
+  if (!blocks || blocks.length === 0) {
+    return null
+  }
+
+  return (
+    <div className={className} onClick={stopCalendarLinkPropagation}>
+      {blocks.map((block, index) => {
+        if (block.kind === 'paragraph') {
+          return <p key={index} dangerouslySetInnerHTML={{ __html: block.html }} />
+        }
+
+        if (block.kind === 'spacer') {
+          return <div className="calendar-rich-space" key={index} aria-hidden="true" />
+        }
+
+        const ListTag = block.kind === 'ordered-list' ? 'ol' : 'ul'
+
+        return (
+          <ListTag key={index}>
+            {block.items.map((item, itemIndex) => (
+              <li
+                key={`${index}-${itemIndex}`}
+                dangerouslySetInnerHTML={{ __html: item.html }}
+              />
+            ))}
+          </ListTag>
+        )
+      })}
+    </div>
+  )
+}
+
+function AttachmentList({
+  attachments,
+  language,
+  className = 'event-attachments',
+}: {
+  attachments: CalendarEventAttachment[] | undefined
+  language: Language
+  className?: string
+}) {
+  if (!attachments || attachments.length === 0) {
+    return null
+  }
+
+  return (
+    <div className={className} onClick={stopCalendarLinkPropagation}>
+      <p className="event-attachments-title">{translate(scheduleText.attachmentsLabel, language)}</p>
+      <ul>
+        {attachments.map((attachment) => (
+          <li key={attachment.id}>
+            <a href={attachment.url} target="_blank" rel="noreferrer">
+              {attachment.iconUrl && <img src={attachment.iconUrl} alt="" />}
+              <span>{attachment.title}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 function EventList({
   events,
   language,
@@ -1001,7 +1654,15 @@ function EventList({
                   </div>
                 </div>
                 {event.location && <p className="muted">{event.location}</p>}
-                {!compact && !expandable && event.note && <p>{event.note}</p>}
+                {!compact && !expandable && !eventHref && (
+                  <>
+                    <CalendarRichContent
+                      blocks={event.noteBlocks}
+                      className="event-summary-note calendar-rich-text"
+                    />
+                    <AttachmentList attachments={event.attachments} language={language} />
+                  </>
+                )}
               </div>
             </div>
 
@@ -1015,7 +1676,11 @@ function EventList({
                     </div>
                   </dl>
                 )}
-                {event.note && <p className="event-detail-note">{event.note}</p>}
+                <CalendarRichContent
+                  blocks={event.noteBlocks}
+                  className="event-detail-note calendar-rich-text"
+                />
+                <AttachmentList attachments={event.attachments} language={language} />
               </div>
             )}
           </>
@@ -1084,7 +1749,15 @@ function ImportantNotice({
       {notices.map((notice) => (
         <article className="important-notice" key={notice.id}>
           <strong>{notice.title}</strong>
-          {notice.note && <p>{notice.note}</p>}
+          <CalendarRichContent
+            blocks={notice.noteBlocks}
+            className="important-notice-body calendar-rich-text"
+          />
+          <AttachmentList
+            attachments={notice.attachments}
+            language={language}
+            className="important-notice-attachments event-attachments"
+          />
         </article>
       ))}
     </div>
@@ -1316,7 +1989,7 @@ function SchedulePage({
     ? expandedEventId
     : null
   const linkedExpandedEventId =
-    linkedEvent?.note && linkedEvent.eventHighlight?.kind !== 'birthday' ? linkedEvent.id : null
+    linkedEvent && isExpandableScheduleEvent(linkedEvent) ? linkedEvent.id : null
   const activeExpandedEventId = linkedExpandedEventId ?? stateExpandedEventId
   const linkedEventId = linkedEvent?.id ?? null
 

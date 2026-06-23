@@ -143,6 +143,8 @@ The site fetches events from now through 3 months forward with `singleEvents=tru
 
 Home page notices use the same public Google Calendar feed. Any event whose title starts with `[notice]` is shown only as an important notice on the home page and is excluded from the schedule event list. Multiple notice events are stacked. The visible notice title is the event title after `[notice]`; if nothing remains, the site uses a translated "Important notice" fallback. The event description becomes the notice body. The site does not cache notices, so removing the event or moving it outside the fetched 3-month window removes the notice from the next page load.
 
+Google Calendar descriptions are rendered with a safe subset of rich formatting on both notices and schedule events: paragraphs, line breaks, lists, bold, italic, underline, strikethrough, and HTTP/HTTPS links. Event attachments are shown as attachment links when Google exposes a `fileUrl`. The site does not bypass Google Drive permissions, so attached Drive files must be shared appropriately if public visitors should be able to open them.
+
 Notice descriptions may use optional language blocks:
 
 ```text

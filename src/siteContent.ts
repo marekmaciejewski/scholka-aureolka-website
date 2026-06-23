@@ -129,6 +129,8 @@ export const scheduleText = {
   whenLabel: { pl: 'Kiedy', en: 'When' },
   whereLabel: { pl: 'Gdzie', en: 'Where' },
   noteLabel: { pl: 'Informacje', en: 'Details' },
+  attachmentsLabel: { pl: 'Za\u0142\u0105czniki', en: 'Attachments' },
+  attachmentFallbackTitle: { pl: 'Za\u0142\u0105cznik', en: 'Attachment' },
   allDay: { pl: 'cały dzień', en: 'all day' },
   untitledEvent: { pl: 'Wydarzenie', en: 'Event' },
 }

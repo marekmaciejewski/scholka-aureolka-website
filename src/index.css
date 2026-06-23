@@ -808,7 +808,49 @@ main {
   margin-bottom: 0;
   color: var(--color-text);
   line-height: 1.55;
-  white-space: pre-line;
+}
+
+.calendar-rich-text {
+  display: grid;
+  gap: 0.45rem;
+  color: var(--color-text);
+  line-height: 1.55;
+}
+
+.calendar-rich-text p,
+.calendar-rich-text ul,
+.calendar-rich-text ol {
+  margin: 0;
+}
+
+.calendar-rich-text ul,
+.calendar-rich-text ol {
+  display: grid;
+  gap: 0.25rem;
+  padding-left: 1.2rem;
+}
+
+.calendar-rich-space {
+  min-height: 0.45rem;
+}
+
+.calendar-rich-text a,
+.event-attachments a {
+  color: inherit;
+  font: inherit;
+  text-decoration-thickness: 0.06em;
+  text-underline-offset: 0.16em;
+}
+
+.calendar-rich-text a:hover,
+.calendar-rich-text a:focus-visible,
+.event-attachments a:hover,
+.event-attachments a:focus-visible {
+  color: var(--color-link);
+}
+
+.event-summary-note {
+  margin-top: 0.45rem;
 }
 
 .event-card {
@@ -1014,7 +1056,48 @@ main {
   margin: 0;
   color: var(--color-text);
   line-height: 1.55;
-  white-space: pre-line;
+}
+
+.event-attachments {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+}
+
+.event-attachments-title {
+  margin: 0;
+  color: var(--color-dark-gold);
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.event-attachments ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.event-attachments a {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  gap: 0.45rem;
+}
+
+.event-attachments img {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+}
+
+.event-attachments span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .event-date strong,
