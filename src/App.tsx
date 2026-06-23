@@ -180,6 +180,7 @@ const homeScheduleCards = scheduleCards.slice(0, 2)
 const childrenMassCard = scheduleCards[2]
 const birthdayEventAccent = 'var(--color-violet)'
 const importantEventAccent = 'var(--color-important)'
+const polishOneLetterWordPattern = /(^|[\s([{„"'])(([AaIiOoUuWwZz]))\s+(?=\S)/g
 
 const languageLocale: Record<Language, string> = {
   pl: 'pl-PL',
@@ -254,12 +255,31 @@ function removeBasePath(pathname: string) {
   return pathname
 }
 
+function applyPolishNoBreaks(value: string) {
+  return value.replace(polishOneLetterWordPattern, `$1$2\u00a0`)
+}
+
+function formatLocalizedText(value: string, language: Language) {
+  return language === 'pl' ? applyPolishNoBreaks(value) : value
+}
+
+function formatLocalizedHtml(value: string, language: Language) {
+  if (language !== 'pl') {
+    return value
+  }
+
+  return value
+    .split(/(<[^>]+>)/g)
+    .map((part) => (part.startsWith('<') ? part : applyPolishNoBreaks(part)))
+    .join('')
+}
+
 function translate(text: LocalizedText, language: Language) {
-  return text[language]
+  return formatLocalizedText(text[language], language)
 }
 
 function translateOptional(text: LocalizedText | string, language: Language) {
-  return typeof text === 'string' ? text : translate(text, language)
+  return typeof text === 'string' ? formatLocalizedText(text, language) : translate(text, language)
 }
 
 function isNoticeCalendarTitle(title: string) {
@@ -1113,7 +1133,7 @@ function mapGoogleCalendarAttachments(
 
       return {
         id: attachment.fileId ?? `${url}-${index}`,
-        title,
+        title: formatLocalizedText(title, language),
         url,
         mimeType: normalizeCalendarText(attachment.mimeType) || undefined,
         iconUrl,
@@ -1151,8 +1171,11 @@ function mapGoogleCalendarEvent(
         accent: importantEventAccent,
       }
     : getCalendarEventHighlight(displayTitle, source)
-  const title = getDisplayCalendarEventTitle(displayTitle, eventHighlight, language)
-  const location = normalizeCalendarText(event.location)
+  const title = formatLocalizedText(
+    getDisplayCalendarEventTitle(displayTitle, eventHighlight, language),
+    language,
+  )
+  const location = formatLocalizedText(normalizeCalendarText(event.location), language)
   const noteMetadata = extractCalendarNoteMetadata(getCalendarRichBlocks(event.description))
   const noteBlocks = isNotice
     ? getLocalizedCalendarBlocks(noteMetadata.blocks, language)
@@ -1400,7 +1423,7 @@ function PageHeading({ page, language }: { page: PageKey; language: Language }) 
       <div className="content-width narrow">
         <p className="eyebrow">{translate(intro.eyebrow, language)}</p>
         <h1>{translate(intro.title, language)}</h1>
-        <p>{translate(intro.lead, language)}</p>
+        {intro.lead && <p>{translate(intro.lead, language)}</p>}
       </div>
     </section>
   )
@@ -1452,9 +1475,11 @@ function stopCalendarLinkPropagation(mouseEvent: ReactMouseEvent<HTMLElement>) {
 
 function CalendarRichContent({
   blocks,
+  language,
   className = 'calendar-rich-text',
 }: {
   blocks: CalendarRichBlock[] | undefined
+  language: Language
   className?: string
 }) {
   if (!blocks || blocks.length === 0) {
@@ -1465,7 +1490,12 @@ function CalendarRichContent({
     <div className={className} onClick={stopCalendarLinkPropagation}>
       {blocks.map((block, index) => {
         if (block.kind === 'paragraph') {
-          return <p key={index} dangerouslySetInnerHTML={{ __html: block.html }} />
+          return (
+            <p
+              key={index}
+              dangerouslySetInnerHTML={{ __html: formatLocalizedHtml(block.html, language) }}
+            />
+          )
         }
 
         if (block.kind === 'spacer') {
@@ -1479,7 +1509,7 @@ function CalendarRichContent({
             {block.items.map((item, itemIndex) => (
               <li
                 key={`${index}-${itemIndex}`}
-                dangerouslySetInnerHTML={{ __html: item.html }}
+                dangerouslySetInnerHTML={{ __html: formatLocalizedHtml(item.html, language) }}
               />
             ))}
           </ListTag>
@@ -1658,6 +1688,7 @@ function EventList({
                   <>
                     <CalendarRichContent
                       blocks={event.noteBlocks}
+                      language={language}
                       className="event-summary-note calendar-rich-text"
                     />
                     <AttachmentList attachments={event.attachments} language={language} />
@@ -1678,6 +1709,7 @@ function EventList({
                 )}
                 <CalendarRichContent
                   blocks={event.noteBlocks}
+                  language={language}
                   className="event-detail-note calendar-rich-text"
                 />
                 <AttachmentList attachments={event.attachments} language={language} />
@@ -1751,6 +1783,7 @@ function ImportantNotice({
           <strong>{notice.title}</strong>
           <CalendarRichContent
             blocks={notice.noteBlocks}
+            language={language}
             className="important-notice-body calendar-rich-text"
           />
           <AttachmentList

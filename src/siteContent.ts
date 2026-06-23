@@ -164,7 +164,7 @@ export const footerCredits: FooterCredit[] = [
 
 export const pageIntro: Record<
   PageKey,
-  { eyebrow: LocalizedText; title: LocalizedText; lead: LocalizedText }
+  { eyebrow: LocalizedText; title: LocalizedText; lead?: LocalizedText }
 > = {
   home: {
     eyebrow: { pl: 'Scholka Aureolka', en: 'Scholka Aureolka' },
@@ -175,24 +175,19 @@ export const pageIntro: Record<
     },
   },
   gallery: {
-    eyebrow: { pl: 'Zdjęcia', en: 'Photos' },
-    title: { pl: 'Galeria życia scholi', en: 'Gallery of choir life' },
-    lead: {
-      pl: 'Albumy mogą pokazywać próby, Msze święte i wydarzenia parafialne. Rodzice podpisali zgody na zdjęcia, więc galeria może być rozwijana.',
-      en: 'Albums can show rehearsals, Masses, and parish events. Parents have signed photo consents, so the gallery can grow.',
-    },
+    eyebrow: { pl: 'Zdjęcia z życia scholi', en: 'Photos from choir life' },
+    title: { pl: 'Galeria', en: 'Gallery' },
   },
   schedule: {
-    eyebrow: { pl: 'Terminy i aktualności', en: 'Dates and updates' },
-    title: { pl: 'Ogarniajzer', en: 'Schedule' },
-    lead: {
-      pl: 'Aktualne miejsce na najbliższe próby, Msze dziecięce, specjalne spotkania, wyjątki i odwołania.',
-      en: 'The current place for upcoming rehearsals, Children’s Masses, special gatherings, exceptions, and cancellations.',
+    eyebrow: {
+      pl: 'Najbliższe 3 miesiące',
+      en: 'Next 3 months',
     },
+    title: { pl: 'Ogarniajzer', en: 'Schedule' },
   },
   contact: {
-    eyebrow: { pl: 'Kontakt', en: 'Contact' },
-    title: { pl: 'Porozmawiajmy', en: 'Let’s talk' },
+    eyebrow: { pl: 'Porozmawiajmy', en: 'Let’s talk' },
+    title: { pl: 'Kontakt', en: 'Contact' },
     lead: {
       pl: 'Z osobą prowadzącą można porozmawiać osobiście, najlepiej przed próbą scholi zarówno w czwartek jak i niedzielę.',
       en: 'You can speak with the organizer in person, preferably before choir rehearsal on both Thursday and Sunday.',
@@ -207,8 +202,8 @@ export const homeHeroCta = {
 
 export const homeHeroText = {
   description: {
-    pl: 'Śpiewamy z dziećmi podczas spotkań parafialnych i Mszy dziecięcej. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum euismod sem at urna luctus, vitae facilisis mi cursus.',
-    en: "We sing with children during parish gatherings and Children's Mass. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum euismod sem at urna luctus, vitae facilisis mi cursus.",
+    pl: 'Tworzymy wspólnotę, w której radość i nauka idą w parze. Z pasją wprowadzamy nasze pociechy w świat chrześcijańskich wartości, pomagając im odkrywać piękno wiary w atmosferze miłości i akceptacji. Każde spotkanie to dla nas nie tylko lekcja, ale także czas radosnej zabawy, kreatywności i odkrywania talentów.',
+    en: 'We build a community where joy and learning go hand in hand. With passion, we introduce our children to Christian values, helping them discover the beauty of faith in an atmosphere of love and acceptance. Each gathering is not only a lesson for us, but also a time for joyful play, creativity, and discovering talents.',
   },
   rehearsalsLabel: { pl: 'Próby', en: 'Rehearsals' },
   massLabel: { pl: 'Msza dziecięca', en: "Children's Mass" },
@@ -317,6 +312,13 @@ export const firstStepsModal: {
         : undefined,
     },
     {
+      title: { pl: 'WhatsApp', en: 'WhatsApp' },
+      body: {
+        pl: 'Po pierwszym spotkaniu osoba prowadząca doda rodzinę do odpowiednich grup WhatsApp: wspólnej grupy scholi oraz osobnej grupy tylko dla rodziców.',
+        en: 'After the first meeting, the organizer will add the family to the appropriate WhatsApp groups: the shared choir group and a separate parents-only group.',
+      },
+    },
+    {
       title: { pl: 'Strój', en: 'Outfit' },
       details: [
         {
@@ -384,6 +386,10 @@ export const contactDetails = {
       href: safeguardingStandardsUrl,
       label: { pl: 'Standardy Ochrony Małoletnich', en: 'Safeguarding Standards For Minors' },
     },
+    {
+      href: 'https://niezbednik.niedziela.pl/',
+      label: { pl: 'Niezbędnik Katolika', en: 'Catholic Essentials' },
+    }
   ],
 }
 
