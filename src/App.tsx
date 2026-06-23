@@ -147,6 +147,18 @@ function getScheduleEventHref(slug: string) {
   return withBasePath(`/schedule/?${eventSlugSearchParam}=${encodeURIComponent(slug)}`)
 }
 
+function isExpandableScheduleEvent(event: UpcomingEvent) {
+  return event.eventHighlight?.kind !== 'birthday' && Boolean(event.note)
+}
+
+function getHomeEventHref(event: UpcomingEvent) {
+  if (isExpandableScheduleEvent(event) && event.slug) {
+    return getScheduleEventHref(event.slug)
+  }
+
+  return withBasePath('/schedule/')
+}
+
 function getAbsoluteScheduleEventHref(slug: string) {
   return new URL(getScheduleEventHref(slug), window.location.origin).href
 }
@@ -789,9 +801,11 @@ function EventList({
   language,
   compact = false,
   expandable = false,
+  showDetailSymbols = expandable,
   expandedEventId = null,
   linkedEventId = null,
   copiedEventId = null,
+  getEventHref,
   onExpandedEventChange,
   onEventLinkCopy,
 }: {
@@ -799,9 +813,11 @@ function EventList({
   language: Language
   compact?: boolean
   expandable?: boolean
+  showDetailSymbols?: boolean
   expandedEventId?: string | null
   linkedEventId?: string | null
   copiedEventId?: string | null
+  getEventHref?: (event: UpcomingEvent) => string
   onExpandedEventChange?: (eventId: string | null) => void
   onEventLinkCopy?: (event: UpcomingEvent) => void
 }) {
@@ -811,17 +827,21 @@ function EventList({
         const eventHighlight = event.eventHighlight
         const isBirthdayEvent = eventHighlight?.kind === 'birthday'
         const isImportantEvent = eventHighlight?.kind === 'important'
-        const canExpandEvent = expandable && !isBirthdayEvent && Boolean(event.note)
+        const hasEventDetails = isExpandableScheduleEvent(event)
+        const canExpandEvent = expandable && hasEventDetails
+        const shouldShowDetailSymbol = showDetailSymbols && hasEventDetails
         const isExpanded = canExpandEvent && expandedEventId === event.id
         const isLinked = linkedEventId === event.id
         const detailsId = `event-details-${event.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`
         const canCopyEventLink = canExpandEvent && Boolean(event.slug)
         const isCopied = copiedEventId === event.id
+        const eventHref = getEventHref?.(event)
         const eventCardClassName = [
           'event-card',
+          eventHref ? 'event-card-link' : '',
           isBirthdayEvent ? 'event-card--birthday' : '',
           isImportantEvent ? 'event-card--important' : '',
-          canExpandEvent ? 'has-details' : '',
+          shouldShowDetailSymbol ? 'has-details' : '',
           isExpanded ? 'is-expanded' : '',
           isLinked ? 'is-linked' : '',
         ]
@@ -859,27 +879,8 @@ function EventList({
           onEventLinkCopy(event)
         }
 
-        return (
-          <article
-            className={eventCardClassName}
-            key={event.id}
-            id={getEventDomId(event)}
-            style={getEventCardStyle(event)}
-            role={canExpandEvent ? 'button' : undefined}
-            tabIndex={canExpandEvent ? 0 : undefined}
-            aria-expanded={canExpandEvent ? isExpanded : undefined}
-            aria-controls={canExpandEvent ? detailsId : undefined}
-            aria-label={
-              canExpandEvent
-                ? `${translate(
-                    isExpanded ? scheduleText.collapseEvent : scheduleText.expandEvent,
-                    language,
-                  )}: ${event.title}`
-                : undefined
-            }
-            onClick={canExpandEvent ? toggleEvent : undefined}
-            onKeyDown={canExpandEvent ? handleEventKeyDown : undefined}
-          >
+        const eventCardContent = (
+          <>
             <div className="event-card-summary">
               <div className="event-date">
                 <strong>{formatEventDate(event.date, language)}</strong>
@@ -919,7 +920,7 @@ function EventList({
                         <CopyLinkIcon isCopied={isCopied} />
                       </button>
                     )}
-                    {canExpandEvent && (
+                    {shouldShowDetailSymbol && (
                       <span
                         className="event-expand-status-icon"
                         aria-label={translate(scheduleText.eventInfoLabel, language)}
@@ -947,6 +948,45 @@ function EventList({
                 {event.note && <p className="event-detail-note">{event.note}</p>}
               </div>
             )}
+          </>
+        )
+
+        if (eventHref) {
+          return (
+            <a
+              className={eventCardClassName}
+              key={event.id}
+              id={getEventDomId(event)}
+              href={eventHref}
+              style={getEventCardStyle(event)}
+            >
+              {eventCardContent}
+            </a>
+          )
+        }
+
+        return (
+          <article
+            className={eventCardClassName}
+            key={event.id}
+            id={getEventDomId(event)}
+            style={getEventCardStyle(event)}
+            role={canExpandEvent ? 'button' : undefined}
+            tabIndex={canExpandEvent ? 0 : undefined}
+            aria-expanded={canExpandEvent ? isExpanded : undefined}
+            aria-controls={canExpandEvent ? detailsId : undefined}
+            aria-label={
+              canExpandEvent
+                ? `${translate(
+                    isExpanded ? scheduleText.collapseEvent : scheduleText.expandEvent,
+                    language,
+                  )}: ${event.title}`
+                : undefined
+            }
+            onClick={canExpandEvent ? toggleEvent : undefined}
+            onKeyDown={canExpandEvent ? handleEventKeyDown : undefined}
+          >
+            {eventCardContent}
           </article>
         )
       })}
@@ -1141,7 +1181,13 @@ function HomePage({
       >
         <div className="content-width home-upcoming-inner">
           <ImportantNotice language={language} />
-          <EventList events={upcomingEvents.slice(0, 4)} language={language} compact />
+          <EventList
+            events={upcomingEvents.slice(0, 4)}
+            language={language}
+            compact
+            getEventHref={getHomeEventHref}
+            showDetailSymbols
+          />
         </div>
       </section>
       {isFirstStepsOpen && (
