@@ -12,6 +12,7 @@ The site is built with React, TypeScript, and Vite, and is hosted on GitHub Page
 - Architecture that can grow toward content-driven sections such as songs, albums, and event detail pages.
 - Public pages for start, Ogarniajzer/Schedule, gallery, and contact.
 - Dynamic upcoming-events view backed by a public Google Calendar.
+- Dynamic gallery view backed by a public Google Drive folder.
 - No contact forms, phone numbers, or email addresses.
 
 ## Routing and Page Architecture
@@ -132,9 +133,9 @@ The visual palette should be derived from the prepared logo variants:
 The schedule source is a public Google Calendar when these Vite env variables are present:
 
 ```bash
+VITE_GOOGLE_API_KEY=your-restricted-browser-api-key
 VITE_GOOGLE_CALENDAR_ID=your-public-calendar-id@group.calendar.google.com
 VITE_GOOGLE_BIRTHDAY_CALENDAR_ID=your-public-birthday-calendar-id@group.calendar.google.com
-VITE_GOOGLE_CALENDAR_API_KEY=your-restricted-browser-api-key
 ```
 
 For local development, copy `.env.example` to `.env.local` and fill in the real values. The birthday calendar ID is optional. The schedule does not generate recurring fallback events; if Google Calendar config is missing or all configured calendar requests fail, the page shows a calendar status instead of local template events.
@@ -167,9 +168,10 @@ Do not commit private credentials. Any browser API key should be restricted to t
 
 For GitHub Pages, set these repository settings before deploying:
 
+- Repository secret `VITE_GOOGLE_API_KEY`
 - Repository variable `VITE_GOOGLE_CALENDAR_ID`
 - Optional repository variable `VITE_GOOGLE_BIRTHDAY_CALENDAR_ID`
-- Repository secret `VITE_GOOGLE_CALENDAR_API_KEY`
+- Repository variable `VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID`
 
 Google Calendar setup:
 
@@ -178,7 +180,24 @@ Google Calendar setup:
 3. Add regular rehearsals and Masses as recurring events in Google Calendar.
 4. Add exceptions directly in Google Calendar: move a single occurrence, delete a skipped occurrence, or add a visible cancellation/special-event entry.
 5. Put parent-facing details in the event description and location fields. If English content is required for public visitors, include bilingual details in the calendar event text.
-6. In Google Cloud, enable the Google Calendar API, create a browser API key, and restrict it by HTTP referrer to the production GitHub Pages origin and local development origins such as `http://localhost:5173/*`.
+6. In Google Cloud, enable the Google Calendar API and Google Drive API, create a browser API key, and restrict it by HTTP referrer to the production GitHub Pages origin and local development origins such as `http://localhost:5173/*`.
+
+## Gallery
+
+The gallery source is a public Google Drive folder when these Vite env variables are present:
+
+```bash
+VITE_GOOGLE_API_KEY=your-restricted-browser-api-key
+VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID=your-public-gallery-folder-id
+```
+
+The configured Drive folder should contain one subfolder per album. Album folder names should use this convention:
+
+```text
+YYYY-MM-DD - Polish title -- English title
+```
+
+The English title is optional. If it is missing, the Polish album title is used in both languages. Put `[cover]` at the start of an image filename to choose the album cover. If no image uses that prefix, the site uses the first image returned by Drive name ordering. Photo filenames are not shown on the public site.
 
 Birthday calendar setup:
 

@@ -23,13 +23,6 @@ export type ScheduleCard = {
   note: LocalizedText
 }
 
-export type Album = {
-  title: LocalizedText
-  date: LocalizedText
-  caption: LocalizedText
-  tone: 'gold' | 'violet' | 'purple'
-}
-
 export type ParentInfoItem = {
   title: LocalizedText
   body?: LocalizedText
@@ -135,6 +128,51 @@ export const scheduleText = {
   untitledEvent: { pl: 'Wydarzenie', en: 'Event' },
 }
 
+export const galleryText = {
+  loadingAlbums: {
+    pl: 'Pobieramy albumy z Dysku Google.',
+    en: 'Loading albums from Google Drive.',
+  },
+  notConfiguredNotice: {
+    pl: 'Galeria z Dysku Google nie jest jeszcze podłączona.',
+    en: 'Google Drive gallery is not connected yet.',
+  },
+  errorNotice: {
+    pl: 'Nie udało się pobrać galerii z Dysku Google. Spróbuj odświeżyć stronę później.',
+    en: 'The Google Drive gallery could not be loaded. Try refreshing the page later.',
+  },
+  emptyAlbums: {
+    pl: 'Nie ma jeszcze opublikowanych albumów.',
+    en: 'There are no published albums yet.',
+  },
+  albumNotFound: {
+    pl: 'Nie znaleziono albumu z podanego linku.',
+    en: 'The album from this link was not found.',
+  },
+  loadingPhotos: {
+    pl: 'Pobieramy zdjęcia z albumu.',
+    en: 'Loading photos from the album.',
+  },
+  errorPhotos: {
+    pl: 'Nie udało się pobrać zdjęć z tego albumu.',
+    en: 'Photos from this album could not be loaded.',
+  },
+  emptyPhotos: {
+    pl: 'Ten album nie ma jeszcze zdjęć.',
+    en: 'This album does not have photos yet.',
+  },
+  backToAlbums: { pl: 'Wróć do albumów', en: 'Back to albums' },
+  openAlbum: { pl: 'Otwórz album', en: 'Open album' },
+  openPhoto: { pl: 'Otwórz zdjęcie', en: 'Open photo' },
+  closePhoto: { pl: 'Zamknij zdjęcie', en: 'Close photo' },
+  previousPhoto: { pl: 'Poprzednie zdjęcie', en: 'Previous photo' },
+  nextPhoto: { pl: 'Następne zdjęcie', en: 'Next photo' },
+  photoCountSingular: { pl: '1 zdjęcie', en: '1 photo' },
+  photoCountPlural: { pl: '{count} zdjęć', en: '{count} photos' },
+  photoPosition: { pl: '{current} z {total}', en: '{current} of {total}' },
+  albumPhotoAlt: { pl: 'Zdjęcie z albumu {album}', en: 'Photo from album {album}' },
+}
+
 export const calendarEventHighlightText = {
   birthday: { pl: 'Urodziny', en: 'Birthday' },
   important: { pl: 'Wa\u017cne', en: 'Important' },
@@ -230,36 +268,6 @@ export const scheduleCards: ScheduleCard[] = [
       pl: 'Obowiązuje poza okresami świątecznymi.',
       en: 'Applies outside holiday periods.',
     },
-  },
-]
-
-export const albums: Album[] = [
-  {
-    title: { pl: 'Próby i śpiew', en: 'Rehearsals and singing' },
-    date: { pl: 'Album roboczy', en: 'Draft album' },
-    caption: {
-      pl: 'Miejsce na zdjęcia z regularnych spotkań scholi.',
-      en: 'A place for photos from regular choir meetings.',
-    },
-    tone: 'gold',
-  },
-  {
-    title: { pl: 'Msze dziecięce', en: 'Children’s Masses' },
-    date: { pl: 'Album roboczy', en: 'Draft album' },
-    caption: {
-      pl: 'Kadry z niedzielnych spotkań przy parafii.',
-      en: 'Moments from Sunday gatherings at the parish.',
-    },
-    tone: 'violet',
-  },
-  {
-    title: { pl: 'Wydarzenia parafialne', en: 'Parish events' },
-    date: { pl: 'Album roboczy', en: 'Draft album' },
-    caption: {
-      pl: 'Zdjęcia ze specjalnych wydarzeń i występów.',
-      en: 'Photos from special events and performances.',
-    },
-    tone: 'purple',
   },
 ]
 

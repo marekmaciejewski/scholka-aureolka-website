@@ -1,19 +1,20 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
 } from 'react'
 import {
-  albums,
   calendarEventHighlightText,
   commonText,
   contactDetails,
   defaultLanguage,
   footerCredits,
   footerQuote,
+  galleryText,
   homeHeroCta,
   homeHeroText,
   languageOptions,
@@ -54,6 +55,36 @@ type CalendarLoadStatus = 'unconfigured' | 'loading' | 'ready' | 'error'
 type CalendarState = {
   status: CalendarLoadStatus
   events: UpcomingEvent[]
+}
+
+type GalleryLoadStatus = 'unconfigured' | 'loading' | 'ready' | 'error'
+
+type GalleryAlbum = {
+  id: string
+  folderName: string
+  slug: string
+  title: LocalizedText
+  date: Date | undefined
+  coverPhoto: GalleryPhoto | undefined
+}
+
+type GalleryPhoto = {
+  id: string
+  name: string
+  thumbnailUrl: string
+  largeUrl: string
+  width?: number
+  height?: number
+}
+
+type GalleryState = {
+  status: GalleryLoadStatus
+  albums: GalleryAlbum[]
+}
+
+type GalleryPhotosState = {
+  status: GalleryLoadStatus
+  photos: GalleryPhoto[]
 }
 
 type GoogleCalendarEventDate = {
@@ -97,6 +128,25 @@ type GoogleCalendarColor = {
 
 type GoogleCalendarColorsResponse = {
   event?: Record<string, GoogleCalendarColor>
+  error?: {
+    message?: string
+  }
+}
+
+type GoogleDriveFile = {
+  id?: string
+  name?: string
+  mimeType?: string
+  thumbnailLink?: string
+  imageMediaMetadata?: {
+    width?: number
+    height?: number
+  }
+}
+
+type GoogleDriveFilesResponse = {
+  files?: GoogleDriveFile[]
+  nextPageToken?: string
   error?: {
     message?: string
   }
@@ -172,10 +222,18 @@ type GoogleCalendarConfig = {
   }>
 }
 
+type GoogleDriveGalleryConfig = {
+  apiKey: string
+  folderId: string
+}
+
 const languageStorageKey = 'scholka-aureolka-language'
 const themeStorageKey = 'scholka-aureolka-theme'
 const eventSlugSearchParam = 'event'
+const galleryAlbumSearchParam = 'album'
+const galleryPhotoSearchParam = 'photo'
 const calendarNoticePrefixPattern = /^\s*\[notice\]\s*:?\s*/i
+const galleryCoverPrefixPattern = /^\s*\[cover\]/i
 const homeScheduleCards = scheduleCards.slice(0, 2)
 const childrenMassCard = scheduleCards[2]
 const birthdayEventAccent = 'var(--color-violet)'
@@ -186,6 +244,7 @@ const languageLocale: Record<Language, string> = {
   pl: 'pl-PL',
   en: 'en-US',
 }
+const emptyGalleryPhotos: GalleryPhoto[] = []
 
 function getBasePath() {
   return import.meta.env.BASE_URL.endsWith('/')
@@ -292,10 +351,18 @@ function getNoticeCalendarTitle(title: string, language: Language) {
   return noticeTitle || translate(noticeText.defaultTitle, language)
 }
 
+function getGoogleApiKey() {
+  return (
+    import.meta.env.VITE_GOOGLE_API_KEY?.trim() ??
+    import.meta.env.VITE_GOOGLE_CALENDAR_API_KEY?.trim() ??
+    ''
+  )
+}
+
 function getGoogleCalendarConfig(): GoogleCalendarConfig | null {
   const calendarId = import.meta.env.VITE_GOOGLE_CALENDAR_ID?.trim()
   const birthdayCalendarId = import.meta.env.VITE_GOOGLE_BIRTHDAY_CALENDAR_ID?.trim()
-  const apiKey = import.meta.env.VITE_GOOGLE_CALENDAR_API_KEY?.trim()
+  const apiKey = getGoogleApiKey()
   const calendars: GoogleCalendarConfig['calendars'] = []
 
   if (calendarId) {
@@ -317,6 +384,17 @@ function getGoogleCalendarConfig(): GoogleCalendarConfig | null {
   }
 
   return { apiKey, calendars }
+}
+
+function getGoogleDriveGalleryConfig(): GoogleDriveGalleryConfig | null {
+  const folderId = import.meta.env.VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID?.trim()
+  const apiKey = getGoogleApiKey()
+
+  if (!apiKey || !folderId) {
+    return null
+  }
+
+  return { apiKey, folderId }
 }
 
 function getInitialLanguage(): Language {
@@ -417,10 +495,85 @@ function createFallbackEventSlug(title: string, date: Date) {
   return createEventSlug(`${formatEventSlugDateTime(date)}-${title}`)
 }
 
+function createGallerySlug(value: string) {
+  const slug = value
+    .replace(/[łŁ]/g, 'l')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pl-PL')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-')
+    .slice(0, 96)
+    .replace(/-+$/g, '')
+
+  return slug || undefined
+}
+
+function parseGalleryAlbumFolderName(folderName: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})\s*(?:-\s*)?(.+)?$/.exec(folderName.trim())
+  const titleValue = match?.[4]?.trim() || folderName.trim()
+  const titleParts = titleValue.split(/\s+--\s+/, 2)
+  const plTitle = titleParts[0]?.trim() || folderName.trim()
+  const enTitle = titleParts[1]?.trim() || plTitle
+  const year = match ? Number(match[1]) : 0
+  const month = match ? Number(match[2]) : 0
+  const day = match ? Number(match[3]) : 0
+  const date = year && month && day ? new Date(year, month - 1, day) : undefined
+
+  return {
+    title: { pl: plTitle, en: enTitle },
+    date,
+  }
+}
+
+function formatGalleryAlbumDate(album: GalleryAlbum, language: Language) {
+  if (!album.date) {
+    return album.folderName
+  }
+
+  return new Intl.DateTimeFormat(languageLocale[language], {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(album.date)
+}
+
+function formatGalleryPhotoCount(count: number, language: Language) {
+  if (count === 1) {
+    return translate(galleryText.photoCountSingular, language)
+  }
+
+  return translate(galleryText.photoCountPlural, language).replace('{count}', String(count))
+}
+
+function formatGalleryPhotoPosition(current: number, total: number, language: Language) {
+  return translate(galleryText.photoPosition, language)
+    .replace('{current}', String(current))
+    .replace('{total}', String(total))
+}
+
+function getGalleryPhotoAlt(album: GalleryAlbum, language: Language) {
+  return translate(galleryText.albumPhotoAlt, language).replace(
+    '{album}',
+    translate(album.title, language),
+  )
+}
+
 function getEventSlugFromLocation() {
   const slug = new URLSearchParams(window.location.search).get(eventSlugSearchParam)
 
   return slug ? createEventSlug(slug) ?? null : null
+}
+
+function getGalleryAlbumSlugFromLocation() {
+  const slug = new URLSearchParams(window.location.search).get(galleryAlbumSearchParam)
+
+  return slug ? createGallerySlug(slug) ?? null : null
+}
+
+function getGalleryPhotoIdFromLocation() {
+  return new URLSearchParams(window.location.search).get(galleryPhotoSearchParam)
 }
 
 function replaceScheduleEventUrl(slug: string | null) {
@@ -434,6 +587,250 @@ function replaceScheduleEventUrl(slug: string | null) {
   }
 
   window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+}
+
+function getGalleryAlbumHref(slug: string) {
+  return withBasePath(`/gallery/?${galleryAlbumSearchParam}=${encodeURIComponent(slug)}`)
+}
+
+function getGalleryPhotoHref(albumSlug: string, photoId: string) {
+  return withBasePath(
+    `/gallery/?${galleryAlbumSearchParam}=${encodeURIComponent(albumSlug)}&${galleryPhotoSearchParam}=${encodeURIComponent(photoId)}`,
+  )
+}
+
+function updateGalleryUrl(albumSlug: string | null, photoId: string | null, replace = false) {
+  const url = new URL(window.location.href)
+  url.pathname = new URL(withBasePath('/gallery/'), window.location.origin).pathname
+  url.search = ''
+
+  if (albumSlug) {
+    url.searchParams.set(galleryAlbumSearchParam, albumSlug)
+  }
+
+  if (albumSlug && photoId) {
+    url.searchParams.set(galleryPhotoSearchParam, photoId)
+  }
+
+  const nextUrl = `${url.pathname}${url.search}${url.hash}`
+
+  if (replace) {
+    window.history.replaceState({}, '', nextUrl)
+    return
+  }
+
+  window.history.pushState({}, '', nextUrl)
+}
+
+function escapeDriveQueryString(value: string) {
+  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+}
+
+async function fetchGoogleDriveFiles(
+  apiKey: string,
+  options: {
+    q: string
+    fields: string
+    orderBy?: string
+    pageSize?: number
+    pageToken?: string
+  },
+) {
+  const url = new URL('https://www.googleapis.com/drive/v3/files')
+  url.searchParams.set('key', apiKey)
+  url.searchParams.set('q', options.q)
+  url.searchParams.set('fields', options.fields)
+  url.searchParams.set('pageSize', String(options.pageSize ?? 100))
+
+  if (options.orderBy) {
+    url.searchParams.set('orderBy', options.orderBy)
+  }
+
+  if (options.pageToken) {
+    url.searchParams.set('pageToken', options.pageToken)
+  }
+
+  const response = await fetch(url.href)
+  const data = (await response.json()) as GoogleDriveFilesResponse
+
+  if (!response.ok || data.error) {
+    throw new Error(data.error?.message ?? 'Google Drive request failed')
+  }
+
+  return data
+}
+
+async function fetchAllGoogleDriveFiles(
+  apiKey: string,
+  options: {
+    q: string
+    fields: string
+    orderBy?: string
+    pageSize?: number
+  },
+) {
+  const files: GoogleDriveFile[] = []
+  let pageToken: string | undefined
+
+  do {
+    const data = await fetchGoogleDriveFiles(apiKey, {
+      ...options,
+      pageToken,
+    })
+
+    files.push(...(data.files ?? []))
+    pageToken = data.nextPageToken
+  } while (pageToken)
+
+  return files
+}
+
+function resizeGoogleThumbnail(thumbnailLink: string | undefined, width: number) {
+  if (!thumbnailLink) {
+    return undefined
+  }
+
+  if (/=[swh]\d+(?:-[cp])?$/.test(thumbnailLink)) {
+    return thumbnailLink.replace(/=[swh]\d+(?:-[cp])?$/, `=w${width}`)
+  }
+
+  return thumbnailLink
+}
+
+function getDriveImageFallbackUrl(fileId: string, width: number) {
+  const url = new URL('https://drive.google.com/thumbnail')
+  url.searchParams.set('id', fileId)
+  url.searchParams.set('sz', `w${width}`)
+
+  return url.href
+}
+
+function getGalleryPhotoFromDriveFile(file: GoogleDriveFile): GalleryPhoto | null {
+  if (!file.id || !file.name) {
+    return null
+  }
+
+  return {
+    id: file.id,
+    name: file.name,
+    thumbnailUrl: resizeGoogleThumbnail(file.thumbnailLink, 720) ?? getDriveImageFallbackUrl(file.id, 720),
+    largeUrl: resizeGoogleThumbnail(file.thumbnailLink, 1800) ?? getDriveImageFallbackUrl(file.id, 1800),
+    width: file.imageMediaMetadata?.width,
+    height: file.imageMediaMetadata?.height,
+  }
+}
+
+async function fetchGoogleDriveAlbumCover(
+  config: GoogleDriveGalleryConfig,
+  albumFolderId: string,
+) {
+  const escapedFolderId = escapeDriveQueryString(albumFolderId)
+  const fields = 'files(id,name,mimeType,thumbnailLink,imageMediaMetadata(width,height)),nextPageToken'
+  const coverQuery = [
+    `'${escapedFolderId}' in parents`,
+    "mimeType contains 'image/'",
+    'trashed = false',
+    "name contains '[cover]'",
+  ].join(' and ')
+  const coverData = await fetchGoogleDriveFiles(config.apiKey, {
+    q: coverQuery,
+    fields,
+    orderBy: 'name',
+    pageSize: 10,
+  })
+  const coverPhoto = (coverData.files ?? [])
+    .map(getGalleryPhotoFromDriveFile)
+    .find((photo): photo is GalleryPhoto => Boolean(photo && galleryCoverPrefixPattern.test(photo.name)))
+
+  if (coverPhoto) {
+    return coverPhoto
+  }
+
+  const firstPhotoQuery = [
+    `'${escapedFolderId}' in parents`,
+    "mimeType contains 'image/'",
+    'trashed = false',
+  ].join(' and ')
+  const firstPhotoData = await fetchGoogleDriveFiles(config.apiKey, {
+    q: firstPhotoQuery,
+    fields,
+    orderBy: 'name',
+    pageSize: 1,
+  })
+
+  return (firstPhotoData.files ?? [])
+    .map(getGalleryPhotoFromDriveFile)
+    .find((photo): photo is GalleryPhoto => Boolean(photo))
+}
+
+async function fetchGoogleDriveGalleryAlbums(config: GoogleDriveGalleryConfig) {
+  const escapedFolderId = escapeDriveQueryString(config.folderId)
+  const folders = await fetchAllGoogleDriveFiles(config.apiKey, {
+    q: [
+      `'${escapedFolderId}' in parents`,
+      "mimeType = 'application/vnd.google-apps.folder'",
+      'trashed = false',
+    ].join(' and '),
+    fields: 'files(id,name,mimeType),nextPageToken',
+    orderBy: 'name',
+    pageSize: 100,
+  })
+
+  const albums = await Promise.all(
+    folders.map(async (folder) => {
+      if (!folder.id || !folder.name) {
+        return null
+      }
+
+      const parsedFolderName = parseGalleryAlbumFolderName(folder.name)
+      const slug = createGallerySlug(folder.name)
+
+      if (!slug) {
+        return null
+      }
+
+      return {
+        id: folder.id,
+        folderName: folder.name,
+        slug,
+        title: parsedFolderName.title,
+        date: parsedFolderName.date,
+        coverPhoto: await fetchGoogleDriveAlbumCover(config, folder.id),
+      }
+    }),
+  )
+
+  return albums
+    .filter((album): album is GalleryAlbum => Boolean(album))
+    .sort((leftAlbum, rightAlbum) => {
+      const leftDate = leftAlbum.date?.getTime() ?? 0
+      const rightDate = rightAlbum.date?.getTime() ?? 0
+
+      if (leftDate !== rightDate) {
+        return rightDate - leftDate
+      }
+
+      return rightAlbum.folderName.localeCompare(leftAlbum.folderName, 'pl-PL', { numeric: true })
+    })
+}
+
+async function fetchGoogleDriveAlbumPhotos(
+  config: GoogleDriveGalleryConfig,
+  album: GalleryAlbum,
+) {
+  const escapedFolderId = escapeDriveQueryString(album.id)
+  const files = await fetchAllGoogleDriveFiles(config.apiKey, {
+    q: [`'${escapedFolderId}' in parents`, "mimeType contains 'image/'", 'trashed = false'].join(
+      ' and ',
+    ),
+    fields: 'files(id,name,mimeType,thumbnailLink,imageMediaMetadata(width,height)),nextPageToken',
+    orderBy: 'name',
+    pageSize: 1000,
+  })
+
+  return files
+    .map(getGalleryPhotoFromDriveFile)
+    .filter((photo): photo is GalleryPhoto => Boolean(photo))
 }
 
 function getEventDomId(event: UpcomingEvent) {
@@ -1797,21 +2194,242 @@ function ImportantNotice({
   )
 }
 
-function AlbumGrid({ language }: { language: Language }) {
+function GalleryStatusMessage({
+  status,
+  children,
+}: {
+  status: GalleryLoadStatus | 'warning'
+  children: string
+}) {
+  return (
+    <p className={`gallery-status ${status}`} role="status">
+      {children}
+    </p>
+  )
+}
+
+function AlbumGrid({
+  albums,
+  language,
+  onAlbumSelect,
+}: {
+  albums: GalleryAlbum[]
+  language: Language
+  onAlbumSelect: (albumSlug: string) => void
+}) {
   return (
     <div className="card-grid album-grid">
-      {albums.map((album) => (
-        <article className="album-card" key={translate(album.title, language)}>
-          <div className={`album-cover ${album.tone}`}>
-            <img src={withBasePath(getLogoForTheme('light', 'purple'))} alt="" />
+      {albums.map((album) => {
+        const albumTitle = translate(album.title, language)
+        const openAlbumLabel = `${translate(galleryText.openAlbum, language)}: ${albumTitle}`
+
+        function handleAlbumClick(event: ReactMouseEvent<HTMLAnchorElement>) {
+          event.preventDefault()
+          onAlbumSelect(album.slug)
+        }
+
+        return (
+          <a
+            className="album-card gallery-album-card"
+            key={album.id}
+            href={getGalleryAlbumHref(album.slug)}
+            aria-label={openAlbumLabel}
+            onClick={handleAlbumClick}
+          >
+            <div className="album-cover">
+              {album.coverPhoto ? (
+                <img src={album.coverPhoto.thumbnailUrl} alt="" loading="lazy" />
+              ) : (
+                <img
+                  className="album-cover-placeholder"
+                  src={withBasePath(getLogoForTheme('light', 'purple'))}
+                  alt=""
+                />
+              )}
+            </div>
+            <div className="album-body">
+              <p className="eyebrow">{formatGalleryAlbumDate(album, language)}</p>
+              <h3>{albumTitle}</h3>
+            </div>
+          </a>
+        )
+      })}
+    </div>
+  )
+}
+
+function GalleryAlbumHeader({
+  album,
+  language,
+  photoCount,
+  onBack,
+}: {
+  album: GalleryAlbum
+  language: Language
+  photoCount?: number
+  onBack: () => void
+}) {
+  return (
+    <div className="gallery-album-header">
+      <div>
+        <p className="eyebrow">{formatGalleryAlbumDate(album, language)}</p>
+        <h2>{translate(album.title, language)}</h2>
+        {typeof photoCount === 'number' && (
+          <p className="muted">{formatGalleryPhotoCount(photoCount, language)}</p>
+        )}
+      </div>
+      <button
+        type="button"
+        className="gallery-back-button"
+        aria-label={translate(galleryText.backToAlbums, language)}
+        title={translate(galleryText.backToAlbums, language)}
+        onClick={onBack}
+      >
+        ←
+      </button>
+    </div>
+  )
+}
+
+function PhotoGrid({
+  album,
+  language,
+  photos,
+  onPhotoSelect,
+}: {
+  album: GalleryAlbum
+  language: Language
+  photos: GalleryPhoto[]
+  onPhotoSelect: (photoId: string) => void
+}) {
+  const photoAlt = getGalleryPhotoAlt(album, language)
+
+  return (
+    <div className="photo-grid">
+      {photos.map((photo, index) => {
+        function handlePhotoClick(event: ReactMouseEvent<HTMLAnchorElement>) {
+          event.preventDefault()
+          onPhotoSelect(photo.id)
+        }
+
+        return (
+          <a
+            className="photo-tile"
+            key={photo.id}
+            href={getGalleryPhotoHref(album.slug, photo.id)}
+            aria-label={`${translate(galleryText.openPhoto, language)} ${index + 1}`}
+            onClick={handlePhotoClick}
+          >
+            <img src={photo.thumbnailUrl} alt={photoAlt} loading="lazy" />
+          </a>
+        )
+      })}
+    </div>
+  )
+}
+
+function GalleryLightbox({
+  album,
+  language,
+  photos,
+  photoId,
+  onClose,
+  onPhotoSelect,
+}: {
+  album: GalleryAlbum
+  language: Language
+  photos: GalleryPhoto[]
+  photoId: string
+  onClose: () => void
+  onPhotoSelect: (photoId: string) => void
+}) {
+  const photoIndex = photos.findIndex((photo) => photo.id === photoId)
+  const photo = photoIndex >= 0 ? photos[photoIndex] : undefined
+  const previousPhoto = photoIndex > 0 ? photos[photoIndex - 1] : undefined
+  const nextPhoto = photoIndex >= 0 && photoIndex < photos.length - 1 ? photos[photoIndex + 1] : undefined
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+
+      if (event.key === 'ArrowLeft' && previousPhoto) {
+        onPhotoSelect(previousPhoto.id)
+      }
+
+      if (event.key === 'ArrowRight' && nextPhoto) {
+        onPhotoSelect(nextPhoto.id)
+      }
+    }
+
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [nextPhoto, onClose, onPhotoSelect, previousPhoto])
+
+  if (!photo) {
+    return null
+  }
+
+  return (
+    <div
+      className="gallery-lightbox-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose()
+        }
+      }}
+    >
+      <section
+        className="gallery-lightbox"
+        role="dialog"
+        aria-modal="true"
+        aria-label={translate(album.title, language)}
+      >
+        <div className="gallery-lightbox-bar">
+          <div>
+            <strong>{translate(album.title, language)}</strong>
+            <span>{formatGalleryPhotoPosition(photoIndex + 1, photos.length, language)}</span>
           </div>
-          <div className="album-body">
-            <p className="eyebrow">{translate(album.date, language)}</p>
-            <h3>{translate(album.title, language)}</h3>
-            <p>{translate(album.caption, language)}</p>
-          </div>
-        </article>
-      ))}
+          <button
+            type="button"
+            className="gallery-lightbox-button"
+            aria-label={translate(galleryText.closePhoto, language)}
+            onClick={onClose}
+            autoFocus
+          >
+            X
+          </button>
+        </div>
+        <div className="gallery-lightbox-stage">
+          <button
+            type="button"
+            className="gallery-lightbox-button gallery-lightbox-nav previous"
+            aria-label={translate(galleryText.previousPhoto, language)}
+            disabled={!previousPhoto}
+            onClick={() => previousPhoto && onPhotoSelect(previousPhoto.id)}
+          >
+            {'<'}
+          </button>
+          <img src={photo.largeUrl} alt={getGalleryPhotoAlt(album, language)} />
+          <button
+            type="button"
+            className="gallery-lightbox-button gallery-lightbox-nav next"
+            aria-label={translate(galleryText.nextPhoto, language)}
+            disabled={!nextPhoto}
+            onClick={() => nextPhoto && onPhotoSelect(nextPhoto.id)}
+          >
+            {'>'}
+          </button>
+        </div>
+      </section>
     </div>
   )
 }
@@ -1990,12 +2608,217 @@ function HomePage({
 }
 
 function GalleryPage({ language }: { language: Language }) {
+  const googleDriveGalleryConfig = useMemo(() => getGoogleDriveGalleryConfig(), [])
+  const [galleryState, setGalleryState] = useState<GalleryState>({
+    status: googleDriveGalleryConfig ? 'loading' : 'unconfigured',
+    albums: [],
+  })
+  const [albumSlug, setAlbumSlug] = useState<string | null>(getGalleryAlbumSlugFromLocation)
+  const [photoId, setPhotoId] = useState<string | null>(getGalleryPhotoIdFromLocation)
+  const [photoStates, setPhotoStates] = useState<Record<string, GalleryPhotosState>>({})
+  const photoStatesRef = useRef(photoStates)
+  const activeAlbum = albumSlug
+    ? galleryState.albums.find((album) => album.slug === albumSlug)
+    : undefined
+  const activePhotosState = activeAlbum ? photoStates[activeAlbum.id] : undefined
+  const activePhotos = activePhotosState?.photos ?? emptyGalleryPhotos
+  const activePhoto = photoId ? activePhotos.find((photo) => photo.id === photoId) : undefined
+  const shouldShowMissingAlbum =
+    galleryState.status === 'ready' && Boolean(albumSlug) && !activeAlbum
+
+  function selectAlbum(nextAlbumSlug: string | null) {
+    setAlbumSlug(nextAlbumSlug)
+    setPhotoId(null)
+    updateGalleryUrl(nextAlbumSlug, null)
+  }
+
+  function selectPhoto(nextPhotoId: string | null, replace = false) {
+    setPhotoId(nextPhotoId)
+    updateGalleryUrl(activeAlbum?.slug ?? null, nextPhotoId, replace)
+  }
+
+  useEffect(() => {
+    photoStatesRef.current = photoStates
+  }, [photoStates])
+
+  useEffect(() => {
+    if (!googleDriveGalleryConfig) {
+      return
+    }
+
+    let isActive = true
+
+    fetchGoogleDriveGalleryAlbums(googleDriveGalleryConfig)
+      .then((albums) => {
+        if (!isActive) {
+          return
+        }
+
+        setGalleryState({
+          status: 'ready',
+          albums,
+        })
+      })
+      .catch(() => {
+        if (!isActive) {
+          return
+        }
+
+        setGalleryState({
+          status: 'error',
+          albums: [],
+        })
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [googleDriveGalleryConfig])
+
+  useEffect(() => {
+    function handlePopState() {
+      setAlbumSlug(getGalleryAlbumSlugFromLocation())
+      setPhotoId(getGalleryPhotoIdFromLocation())
+    }
+
+    window.addEventListener('popstate', handlePopState)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!googleDriveGalleryConfig || !activeAlbum || photoStatesRef.current[activeAlbum.id]) {
+      return
+    }
+
+    let isActive = true
+
+    setPhotoStates((currentPhotoStates) => ({
+      ...currentPhotoStates,
+      [activeAlbum.id]: {
+        status: 'loading',
+        photos: [],
+      },
+    }))
+
+    fetchGoogleDriveAlbumPhotos(googleDriveGalleryConfig, activeAlbum)
+      .then((photos) => {
+        if (!isActive) {
+          return
+        }
+
+        setPhotoStates((currentPhotoStates) => ({
+          ...currentPhotoStates,
+          [activeAlbum.id]: {
+            status: 'ready',
+            photos,
+          },
+        }))
+      })
+      .catch(() => {
+        if (!isActive) {
+          return
+        }
+
+        setPhotoStates((currentPhotoStates) => ({
+          ...currentPhotoStates,
+          [activeAlbum.id]: {
+            status: 'error',
+            photos: [],
+          },
+        }))
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [activeAlbum, googleDriveGalleryConfig])
+
   return (
     <>
       <PageHeading page="gallery" language={language} />
       <section className="content-section">
-        <div className="content-width">
-          <AlbumGrid language={language} />
+        <div className="content-width gallery-layout">
+          {galleryState.status === 'loading' && (
+            <GalleryStatusMessage status="loading">
+              {translate(galleryText.loadingAlbums, language)}
+            </GalleryStatusMessage>
+          )}
+
+          {galleryState.status === 'unconfigured' && (
+            <GalleryStatusMessage status="unconfigured">
+              {translate(galleryText.notConfiguredNotice, language)}
+            </GalleryStatusMessage>
+          )}
+
+          {galleryState.status === 'error' && (
+            <GalleryStatusMessage status="error">
+              {translate(galleryText.errorNotice, language)}
+            </GalleryStatusMessage>
+          )}
+
+          {shouldShowMissingAlbum && (
+            <GalleryStatusMessage status="warning">
+              {translate(galleryText.albumNotFound, language)}
+            </GalleryStatusMessage>
+          )}
+
+          {galleryState.status === 'ready' && !activeAlbum && galleryState.albums.length === 0 && (
+            <GalleryStatusMessage status="ready">
+              {translate(galleryText.emptyAlbums, language)}
+            </GalleryStatusMessage>
+          )}
+
+          {galleryState.status === 'ready' && activeAlbum ? (
+            <div className="gallery-album-view">
+              <GalleryAlbumHeader
+                album={activeAlbum}
+                language={language}
+                photoCount={activePhotosState?.status === 'ready' ? activePhotos.length : undefined}
+                onBack={() => selectAlbum(null)}
+              />
+
+              {activePhotosState?.status === 'loading' || !activePhotosState ? (
+                <GalleryStatusMessage status="loading">
+                  {translate(galleryText.loadingPhotos, language)}
+                </GalleryStatusMessage>
+              ) : activePhotosState.status === 'error' ? (
+                <GalleryStatusMessage status="error">
+                  {translate(galleryText.errorPhotos, language)}
+                </GalleryStatusMessage>
+              ) : activePhotos.length === 0 ? (
+                <GalleryStatusMessage status="ready">
+                  {translate(galleryText.emptyPhotos, language)}
+                </GalleryStatusMessage>
+              ) : (
+                <PhotoGrid
+                  album={activeAlbum}
+                  language={language}
+                  photos={activePhotos}
+                  onPhotoSelect={(nextPhotoId) => selectPhoto(nextPhotoId)}
+                />
+              )}
+
+              {activePhoto && photoId && (
+                <GalleryLightbox
+                  album={activeAlbum}
+                  language={language}
+                  photos={activePhotos}
+                  photoId={photoId}
+                  onClose={() => selectPhoto(null)}
+                  onPhotoSelect={(nextPhotoId) => selectPhoto(nextPhotoId, true)}
+                />
+              )}
+            </div>
+          ) : galleryState.status === 'ready' && galleryState.albums.length > 0 ? (
+            <AlbumGrid
+              albums={galleryState.albums}
+              language={language}
+              onAlbumSelect={(nextAlbumSlug) => selectAlbum(nextAlbumSlug)}
+            />
+          ) : null}
         </div>
       </section>
     </>
