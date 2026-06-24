@@ -242,6 +242,7 @@ const galleryPhotoSearchParam = 'photo'
 const calendarNoticePrefixPattern = /^\s*\[notice\]\s*:?\s*/i
 const galleryCoverPrefixPattern = /^\s*\[cover\]/i
 const galleryImageRetryDelays = [450, 1400]
+const galleryImageLogoSpinnerMinimumMs = 450
 const homeScheduleCards = scheduleCards.slice(0, 2)
 const childrenMassCard = scheduleCards[2]
 const birthdayEventAccent = 'var(--color-violet)'
@@ -2248,6 +2249,23 @@ function GalleryStatusMessage({
   )
 }
 
+function GalleryImageLoadingLogo() {
+  return (
+    <span className="gallery-image-loading-logo" aria-hidden="true">
+      <img
+        className="gallery-image-loading-logo-mark gallery-image-loading-logo-mark-light"
+        src={withBasePath(logoPaths.lightPurple)}
+        alt=""
+      />
+      <img
+        className="gallery-image-loading-logo-mark gallery-image-loading-logo-mark-dark"
+        src={withBasePath(logoPaths.darkPurple)}
+        alt=""
+      />
+    </span>
+  )
+}
+
 function GalleryImage({
   src,
   refreshSrc,
@@ -2266,6 +2284,8 @@ function GalleryImage({
   const [attempt, setAttempt] = useState({ retryCount: 0, src })
   const [status, setStatus] = useState<'failed' | 'loaded' | 'loading'>('loading')
   const retryTimeoutRef = useRef<number | undefined>(undefined)
+  const loadCompleteTimeoutRef = useRef<number | undefined>(undefined)
+  const loadingStartedAtRef = useRef(0)
   const isMountedRef = useRef(true)
   const imageClassName = [
     'gallery-image',
@@ -2278,6 +2298,7 @@ function GalleryImage({
   useEffect(
     () => {
       isMountedRef.current = true
+      loadingStartedAtRef.current = Date.now()
 
       return () => {
         isMountedRef.current = false
@@ -2285,6 +2306,11 @@ function GalleryImage({
         if (retryTimeoutRef.current) {
           window.clearTimeout(retryTimeoutRef.current)
           retryTimeoutRef.current = undefined
+        }
+
+        if (loadCompleteTimeoutRef.current) {
+          window.clearTimeout(loadCompleteTimeoutRef.current)
+          loadCompleteTimeoutRef.current = undefined
         }
       }
     },
@@ -2297,6 +2323,7 @@ function GalleryImage({
     }
 
     setStatus('loading')
+    loadingStartedAtRef.current = Date.now()
     retryTimeoutRef.current = window.setTimeout(async () => {
       retryTimeoutRef.current = undefined
 
@@ -2332,6 +2359,32 @@ function GalleryImage({
     setStatus('failed')
   }
 
+  function completeImageLoad() {
+    if (loadingStartedAtRef.current === 0) {
+      loadingStartedAtRef.current = Date.now()
+    }
+
+    const remainingSpinnerTime =
+      galleryImageLogoSpinnerMinimumMs - (Date.now() - loadingStartedAtRef.current)
+
+    if (remainingSpinnerTime <= 0) {
+      setStatus('loaded')
+      return
+    }
+
+    if (loadCompleteTimeoutRef.current) {
+      window.clearTimeout(loadCompleteTimeoutRef.current)
+    }
+
+    loadCompleteTimeoutRef.current = window.setTimeout(() => {
+      loadCompleteTimeoutRef.current = undefined
+
+      if (isMountedRef.current) {
+        setStatus('loaded')
+      }
+    }, remainingSpinnerTime)
+  }
+
   function handleImageLoad(event: ReactSyntheticEvent<HTMLImageElement>) {
     if (event.currentTarget.naturalWidth === 0) {
       handleImageError()
@@ -2343,12 +2396,14 @@ function GalleryImage({
       retryTimeoutRef.current = undefined
     }
 
-    setStatus('loaded')
+    completeImageLoad()
   }
 
   return (
     <span className={imageClassName} style={style}>
-      <span className="gallery-image-spinner" aria-hidden="true" />
+      <span className="gallery-image-spinner" aria-hidden="true">
+        <GalleryImageLoadingLogo />
+      </span>
       <span className="gallery-image-error-symbol" aria-hidden="true" />
       <img
         key={`${attempt.src}-${attempt.retryCount}`}
