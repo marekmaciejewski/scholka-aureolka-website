@@ -95,6 +95,21 @@ The parish page confirms useful schedule facts:
 
 Parents have signed photo consents, so gallery support is allowed.
 
+## Local Development Assumptions
+
+For local UI verification, assume the Vite dev server is normally prepared at:
+
+- `http://localhost:5173/`
+
+The in-app Browser plugin should normally be available and may already be open.
+
+When a task requires browser verification:
+
+- First try to use the Browser plugin against `http://localhost:5173/`.
+- If the Browser plugin is unavailable, ask the user to enable or restart it.
+- If `http://localhost:5173/` is not reachable, ask the user whether to start the dev server or wait until they start it.
+- Do not silently fall back to unrelated browser or search tooling for local UI verification.
+
 ## Implementation Notes
 
 - Keep components small and content-driven.
