@@ -1,0 +1,476 @@
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  type SyntheticEvent as ReactSyntheticEvent,
+} from 'react'
+import { galleryText, logoPaths, type Language } from '../siteContent'
+import {
+  fetchGoogleDriveThumbnailUrl,
+  formatGalleryAlbumDate,
+  formatGalleryPhotoCount,
+  formatGalleryPhotoPosition,
+  galleryImageLogoSpinnerMinimumMs,
+  galleryImageRetryDelays,
+  getGalleryAlbumHref,
+  getGalleryPhotoAlt,
+  getGalleryPhotoAspectStyle,
+  getGalleryPhotoHref,
+  getLogoForTheme,
+  translate,
+  withBasePath,
+  type GalleryAlbum,
+  type GalleryLoadStatus,
+  type GalleryPhoto,
+} from '../core'
+
+function GalleryStatusMessage({
+  status,
+  children,
+}: {
+  status: GalleryLoadStatus | 'warning'
+  children: string
+}) {
+  return (
+    <p className={`gallery-status ${status}`} role="status">
+      {children}
+    </p>
+  )
+}
+
+function GalleryImageLoadingLogo() {
+  return (
+    <span className="gallery-image-loading-logo" aria-hidden="true">
+      <img
+        className="gallery-image-loading-logo-mark gallery-image-loading-logo-mark-light"
+        src={withBasePath(logoPaths.lightPurple)}
+        alt=""
+      />
+      <img
+        className="gallery-image-loading-logo-mark gallery-image-loading-logo-mark-dark"
+        src={withBasePath(logoPaths.darkPurple)}
+        alt=""
+      />
+    </span>
+  )
+}
+
+function GalleryImage({
+  src,
+  refreshSrc,
+  alt,
+  loading = 'lazy',
+  variant,
+  style,
+}: {
+  src: string
+  refreshSrc?: () => Promise<string | undefined>
+  alt: string
+  loading?: 'eager' | 'lazy'
+  variant: 'cover' | 'thumbnail' | 'lightbox'
+  style?: CSSProperties
+}) {
+  const [attempt, setAttempt] = useState({ retryCount: 0, src })
+  const [status, setStatus] = useState<'failed' | 'loaded' | 'loading'>('loading')
+  const retryTimeoutRef = useRef<number | undefined>(undefined)
+  const loadCompleteTimeoutRef = useRef<number | undefined>(undefined)
+  const loadingStartedAtRef = useRef(0)
+  const isMountedRef = useRef(true)
+  const imageClassName = [
+    'gallery-image',
+    `gallery-image-${variant}`,
+    status === 'loaded' ? 'is-loaded' : status === 'failed' ? 'is-failed' : 'is-loading',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  useEffect(
+    () => {
+      isMountedRef.current = true
+      loadingStartedAtRef.current = Date.now()
+
+      return () => {
+        isMountedRef.current = false
+
+        if (retryTimeoutRef.current) {
+          window.clearTimeout(retryTimeoutRef.current)
+          retryTimeoutRef.current = undefined
+        }
+
+        if (loadCompleteTimeoutRef.current) {
+          window.clearTimeout(loadCompleteTimeoutRef.current)
+          loadCompleteTimeoutRef.current = undefined
+        }
+      }
+    },
+    [],
+  )
+
+  function scheduleRetry(nextRetryCount: number, delay: number) {
+    if (retryTimeoutRef.current) {
+      return
+    }
+
+    setStatus('loading')
+    loadingStartedAtRef.current = Date.now()
+    retryTimeoutRef.current = window.setTimeout(async () => {
+      retryTimeoutRef.current = undefined
+
+      let nextSrc = attempt.src
+
+      if (refreshSrc) {
+        try {
+          nextSrc = (await refreshSrc()) ?? nextSrc
+        } catch {
+          nextSrc = attempt.src
+        }
+      }
+
+      if (!isMountedRef.current) {
+        return
+      }
+
+      setAttempt({
+        retryCount: nextRetryCount,
+        src: nextSrc,
+      })
+    }, delay)
+  }
+
+  function handleImageError() {
+    const nextRetryCount = attempt.retryCount + 1
+
+    if (nextRetryCount <= galleryImageRetryDelays.length) {
+      scheduleRetry(nextRetryCount, galleryImageRetryDelays[nextRetryCount - 1])
+      return
+    }
+
+    setStatus('failed')
+  }
+
+  function completeImageLoad() {
+    if (loadingStartedAtRef.current === 0) {
+      loadingStartedAtRef.current = Date.now()
+    }
+
+    const remainingSpinnerTime =
+      galleryImageLogoSpinnerMinimumMs - (Date.now() - loadingStartedAtRef.current)
+
+    if (remainingSpinnerTime <= 0) {
+      setStatus('loaded')
+      return
+    }
+
+    if (loadCompleteTimeoutRef.current) {
+      window.clearTimeout(loadCompleteTimeoutRef.current)
+    }
+
+    loadCompleteTimeoutRef.current = window.setTimeout(() => {
+      loadCompleteTimeoutRef.current = undefined
+
+      if (isMountedRef.current) {
+        setStatus('loaded')
+      }
+    }, remainingSpinnerTime)
+  }
+
+  function handleImageLoad(event: ReactSyntheticEvent<HTMLImageElement>) {
+    if (event.currentTarget.naturalWidth === 0) {
+      handleImageError()
+      return
+    }
+
+    if (retryTimeoutRef.current) {
+      window.clearTimeout(retryTimeoutRef.current)
+      retryTimeoutRef.current = undefined
+    }
+
+    completeImageLoad()
+  }
+
+  return (
+    <span className={imageClassName} style={style}>
+      <span className="gallery-image-spinner" aria-hidden="true">
+        <GalleryImageLoadingLogo />
+      </span>
+      <span className="gallery-image-error-symbol" aria-hidden="true" />
+      <img
+        key={`${attempt.src}-${attempt.retryCount}`}
+        src={attempt.src}
+        alt={alt}
+        loading={loading}
+        decoding="async"
+        referrerPolicy="no-referrer"
+        onError={handleImageError}
+        onLoad={handleImageLoad}
+      />
+    </span>
+  )
+}
+
+function AlbumGrid({
+  albums,
+  apiKey,
+  language,
+  onAlbumSelect,
+}: {
+  albums: GalleryAlbum[]
+  apiKey?: string
+  language: Language
+  onAlbumSelect: (albumSlug: string) => void
+}) {
+  return (
+    <div className="card-grid album-grid">
+      {albums.map((album) => {
+        const albumTitle = translate(album.title, language)
+        const coverPhoto = album.coverPhoto
+        const openAlbumLabel = `${translate(galleryText.openAlbum, language)}: ${albumTitle}`
+
+        function handleAlbumClick(event: ReactMouseEvent<HTMLAnchorElement>) {
+          event.preventDefault()
+          onAlbumSelect(album.slug)
+        }
+
+        return (
+          <a
+            className="album-card gallery-album-card"
+            key={album.id}
+            href={getGalleryAlbumHref(album.slug)}
+            aria-label={openAlbumLabel}
+            onClick={handleAlbumClick}
+          >
+            <div className="album-cover">
+              {coverPhoto ? (
+                <GalleryImage
+                  key={`${coverPhoto.id}-${coverPhoto.thumbnailUrl}`}
+                  src={coverPhoto.thumbnailUrl}
+                  refreshSrc={
+                    apiKey
+                      ? () => fetchGoogleDriveThumbnailUrl(apiKey, coverPhoto.id, 720)
+                      : undefined
+                  }
+                  alt=""
+                  loading="lazy"
+                  variant="cover"
+                />
+              ) : (
+                <img
+                  className="album-cover-placeholder"
+                  src={withBasePath(getLogoForTheme('light', 'purple'))}
+                  alt=""
+                />
+              )}
+            </div>
+            <div className="album-body">
+              <p className="eyebrow">{formatGalleryAlbumDate(album, language)}</p>
+              <h3>{albumTitle}</h3>
+            </div>
+          </a>
+        )
+      })}
+    </div>
+  )
+}
+
+function GalleryAlbumHeader({
+  album,
+  language,
+  photoCount,
+  onBack,
+}: {
+  album: GalleryAlbum
+  language: Language
+  photoCount?: number
+  onBack: () => void
+}) {
+  return (
+    <div className="gallery-album-header">
+      <div>
+        <p className="eyebrow">{formatGalleryAlbumDate(album, language)}</p>
+        <h2>{translate(album.title, language)}</h2>
+        {typeof photoCount === 'number' && (
+          <p className="muted">{formatGalleryPhotoCount(photoCount, language)}</p>
+        )}
+      </div>
+      <button
+        type="button"
+        className="gallery-back-button"
+        aria-label={translate(galleryText.backToAlbums, language)}
+        title={translate(galleryText.backToAlbums, language)}
+        onClick={onBack}
+      >
+        ←
+      </button>
+    </div>
+  )
+}
+
+function PhotoGrid({
+  album,
+  apiKey,
+  language,
+  photos,
+  onPhotoSelect,
+}: {
+  album: GalleryAlbum
+  apiKey?: string
+  language: Language
+  photos: GalleryPhoto[]
+  onPhotoSelect: (photoId: string) => void
+}) {
+  const photoAlt = getGalleryPhotoAlt(album, language)
+
+  return (
+    <div className="photo-grid">
+      {photos.map((photo, index) => {
+        function handlePhotoClick(event: ReactMouseEvent<HTMLAnchorElement>) {
+          event.preventDefault()
+          onPhotoSelect(photo.id)
+        }
+
+        return (
+          <a
+            className="photo-tile"
+            key={photo.id}
+            href={getGalleryPhotoHref(album.slug, photo.id)}
+            aria-label={`${translate(galleryText.openPhoto, language)} ${index + 1}`}
+            onClick={handlePhotoClick}
+          >
+            <GalleryImage
+              key={`${photo.id}-${photo.thumbnailUrl}`}
+              src={photo.thumbnailUrl}
+              refreshSrc={
+                apiKey ? () => fetchGoogleDriveThumbnailUrl(apiKey, photo.id, 720) : undefined
+              }
+              alt={photoAlt}
+              loading="lazy"
+              variant="thumbnail"
+            />
+          </a>
+        )
+      })}
+    </div>
+  )
+}
+
+function GalleryLightbox({
+  album,
+  apiKey,
+  language,
+  photos,
+  photoId,
+  onClose,
+  onPhotoSelect,
+}: {
+  album: GalleryAlbum
+  apiKey?: string
+  language: Language
+  photos: GalleryPhoto[]
+  photoId: string
+  onClose: () => void
+  onPhotoSelect: (photoId: string) => void
+}) {
+  const photoIndex = photos.findIndex((photo) => photo.id === photoId)
+  const photo = photoIndex >= 0 ? photos[photoIndex] : undefined
+  const previousPhoto = photoIndex > 0 ? photos[photoIndex - 1] : undefined
+  const nextPhoto = photoIndex >= 0 && photoIndex < photos.length - 1 ? photos[photoIndex + 1] : undefined
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+
+      if (event.key === 'ArrowLeft' && previousPhoto) {
+        onPhotoSelect(previousPhoto.id)
+      }
+
+      if (event.key === 'ArrowRight' && nextPhoto) {
+        onPhotoSelect(nextPhoto.id)
+      }
+    }
+
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [nextPhoto, onClose, onPhotoSelect, previousPhoto])
+
+  if (!photo) {
+    return null
+  }
+
+  return (
+    <div
+      className="gallery-lightbox-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose()
+        }
+      }}
+    >
+      <section
+        className="gallery-lightbox"
+        role="dialog"
+        aria-modal="true"
+        aria-label={translate(album.title, language)}
+      >
+        <div className="gallery-lightbox-bar">
+          <div>
+            <strong>{translate(album.title, language)}</strong>
+            <span>{formatGalleryPhotoPosition(photoIndex + 1, photos.length, language)}</span>
+          </div>
+          <button
+            type="button"
+            className="gallery-lightbox-button"
+            aria-label={translate(galleryText.closePhoto, language)}
+            onClick={onClose}
+            autoFocus
+          >
+            X
+          </button>
+        </div>
+        <div className="gallery-lightbox-stage">
+          <button
+            type="button"
+            className="gallery-lightbox-button gallery-lightbox-nav previous"
+            aria-label={translate(galleryText.previousPhoto, language)}
+            disabled={!previousPhoto}
+            onClick={() => previousPhoto && onPhotoSelect(previousPhoto.id)}
+          >
+            {'<'}
+          </button>
+          <GalleryImage
+            key={`${photo.id}-${photo.largeUrl}`}
+            src={photo.largeUrl}
+            refreshSrc={
+              apiKey ? () => fetchGoogleDriveThumbnailUrl(apiKey, photo.id, 1800) : undefined
+            }
+            alt={getGalleryPhotoAlt(album, language)}
+            loading="eager"
+            variant="lightbox"
+            style={getGalleryPhotoAspectStyle(photo)}
+          />
+          <button
+            type="button"
+            className="gallery-lightbox-button gallery-lightbox-nav next"
+            aria-label={translate(galleryText.nextPhoto, language)}
+            disabled={!nextPhoto}
+            onClick={() => nextPhoto && onPhotoSelect(nextPhoto.id)}
+          >
+            {'>'}
+          </button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+export { AlbumGrid, GalleryAlbumHeader, GalleryLightbox, GalleryStatusMessage, PhotoGrid }

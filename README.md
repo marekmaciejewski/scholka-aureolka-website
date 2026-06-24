@@ -99,6 +99,8 @@ Deployment is handled by GitHub Actions in `.github/workflows/pages.yml`.
 
 For that deployment target, the workflow sets `GITHUB_PAGES=true`, and Vite builds production assets with the `/scholka-aureolka-website/` base path. Local development still uses `/`.
 
+That project-site base path is intentional for the current deployment and should not be treated as a configuration warning. Revisit it only when moving to a custom domain or root user/organization Pages URL, where the production base path should become `/`.
+
 In the repository settings on GitHub:
 
 1. Open **Settings** -> **Pages**.
@@ -107,12 +109,13 @@ In the repository settings on GitHub:
 
 The workflow installs dependencies with `npm ci`, builds the static site with `npm run build`, uploads `dist/` as a Pages artifact, and deploys it to GitHub Pages. The generated `dist/` directory stays ignored in git.
 
-If this moves to a user/organization Pages repository or a custom domain later, the production base path should return to `/`.
-
 ## Project Structure
 
 - `src/main.tsx` mounts the React app.
-- `src/App.tsx` is the top-level application shell.
+- `src/App.tsx` owns app-level state and selects the current static page.
+- `src/pages/` contains page-level React components.
+- `src/components/` contains shared layout, event, and gallery components.
+- `src/core.ts` contains shared types, URL helpers, formatting, and Google API loading.
 - `src/index.css` contains global baseline styles and theme tokens.
 - `public/Logo*.svg` contains the prepared logo assets.
 - `docs/site-plan.md` captures the current product and layout plan.
