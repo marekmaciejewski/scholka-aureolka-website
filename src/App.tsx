@@ -6,6 +6,7 @@ import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
+  type SyntheticEvent as ReactSyntheticEvent,
 } from 'react'
 import {
   calendarEventHighlightText,
@@ -144,6 +145,12 @@ type GoogleDriveFile = {
   }
 }
 
+type GoogleDriveFileResponse = GoogleDriveFile & {
+  error?: {
+    message?: string
+  }
+}
+
 type GoogleDriveFilesResponse = {
   files?: GoogleDriveFile[]
   nextPageToken?: string
@@ -234,6 +241,7 @@ const galleryAlbumSearchParam = 'album'
 const galleryPhotoSearchParam = 'photo'
 const calendarNoticePrefixPattern = /^\s*\[notice\]\s*:?\s*/i
 const galleryCoverPrefixPattern = /^\s*\[cover\]/i
+const galleryImageRetryDelays = [450, 1400]
 const homeScheduleCards = scheduleCards.slice(0, 2)
 const childrenMassCard = scheduleCards[2]
 const birthdayEventAccent = 'var(--color-violet)'
@@ -660,6 +668,23 @@ async function fetchGoogleDriveFiles(
   return data
 }
 
+async function fetchGoogleDriveFile(apiKey: string, fileId: string, fields: string) {
+  const url = new URL(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}`,
+  )
+  url.searchParams.set('key', apiKey)
+  url.searchParams.set('fields', fields)
+
+  const response = await fetch(url.href)
+  const data = (await response.json()) as GoogleDriveFileResponse
+
+  if (!response.ok || data.error) {
+    throw new Error(data.error?.message ?? 'Google Drive file request failed')
+  }
+
+  return data
+}
+
 async function fetchAllGoogleDriveFiles(
   apiKey: string,
   options: {
@@ -697,12 +722,10 @@ function resizeGoogleThumbnail(thumbnailLink: string | undefined, width: number)
   return thumbnailLink
 }
 
-function getDriveImageFallbackUrl(fileId: string, width: number) {
-  const url = new URL('https://drive.google.com/thumbnail')
-  url.searchParams.set('id', fileId)
-  url.searchParams.set('sz', `w${width}`)
+async function fetchGoogleDriveThumbnailUrl(apiKey: string, fileId: string, width: number) {
+  const file = await fetchGoogleDriveFile(apiKey, fileId, 'id,thumbnailLink')
 
-  return url.href
+  return resizeGoogleThumbnail(file.thumbnailLink, width)
 }
 
 function getGalleryPhotoFromDriveFile(file: GoogleDriveFile): GalleryPhoto | null {
@@ -710,11 +733,18 @@ function getGalleryPhotoFromDriveFile(file: GoogleDriveFile): GalleryPhoto | nul
     return null
   }
 
+  const thumbnailUrl = resizeGoogleThumbnail(file.thumbnailLink, 720)
+  const largeUrl = resizeGoogleThumbnail(file.thumbnailLink, 1800)
+
+  if (!thumbnailUrl || !largeUrl) {
+    return null
+  }
+
   return {
     id: file.id,
     name: file.name,
-    thumbnailUrl: resizeGoogleThumbnail(file.thumbnailLink, 720) ?? getDriveImageFallbackUrl(file.id, 720),
-    largeUrl: resizeGoogleThumbnail(file.thumbnailLink, 1800) ?? getDriveImageFallbackUrl(file.id, 1800),
+    thumbnailUrl,
+    largeUrl,
     width: file.imageMediaMetadata?.width,
     height: file.imageMediaMetadata?.height,
   }
@@ -831,6 +861,16 @@ async function fetchGoogleDriveAlbumPhotos(
   return files
     .map(getGalleryPhotoFromDriveFile)
     .filter((photo): photo is GalleryPhoto => Boolean(photo))
+}
+
+function getGalleryPhotoAspectStyle(photo: GalleryPhoto): CSSProperties | undefined {
+  if (!photo.width || !photo.height) {
+    return undefined
+  }
+
+  return {
+    aspectRatio: `${photo.width} / ${photo.height}`,
+  }
 }
 
 function getEventDomId(event: UpcomingEvent) {
@@ -2208,12 +2248,130 @@ function GalleryStatusMessage({
   )
 }
 
+function GalleryImage({
+  src,
+  refreshSrc,
+  alt,
+  loading = 'lazy',
+  variant,
+  style,
+}: {
+  src: string
+  refreshSrc?: () => Promise<string | undefined>
+  alt: string
+  loading?: 'eager' | 'lazy'
+  variant: 'cover' | 'thumbnail' | 'lightbox'
+  style?: CSSProperties
+}) {
+  const [attempt, setAttempt] = useState({ retryCount: 0, src })
+  const [status, setStatus] = useState<'failed' | 'loaded' | 'loading'>('loading')
+  const retryTimeoutRef = useRef<number | undefined>(undefined)
+  const isMountedRef = useRef(true)
+  const imageClassName = [
+    'gallery-image',
+    `gallery-image-${variant}`,
+    status === 'loaded' ? 'is-loaded' : status === 'failed' ? 'is-failed' : 'is-loading',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  useEffect(
+    () => {
+      isMountedRef.current = true
+
+      return () => {
+        isMountedRef.current = false
+
+        if (retryTimeoutRef.current) {
+          window.clearTimeout(retryTimeoutRef.current)
+          retryTimeoutRef.current = undefined
+        }
+      }
+    },
+    [],
+  )
+
+  function scheduleRetry(nextRetryCount: number, delay: number) {
+    if (retryTimeoutRef.current) {
+      return
+    }
+
+    setStatus('loading')
+    retryTimeoutRef.current = window.setTimeout(async () => {
+      retryTimeoutRef.current = undefined
+
+      let nextSrc = attempt.src
+
+      if (refreshSrc) {
+        try {
+          nextSrc = (await refreshSrc()) ?? nextSrc
+        } catch {
+          nextSrc = attempt.src
+        }
+      }
+
+      if (!isMountedRef.current) {
+        return
+      }
+
+      setAttempt({
+        retryCount: nextRetryCount,
+        src: nextSrc,
+      })
+    }, delay)
+  }
+
+  function handleImageError() {
+    const nextRetryCount = attempt.retryCount + 1
+
+    if (nextRetryCount <= galleryImageRetryDelays.length) {
+      scheduleRetry(nextRetryCount, galleryImageRetryDelays[nextRetryCount - 1])
+      return
+    }
+
+    setStatus('failed')
+  }
+
+  function handleImageLoad(event: ReactSyntheticEvent<HTMLImageElement>) {
+    if (event.currentTarget.naturalWidth === 0) {
+      handleImageError()
+      return
+    }
+
+    if (retryTimeoutRef.current) {
+      window.clearTimeout(retryTimeoutRef.current)
+      retryTimeoutRef.current = undefined
+    }
+
+    setStatus('loaded')
+  }
+
+  return (
+    <span className={imageClassName} style={style}>
+      <span className="gallery-image-spinner" aria-hidden="true" />
+      <span className="gallery-image-error-symbol" aria-hidden="true" />
+      <img
+        key={`${attempt.src}-${attempt.retryCount}`}
+        src={attempt.src}
+        alt={alt}
+        loading={loading}
+        decoding="async"
+        referrerPolicy="no-referrer"
+        onError={handleImageError}
+        onLoad={handleImageLoad}
+      />
+    </span>
+  )
+}
+
 function AlbumGrid({
   albums,
+  apiKey,
   language,
   onAlbumSelect,
 }: {
   albums: GalleryAlbum[]
+  apiKey?: string
   language: Language
   onAlbumSelect: (albumSlug: string) => void
 }) {
@@ -2221,6 +2379,7 @@ function AlbumGrid({
     <div className="card-grid album-grid">
       {albums.map((album) => {
         const albumTitle = translate(album.title, language)
+        const coverPhoto = album.coverPhoto
         const openAlbumLabel = `${translate(galleryText.openAlbum, language)}: ${albumTitle}`
 
         function handleAlbumClick(event: ReactMouseEvent<HTMLAnchorElement>) {
@@ -2237,8 +2396,19 @@ function AlbumGrid({
             onClick={handleAlbumClick}
           >
             <div className="album-cover">
-              {album.coverPhoto ? (
-                <img src={album.coverPhoto.thumbnailUrl} alt="" loading="lazy" />
+              {coverPhoto ? (
+                <GalleryImage
+                  key={`${coverPhoto.id}-${coverPhoto.thumbnailUrl}`}
+                  src={coverPhoto.thumbnailUrl}
+                  refreshSrc={
+                    apiKey
+                      ? () => fetchGoogleDriveThumbnailUrl(apiKey, coverPhoto.id, 720)
+                      : undefined
+                  }
+                  alt=""
+                  loading="lazy"
+                  variant="cover"
+                />
               ) : (
                 <img
                   className="album-cover-placeholder"
@@ -2293,11 +2463,13 @@ function GalleryAlbumHeader({
 
 function PhotoGrid({
   album,
+  apiKey,
   language,
   photos,
   onPhotoSelect,
 }: {
   album: GalleryAlbum
+  apiKey?: string
   language: Language
   photos: GalleryPhoto[]
   onPhotoSelect: (photoId: string) => void
@@ -2320,7 +2492,16 @@ function PhotoGrid({
             aria-label={`${translate(galleryText.openPhoto, language)} ${index + 1}`}
             onClick={handlePhotoClick}
           >
-            <img src={photo.thumbnailUrl} alt={photoAlt} loading="lazy" />
+            <GalleryImage
+              key={`${photo.id}-${photo.thumbnailUrl}`}
+              src={photo.thumbnailUrl}
+              refreshSrc={
+                apiKey ? () => fetchGoogleDriveThumbnailUrl(apiKey, photo.id, 720) : undefined
+              }
+              alt={photoAlt}
+              loading="lazy"
+              variant="thumbnail"
+            />
           </a>
         )
       })}
@@ -2330,6 +2511,7 @@ function PhotoGrid({
 
 function GalleryLightbox({
   album,
+  apiKey,
   language,
   photos,
   photoId,
@@ -2337,6 +2519,7 @@ function GalleryLightbox({
   onPhotoSelect,
 }: {
   album: GalleryAlbum
+  apiKey?: string
   language: Language
   photos: GalleryPhoto[]
   photoId: string
@@ -2418,7 +2601,17 @@ function GalleryLightbox({
           >
             {'<'}
           </button>
-          <img src={photo.largeUrl} alt={getGalleryPhotoAlt(album, language)} />
+          <GalleryImage
+            key={`${photo.id}-${photo.largeUrl}`}
+            src={photo.largeUrl}
+            refreshSrc={
+              apiKey ? () => fetchGoogleDriveThumbnailUrl(apiKey, photo.id, 1800) : undefined
+            }
+            alt={getGalleryPhotoAlt(album, language)}
+            loading="eager"
+            variant="lightbox"
+            style={getGalleryPhotoAspectStyle(photo)}
+          />
           <button
             type="button"
             className="gallery-lightbox-button gallery-lightbox-nav next"
@@ -2795,6 +2988,7 @@ function GalleryPage({ language }: { language: Language }) {
               ) : (
                 <PhotoGrid
                   album={activeAlbum}
+                  apiKey={googleDriveGalleryConfig?.apiKey}
                   language={language}
                   photos={activePhotos}
                   onPhotoSelect={(nextPhotoId) => selectPhoto(nextPhotoId)}
@@ -2804,6 +2998,7 @@ function GalleryPage({ language }: { language: Language }) {
               {activePhoto && photoId && (
                 <GalleryLightbox
                   album={activeAlbum}
+                  apiKey={googleDriveGalleryConfig?.apiKey}
                   language={language}
                   photos={activePhotos}
                   photoId={photoId}
@@ -2815,6 +3010,7 @@ function GalleryPage({ language }: { language: Language }) {
           ) : galleryState.status === 'ready' && galleryState.albums.length > 0 ? (
             <AlbumGrid
               albums={galleryState.albums}
+              apiKey={googleDriveGalleryConfig?.apiKey}
               language={language}
               onAlbumSelect={(nextAlbumSlug) => selectAlbum(nextAlbumSlug)}
             />
