@@ -152,6 +152,14 @@ Recommended implementation:
 - Store selected language in `localStorage`.
 - Allow the site to fall back to Polish if an unknown language is requested.
 
+Future language expansion note:
+
+- The current React implementation uses a lightweight typed translation model rather than a framework-provided i18n pipeline: `Language`, `LocalizedText`, `languageOptions`, and `translate(...)`.
+- Adding a third language such as Ukrainian should start by centralizing supported-language metadata, including labels, locale IDs, storage validation, and calendar language labels.
+- TypeScript should continue to require complete translations for public UI strings.
+- Pluralization should be revisited before adding more languages, because Polish and Ukrainian have richer plural rules than English.
+- If the site grows into translator-maintained content, news, songs, FAQ, or many separate content areas, consider migrating to a dedicated React i18n library such as react-i18next, React Intl / FormatJS, or Lingui. For a small static parish site, the current typed content-file approach is still reasonable.
+
 ## Theme Model
 
 Recommended implementation:

@@ -226,6 +226,7 @@ function GalleryPage({ language }: Readonly<{ language: Language }>) {
     setAlbumSlug(nextAlbumSlug)
     setPhotoId(null)
     updateGalleryUrl(nextAlbumSlug, null)
+    globalThis.scrollTo({ top: 0, behavior: 'instant' })
   }
 
   function selectPhoto(nextPhotoId: string | null, replace = false) {
