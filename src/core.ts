@@ -221,15 +221,15 @@ const themeStorageKey = 'scholka-aureolka-theme'
 const eventSlugSearchParam = 'event'
 const galleryAlbumSearchParam = 'album'
 const galleryPhotoSearchParam = 'photo'
-const calendarNoticePrefixPattern = /^\s*\[notice\]\s*:?\s*/i
-const galleryCoverPrefixPattern = /^\s*\[cover\]/i
+const calendarNoticePrefixPattern = /^\s*\[notice]\s*:?\s*/i
+const galleryCoverPrefixPattern = /^\s*\[cover]/i
 const galleryImageRetryDelays = [450, 1400]
 const galleryImageLogoSpinnerMinimumMs = 450
 const homeScheduleCards = scheduleCards.slice(0, 2)
 const childrenMassCard = scheduleCards[2]
 const birthdayEventAccent = 'var(--color-violet)'
 const importantEventAccent = 'var(--color-important)'
-const polishOneLetterWordPattern = /(^|[\s([{„"'])(([AaIiOoUuWwZz]))\s+(?=\S)/g
+const polishOneLetterWordPattern = /(^|[\s([{„"'])([AaIiOoUuWwZz])\s+(?=\S)/g
 
 const languageLocale: Record<Language, string> = {
   pl: 'pl-PL',
@@ -601,7 +601,7 @@ function createSlug(value: string) {
   for (const character of normalizedValue) {
     if (isAsciiLetter(character) || isAsciiDigit(character)) {
       slug += character
-    } else if (slug && slug[slug.length - 1] !== '-') {
+    } else if (slug && !slug.endsWith('-')) {
       slug += '-'
     }
 
@@ -781,7 +781,11 @@ function updateGalleryUrl(albumSlug: string | null, photoId: string | null, repl
 }
 
 function escapeDriveQueryString(value: string) {
-  return value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")
+  const backslash = String.fromCodePoint(92)
+  const escapedBackslash = String.raw`\\`
+  const escapedApostrophe = String.raw`\'`
+
+  return value.replaceAll(backslash, escapedBackslash).replaceAll("'", escapedApostrophe)
 }
 
 async function fetchGoogleDriveFiles(
