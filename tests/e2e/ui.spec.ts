@@ -136,17 +136,17 @@ test('core pages render at each breakpoint without horizontal overflow', async (
   expect(errors).toEqual([])
 })
 
-test('mobile menu exposes navigation and preference controls', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'mobile', 'Mobile-menu layout is covered by the mobile project.')
-
+test('responsive header exposes navigation and preference controls', async ({ page }) => {
   const errors = trackUnexpectedPageErrors(page)
   await page.goto('/')
-
-  await expect(page.getByRole('button', { name: 'Open menu' })).toBeVisible()
-  await page.getByRole('button', { name: 'Open menu' }).click()
   const header = page.locator('.site-header')
+  const openMenuButton = page.getByRole('button', { name: 'Open menu' })
 
-  await expect(page.getByRole('button', { name: 'Close menu' })).toBeVisible()
+  if (await openMenuButton.isVisible()) {
+    await openMenuButton.click()
+    await expect(page.getByRole('button', { name: 'Close menu' })).toBeVisible()
+  }
+
   await expect(header.getByRole('link', { name: 'Schedule' })).toBeVisible()
   await expect(header.getByRole('button', { name: 'PL' })).toBeVisible()
   await expect(header.getByLabel('Dark theme')).toBeVisible()

@@ -967,7 +967,7 @@ async function fetchGoogleDriveGalleryAlbums(config: GoogleDriveGalleryConfig) {
       }
 
       const parsedFolderName = parseGalleryAlbumFolderName(folder.name)
-    const slug = createSlug(folder.name)
+      const slug = createSlug(folder.name)
 
       if (!slug) {
         return null
