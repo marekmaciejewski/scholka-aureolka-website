@@ -49,7 +49,38 @@ const pageRenderers: Record<PageKey, (context: PageRenderContext) => ReactNode> 
   contact: ({ language }) => <ContactPage language={language} />,
 }
 
+function useVisibleViewportTokens() {
+  useEffect(() => {
+    const root = document.documentElement
+    const viewport = globalThis.visualViewport
+
+    function updateViewportTokens() {
+      root.style.setProperty(
+        '--app-viewport-height',
+        `${viewport?.height ?? globalThis.innerHeight}px`,
+      )
+      root.style.setProperty('--app-viewport-offset-top', `${viewport?.offsetTop ?? 0}px`)
+    }
+
+    updateViewportTokens()
+
+    globalThis.addEventListener('resize', updateViewportTokens)
+    viewport?.addEventListener('resize', updateViewportTokens)
+    viewport?.addEventListener('scroll', updateViewportTokens)
+
+    return () => {
+      globalThis.removeEventListener('resize', updateViewportTokens)
+      viewport?.removeEventListener('resize', updateViewportTokens)
+      viewport?.removeEventListener('scroll', updateViewportTokens)
+      root.style.removeProperty('--app-viewport-height')
+      root.style.removeProperty('--app-viewport-offset-top')
+    }
+  }, [])
+}
+
 function App() {
+  useVisibleViewportTokens()
+
   const googleCalendarConfig = useMemo(() => getGoogleCalendarConfig(), [])
   const [language, setLanguage] = useState<Language>(getInitialLanguage)
   const [theme, setTheme] = useState<ThemeName>(getInitialTheme)
