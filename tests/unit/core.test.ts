@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import {
+  copyTextToClipboard,
   fetchConfiguredCalendarEvents,
   fetchGoogleDriveAlbumPhotos,
   fetchGoogleDriveGalleryAlbums,
@@ -81,17 +82,28 @@ function createAlbum(overrides: Partial<GalleryAlbum> = {}): GalleryAlbum {
   }
 }
 
-function mockJsonFetch(responses: unknown[]) {
+type MockJsonFetchResponse = {
+  body: unknown
+  ok?: boolean
+}
+
+function isMockJsonFetchResponse(response: unknown): response is MockJsonFetchResponse {
+  return Boolean(response && typeof response === 'object' && 'body' in response)
+}
+
+function mockJsonFetch(responses: Array<MockJsonFetchResponse | unknown>) {
   const fetchMock = vi.fn(async (input: string | URL) => {
     const response = responses.shift()
 
     if (!response) {
       throw new Error(`Unexpected fetch: ${String(input)}`)
     }
+    const body = isMockJsonFetchResponse(response) ? response.body : response
+    const ok = isMockJsonFetchResponse(response) ? (response.ok ?? true) : true
 
     return {
-      json: async () => response,
-      ok: true,
+      json: async () => body,
+      ok,
     }
   })
 
@@ -145,6 +157,28 @@ describe('routing and page helpers', () => {
     expect(window.location.search).toBe('')
   })
 
+  test('handles empty query-state URLs and clipboard availability', async () => {
+    stubLocation('http://localhost:5173/gallery/')
+
+    expect(getGalleryAlbumSlugFromLocation()).toBeNull()
+    expect(getEventSlugFromLocation()).toBeNull()
+
+    updateGalleryUrl(null, null, true)
+    expect(window.location.pathname).toBe('/gallery/')
+    expect(window.location.search).toBe('')
+
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { clipboard: { writeText } })
+
+    await copyTextToClipboard('event link')
+
+    expect(writeText).toHaveBeenCalledWith('event link')
+
+    vi.stubGlobal('navigator', {})
+
+    await expect(copyTextToClipboard('event link')).rejects.toThrow('Clipboard API is unavailable')
+  })
+
   test('reads persisted language, theme, and Google API config with safe fallbacks', () => {
     stubStorage({
       'scholka-aureolka-language': 'en',
@@ -194,6 +228,7 @@ describe('translation and formatting helpers', () => {
     expect(formatLocalizedHtml('Idziemy w <strong>procesji</strong> i spiewamy', 'pl')).toBe(
       'Idziemy w <strong>procesji</strong> i\u00a0spiewamy',
     )
+    expect(formatLocalizedHtml('Idziemy <strong', 'pl')).toBe('Idziemy <strong')
     expect(formatLocalizedHtml('We sing and pray', 'en')).toBe('We sing and pray')
   })
 
@@ -336,6 +371,99 @@ describe('schedule helpers', () => {
     expect(events[1].isNotice).toBe(true)
     expect(events[2].eventHighlight?.kind).toBe('birthday')
   })
+
+  test('maps rich calendar descriptions, all-day events, fallback titles, and invalid items', async () => {
+    const config: GoogleCalendarConfig = {
+      apiKey: 'api-key',
+      calendars: [{ calendarId: 'main-calendar', source: 'google-calendar' }],
+    }
+    mockJsonFetch([
+      {
+        event: {
+          '2': { background: '#abcdef', foreground: 'not-a-color' },
+        },
+      },
+      {
+        items: [
+          {
+            attachments: [
+              { fileUrl: '/file.pdf', title: '   ', mimeType: '   ', iconLink: 'ftp://bad' },
+              { fileUrl: 'https://example.com/guide.pdf' },
+            ],
+            colorId: '2',
+            description: `
+              <div>
+                <p>EN: <em>Sing</em> <a href="https://example.com/resource"></a><br><u>now</u></p>
+                <ol><li>event-slug: rich-html-event</li><li>Bring <s>old</s> notes</li></ol>
+                <script>ignored</script><style>.ignored { color: red; }</style>
+              </div>
+            `,
+            id: 'rich',
+            start: { date: '2026-07-02' },
+            summary: '!Important choir!',
+          },
+          {
+            id: 'missing-start',
+            summary: 'Missing start',
+          },
+          {
+            id: 'bad-date',
+            start: { date: 'bad-date' },
+            summary: 'Bad date',
+          },
+          {
+            description: 'Line one\n\nLine two https://example.com/info',
+            iCalUID: 'fallback-uid',
+            start: { dateTime: '2026-07-03T10:00:00+02:00' },
+            summary: '   ',
+          },
+          {
+            id: 'birthday-keyword',
+            start: { dateTime: '2026-07-04T10:00:00+02:00' },
+            summary: 'Birthday party',
+          },
+        ],
+      },
+    ])
+
+    const events = await fetchConfiguredCalendarEvents(config, 'en')
+    const richEvent = events.find((event) => event.id.endsWith('rich'))
+    const fallbackTitleEvent = events.find((event) => event.id.endsWith('fallback-uid'))
+    const birthdayEvent = events.find((event) => event.id.endsWith('birthday-keyword'))
+
+    expect(events).toHaveLength(3)
+    expect(richEvent).toMatchObject({
+      eventColor: { background: '#abcdef', foreground: undefined },
+      isAllDay: true,
+      slug: 'rich-html-event',
+      title: 'Important choir',
+    })
+    expect(richEvent?.attachments?.[0]).toMatchObject({
+      iconUrl: undefined,
+      mimeType: undefined,
+      title: 'Attachment 1',
+    })
+    expect(richEvent?.noteBlocks?.some((block) => block.kind === 'ordered-list')).toBe(true)
+    expect(fallbackTitleEvent?.title).toBe('Event')
+    expect(fallbackTitleEvent?.slug).toContain('event')
+    expect(fallbackTitleEvent?.noteBlocks?.some((block) => block.kind === 'spacer')).toBe(true)
+    expect(birthdayEvent?.eventHighlight?.kind).toBe('birthday')
+  })
+
+  test('throws when all configured calendar requests fail', async () => {
+    const config: GoogleCalendarConfig = {
+      apiKey: 'api-key',
+      calendars: [{ calendarId: 'main-calendar', source: 'google-calendar' }],
+    }
+    mockJsonFetch([
+      { body: { error: { message: 'Colors unavailable' } }, ok: false },
+      { body: { error: { message: 'Calendar unavailable' } }, ok: false },
+    ])
+
+    await expect(fetchConfiguredCalendarEvents(config, 'en')).rejects.toThrow(
+      'Google Calendar requests failed',
+    )
+  })
 })
 
 describe('gallery helpers', () => {
@@ -435,5 +563,53 @@ describe('gallery helpers', () => {
     expect(photos).toHaveLength(1)
     expect(photos[0].largeUrl).toBe('https://drive/photo=w1800')
     expect(refreshedThumbnail).toBe('https://drive/photo=w1800')
+  })
+
+  test('uses Google Drive pagination and falls back to the first album photo as cover', async () => {
+    const config: GoogleDriveGalleryConfig = { apiKey: 'api-key', folderId: "root'folder" }
+    const fetchMock = mockJsonFetch([
+      {
+        files: [],
+        nextPageToken: 'next-page',
+      },
+      {
+        files: [{ id: 'album-page-2', name: '2026-01-02 - Page Two' }],
+      },
+      {
+        files: [],
+      },
+      {
+        files: [
+          {
+            id: 'first-photo',
+            imageMediaMetadata: { height: 800, width: 1000 },
+            name: 'first.jpg',
+            thumbnailLink: 'https://drive/first-thumb',
+          },
+        ],
+      },
+    ])
+
+    const albums = await fetchGoogleDriveGalleryAlbums(config)
+
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(String(fetchMock.mock.calls[1][0])).toContain('pageToken=next-page')
+    expect(albums).toHaveLength(1)
+    expect(albums[0].coverPhoto?.id).toBe('first-photo')
+    expect(albums[0].coverPhoto?.thumbnailUrl).toBe('https://drive/first-thumb')
+  })
+
+  test('surfaces Google Drive API errors', async () => {
+    const config: GoogleDriveGalleryConfig = { apiKey: 'api-key', folderId: 'root-folder' }
+
+    mockJsonFetch([{ body: { error: { message: 'Drive failed' } }, ok: true }])
+
+    await expect(fetchGoogleDriveGalleryAlbums(config)).rejects.toThrow('Drive failed')
+
+    mockJsonFetch([{ body: { error: { message: 'File failed' } }, ok: false }])
+
+    await expect(fetchGoogleDriveThumbnailUrl('api-key', 'photo-1', 720)).rejects.toThrow(
+      'File failed',
+    )
   })
 })
