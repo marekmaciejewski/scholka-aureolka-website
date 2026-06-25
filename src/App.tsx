@@ -57,7 +57,7 @@ function App() {
     status: googleCalendarConfig ? 'loading' : 'unconfigured',
     events: [],
   })
-  const activePage = getPageFromPath(window.location.pathname)
+  const activePage = getPageFromPath(globalThis.location.pathname)
   const { noticeEvents, scheduleEvents } = useMemo(
     () => splitCalendarEvents(calendarState.events),
     [calendarState.events],
@@ -106,7 +106,7 @@ function App() {
 
   useEffect(() => {
     document.documentElement.lang = language
-    window.localStorage.setItem(languageStorageKey, language)
+    globalThis.localStorage.setItem(languageStorageKey, language)
   }, [language])
 
   useEffect(() => {
@@ -115,7 +115,7 @@ function App() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
-    window.localStorage.setItem(themeStorageKey, theme)
+    globalThis.localStorage.setItem(themeStorageKey, theme)
   }, [theme])
 
   return (
