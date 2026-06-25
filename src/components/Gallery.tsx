@@ -408,14 +408,14 @@ function GalleryLightbox({
   }
 
   return (
-    <div
-      className="gallery-lightbox-backdrop"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose()
-        }
-      }}
-    >
+    <div className="gallery-lightbox-backdrop">
+      <button
+        type="button"
+        className="dialog-backdrop-button"
+        aria-label={translate(galleryText.closePhoto, language)}
+        tabIndex={-1}
+        onClick={onClose}
+      />
       <section
         className="gallery-lightbox"
         role="dialog"

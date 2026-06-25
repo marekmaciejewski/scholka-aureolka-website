@@ -61,14 +61,14 @@ function FirstStepsModal({
   }, [onClose])
 
   return (
-    <div
-      className="modal-backdrop"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose()
-        }
-      }}
-    >
+    <div className="modal-backdrop">
+      <button
+        type="button"
+        className="dialog-backdrop-button"
+        aria-label={translate(commonText.closeModal, language)}
+        tabIndex={-1}
+        onClick={onClose}
+      />
       <section
         className="parent-info-modal"
         role="dialog"

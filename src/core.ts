@@ -241,6 +241,107 @@ const navigationItemByPath = new Map(
   navigationItems.map((item) => [normalizePagePath(item.href), item]),
 )
 
+function isAsciiDigit(value: string) {
+  return value >= '0' && value <= '9'
+}
+
+function isAsciiLetter(value: string) {
+  return value >= 'a' && value <= 'z'
+}
+
+function isWhitespace(value: string) {
+  return value.trim() === ''
+}
+
+function hasOnlyAsciiDigits(value: string) {
+  return value.length > 0 && Array.from(value).every(isAsciiDigit)
+}
+
+function stripLeadingCharacter(value: string, character: string) {
+  let start = 0
+
+  while (value[start] === character) {
+    start += 1
+  }
+
+  return value.slice(start)
+}
+
+function stripTrailingCharacter(value: string, character: string) {
+  let end = value.length
+
+  while (end > 0 && value[end - 1] === character) {
+    end -= 1
+  }
+
+  return value.slice(0, end)
+}
+
+function normalizeLineBreaks(value: string) {
+  let normalizedValue = ''
+
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index]
+
+    if (character === '\r') {
+      normalizedValue += '\n'
+
+      if (value[index + 1] === '\n') {
+        index += 1
+      }
+
+      continue
+    }
+
+    normalizedValue += character
+  }
+
+  return normalizedValue
+}
+
+function collapseExcessBlankLines(value: string) {
+  let normalizedValue = ''
+  let newlineCount = 0
+
+  for (const character of value) {
+    if (character === '\n') {
+      newlineCount += 1
+
+      if (newlineCount <= 2) {
+        normalizedValue += character
+      }
+
+      continue
+    }
+
+    newlineCount = 0
+    normalizedValue += character
+  }
+
+  return normalizedValue
+}
+
+function collapseWhitespaceRuns(value: string) {
+  let normalizedValue = ''
+  let isInsideWhitespace = false
+
+  for (const character of value) {
+    if (isWhitespace(character)) {
+      if (!isInsideWhitespace) {
+        normalizedValue += ' '
+      }
+
+      isInsideWhitespace = true
+      continue
+    }
+
+    normalizedValue += character
+    isInsideWhitespace = false
+  }
+
+  return normalizedValue
+}
+
 function getBasePath() {
   return import.meta.env.BASE_URL.endsWith('/')
     ? import.meta.env.BASE_URL
@@ -252,7 +353,7 @@ function withBasePath(path: string) {
     return path
   }
 
-  return `${getBasePath()}${path.replace(/^\/+/, '')}`
+  return `${getBasePath()}${stripLeadingCharacter(path, '/')}`
 }
 
 function getScheduleEventHref(slug: string) {
@@ -310,11 +411,39 @@ function removeBasePath(pathname: string) {
 }
 
 function normalizePagePath(pathname: string) {
-  return pathname.replace(/\/+$/, '') || '/'
+  return stripTrailingCharacter(pathname, '/') || '/'
 }
 
 function applyPolishNoBreaks(value: string) {
   return value.replace(polishOneLetterWordPattern, `$1$2\u00a0`)
+}
+
+function formatHtmlTextSegments(value: string, formatText: (text: string) => string) {
+  let formattedValue = ''
+  let currentIndex = 0
+
+  while (currentIndex < value.length) {
+    const tagStartIndex = value.indexOf('<', currentIndex)
+
+    if (tagStartIndex === -1) {
+      formattedValue += formatText(value.slice(currentIndex))
+      break
+    }
+
+    formattedValue += formatText(value.slice(currentIndex, tagStartIndex))
+
+    const tagEndIndex = value.indexOf('>', tagStartIndex + 1)
+
+    if (tagEndIndex === -1) {
+      formattedValue += formatText(value.slice(tagStartIndex))
+      break
+    }
+
+    formattedValue += value.slice(tagStartIndex, tagEndIndex + 1)
+    currentIndex = tagEndIndex + 1
+  }
+
+  return formattedValue
 }
 
 function formatLocalizedText(value: string, language: Language) {
@@ -326,10 +455,7 @@ function formatLocalizedHtml(value: string, language: Language) {
     return value
   }
 
-  return value
-    .split(/(<[^>]+>)/g)
-    .map((part) => (part.startsWith('<') ? part : applyPolishNoBreaks(part)))
-    .join('')
+  return formatHtmlTextSegments(value, applyPolishNoBreaks)
 }
 
 function translate(text: LocalizedText, language: Language) {
@@ -464,6 +590,41 @@ function formatMonth(date: Date, language: Language) {
   }).format(date)
 }
 
+function removeCombiningMarks(value: string) {
+  let normalizedValue = ''
+
+  for (const character of value) {
+    const codePoint = character.codePointAt(0) ?? 0
+
+    if (codePoint < 0x0300 || codePoint > 0x036f) {
+      normalizedValue += character
+    }
+  }
+
+  return normalizedValue
+}
+
+function createSlug(value: string) {
+  const normalizedValue = removeCombiningMarks(
+    value.replaceAll('ł', 'l').replaceAll('Ł', 'l').normalize('NFKD'),
+  ).toLocaleLowerCase('pl-PL')
+  let slug = ''
+
+  for (const character of normalizedValue) {
+    if (isAsciiLetter(character) || isAsciiDigit(character)) {
+      slug += character
+    } else if (slug && slug[slug.length - 1] !== '-') {
+      slug += '-'
+    }
+
+    if (slug.length >= 96) {
+      break
+    }
+  }
+
+  return stripTrailingCharacter(slug, '-') || undefined
+}
+
 function formatEventSlugDateTime(date: Date) {
   const pad = (value: number) => value.toString().padStart(2, '0')
 
@@ -476,18 +637,7 @@ function formatEventSlugDateTime(date: Date) {
 }
 
 function createEventSlug(value: string) {
-  const slug = value
-    .replace(/[łŁ]/g, 'l')
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('pl-PL')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .replace(/-{2,}/g, '-')
-    .slice(0, 96)
-    .replace(/-+$/g, '')
-
-  return slug || undefined
+  return createSlug(value)
 }
 
 function createFallbackEventSlug(title: string, date: Date) {
@@ -495,29 +645,58 @@ function createFallbackEventSlug(title: string, date: Date) {
 }
 
 function createGallerySlug(value: string) {
-  const slug = value
-    .replace(/[łŁ]/g, 'l')
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('pl-PL')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .replace(/-{2,}/g, '-')
-    .slice(0, 96)
-    .replace(/-+$/g, '')
+  return createSlug(value)
+}
 
-  return slug || undefined
+function parseGalleryFolderDatePrefix(value: string) {
+  if (
+    value.length < 10 ||
+    value[4] !== '-' ||
+    value[7] !== '-' ||
+    !hasOnlyAsciiDigits(value.slice(0, 4)) ||
+    !hasOnlyAsciiDigits(value.slice(5, 7)) ||
+    !hasOnlyAsciiDigits(value.slice(8, 10))
+  ) {
+    return undefined
+  }
+
+  const trailingTitle = value.slice(10).trim()
+  const titleValue = trailingTitle.startsWith('-')
+    ? trailingTitle.slice(1).trim()
+    : trailingTitle
+
+  return {
+    year: Number(value.slice(0, 4)),
+    month: Number(value.slice(5, 7)),
+    day: Number(value.slice(8, 10)),
+    titleValue: titleValue || value,
+  }
+}
+
+function splitLocalizedTitle(value: string) {
+  const separator = ' -- '
+  const separatorIndex = value.indexOf(separator)
+
+  if (separatorIndex === -1) {
+    return [value, undefined] as const
+  }
+
+  return [
+    value.slice(0, separatorIndex),
+    value.slice(separatorIndex + separator.length),
+  ] as const
 }
 
 function parseGalleryAlbumFolderName(folderName: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})\s*(?:-\s*)?(.+)?$/.exec(folderName.trim())
-  const titleValue = match?.[4]?.trim() || folderName.trim()
-  const titleParts = titleValue.split(/\s+--\s+/, 2)
-  const plTitle = titleParts[0]?.trim() || folderName.trim()
-  const enTitle = titleParts[1]?.trim() || plTitle
-  const year = match ? Number(match[1]) : 0
-  const month = match ? Number(match[2]) : 0
-  const day = match ? Number(match[3]) : 0
+  const trimmedFolderName = folderName.trim()
+  const parsedDatePrefix = parseGalleryFolderDatePrefix(trimmedFolderName)
+  const titleValue = parsedDatePrefix?.titleValue.trim() || trimmedFolderName
+  const [plTitleValue, enTitleValue] = splitLocalizedTitle(titleValue)
+  const plTitle = plTitleValue.trim() || trimmedFolderName
+  const enTitle = enTitleValue?.trim() || plTitle
+  const year = parsedDatePrefix?.year ?? 0
+  const month = parsedDatePrefix?.month ?? 0
+  const day = parsedDatePrefix?.day ?? 0
   const date = year && month && day ? new Date(year, month - 1, day) : undefined
 
   return {
@@ -622,7 +801,7 @@ function updateGalleryUrl(albumSlug: string | null, photoId: string | null, repl
 }
 
 function escapeDriveQueryString(value: string) {
-  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+  return value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")
 }
 
 async function fetchGoogleDriveFiles(
@@ -925,19 +1104,20 @@ function normalizeCalendarText(value?: string) {
     blockElement.append('\n')
   })
 
-  return (parsedDocument.body.textContent ?? trimmedValue)
-    .replace(/\u00a0/g, ' ')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
+  return collapseExcessBlankLines(
+    normalizeLineBreaks(
+      (parsedDocument.body.textContent ?? trimmedValue).replaceAll('\u00a0', ' '),
+    ),
+  ).trim()
 }
 
 function escapeHtml(value: string) {
   return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
 }
 
 function sanitizeCalendarUrl(value?: string | null) {
@@ -986,7 +1166,7 @@ function linkifyCalendarText(value: string) {
 }
 
 function createPlainTextParagraphBlock(value: string): CalendarRichParagraphBlock | null {
-  const text = value.replace(/\u00a0/g, ' ').trim()
+  const text = value.replaceAll('\u00a0', ' ').trim()
 
   if (!text) {
     return null
@@ -1000,9 +1180,7 @@ function createPlainTextParagraphBlock(value: string): CalendarRichParagraphBloc
 }
 
 function createPlainTextCalendarBlocks(value: string) {
-  const lines = value
-    .replace(/\u00a0/g, ' ')
-    .split(/\r?\n/)
+  const lines = normalizeLineBreaks(value.replaceAll('\u00a0', ' ')).split('\n')
   const blocks: CalendarRichBlock[] = []
 
   lines.forEach((line, index) => {
@@ -1072,15 +1250,13 @@ function getCalendarNodeText(node: Node): string {
 }
 
 function normalizeCalendarBlockText(value: string) {
-  return value
-    .replace(/\u00a0/g, ' ')
-    .replace(/\r\n?/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
+  return collapseExcessBlankLines(
+    normalizeLineBreaks(value.replaceAll('\u00a0', ' ')),
+  ).trim()
 }
 
 function tokenizeCalendarText(value: string): CalendarRichInlineToken[] {
-  const lines = value.replace(/\r\n?/g, '\n').split('\n')
+  const lines = normalizeLineBreaks(value).split('\n')
   const tokens: CalendarRichInlineToken[] = []
 
   lines.forEach((line, index) => {
@@ -1373,12 +1549,52 @@ function getCalendarBlockText(block: CalendarRichBlock) {
 }
 
 function getCalendarBlocksText(blocks: CalendarRichBlock[]) {
-  return blocks
-    .map(getCalendarBlockText)
-    .filter(Boolean)
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
+  return collapseExcessBlankLines(
+    blocks.map(getCalendarBlockText).filter(Boolean).join('\n'),
+  ).trim()
+}
+
+function getCalendarMetadataValue(text: string, labels: string[]) {
+  const trimmedText = text.trim()
+  const separatorIndex = trimmedText.indexOf(':')
+
+  if (separatorIndex === -1) {
+    return undefined
+  }
+
+  const label = trimmedText.slice(0, separatorIndex).trim().toLocaleLowerCase('en-US')
+
+  if (!labels.includes(label)) {
+    return undefined
+  }
+
+  const value = trimmedText.slice(separatorIndex + 1).trim()
+
+  return value || undefined
+}
+
+function getCalendarSlugMetadataValue(text: string) {
+  return getCalendarMetadataValue(text, ['slug', 'event-slug'])
+}
+
+function getCalendarLanguageMetadata(text: string) {
+  const trimmedText = text.trimStart()
+  const separatorIndex = trimmedText.indexOf(':')
+
+  if (separatorIndex === -1) {
+    return null
+  }
+
+  const language = trimmedText.slice(0, separatorIndex).trim().toLocaleLowerCase('en-US')
+
+  if (language !== 'pl' && language !== 'en') {
+    return null
+  }
+
+  return {
+    language: language as Language,
+    value: trimmedText.slice(separatorIndex + 1),
+  }
 }
 
 function extractCalendarNoteMetadata(blocks: CalendarRichBlock[]): CalendarDescriptionMetadata {
@@ -1386,10 +1602,10 @@ function extractCalendarNoteMetadata(blocks: CalendarRichBlock[]): CalendarDescr
   const visibleBlocks = blocks
     .map((block): CalendarRichBlock | null => {
       if (block.kind === 'paragraph') {
-        const slugLine = block.text.match(/^\s*(?:slug|event-slug)\s*:\s*(.+?)\s*$/i)
+        const slugValue = getCalendarSlugMetadataValue(block.text)
 
-        if (slugLine) {
-          slug = slug ?? createEventSlug(slugLine[1])
+        if (slugValue) {
+          slug = slug ?? createEventSlug(slugValue)
           return null
         }
 
@@ -1401,13 +1617,13 @@ function extractCalendarNoteMetadata(blocks: CalendarRichBlock[]): CalendarDescr
       }
 
       const items = block.items.filter((item) => {
-        const slugLine = item.text.match(/^\s*(?:slug|event-slug)\s*:\s*(.+?)\s*$/i)
+        const slugValue = getCalendarSlugMetadataValue(item.text)
 
-        if (!slugLine) {
+        if (!slugValue) {
           return true
         }
 
-        slug = slug ?? createEventSlug(slugLine[1])
+        slug = slug ?? createEventSlug(slugValue)
         return false
       })
 
@@ -1424,13 +1640,13 @@ function extractCalendarNoteMetadata(blocks: CalendarRichBlock[]): CalendarDescr
 
 function stripLanguageLabelFromBlock(
   block: CalendarRichBlock,
-  languageBlock: RegExpMatchArray,
+  languageBlockValue: string,
 ): CalendarRichParagraphBlock | null {
   if (block.kind !== 'paragraph') {
     return null
   }
 
-  return createPlainTextParagraphBlock(languageBlock[2] ?? '')
+  return createPlainTextParagraphBlock(languageBlockValue)
 }
 
 function getLocalizedCalendarBlocks(blocks: CalendarRichBlock[], language: Language) {
@@ -1441,15 +1657,15 @@ function getLocalizedCalendarBlocks(blocks: CalendarRichBlock[], language: Langu
   blocks.forEach((block) => {
     const languageBlock =
       block.kind === 'paragraph'
-        ? block.text.match(/^\s*(pl|en)\s*:\s*(.*)$/i)
+        ? getCalendarLanguageMetadata(block.text)
         : null
 
     if (languageBlock) {
       hasLocalizedBlock = true
-      activeLanguage = languageBlock[1].toLocaleLowerCase('en-US') as Language
+      activeLanguage = languageBlock.language
       localizedBlocks[activeLanguage] = localizedBlocks[activeLanguage] ?? []
 
-      const strippedBlock = stripLanguageLabelFromBlock(block, languageBlock)
+      const strippedBlock = stripLanguageLabelFromBlock(block, languageBlock.value)
 
       if (strippedBlock) {
         localizedBlocks[activeLanguage]?.push(strippedBlock)
@@ -1517,7 +1733,7 @@ function getDisplayCalendarEventTitle(
   }
 
   if (eventHighlight?.kind === 'important') {
-    return title.replace(/!/g, '').replace(/\s{2,}/g, ' ').trim() || title
+    return collapseWhitespaceRuns(title.replaceAll('!', '')).trim() || title
   }
 
   return title.trim() || title

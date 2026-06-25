@@ -1,6 +1,7 @@
-import type {
-  KeyboardEvent as ReactKeyboardEvent,
-  MouseEvent as ReactMouseEvent,
+import {
+  useEffect,
+  useRef,
+  type MouseEvent as ReactMouseEvent,
 } from 'react'
 import {
   calendarEventHighlightText,
@@ -42,10 +43,24 @@ function CopyLinkIcon({ isCopied }: { isCopied: boolean }) {
   )
 }
 
-function stopCalendarLinkPropagation(mouseEvent: ReactMouseEvent<HTMLElement>) {
-  if ((mouseEvent.target as HTMLElement).closest('a')) {
-    mouseEvent.stopPropagation()
-  }
+function useRichTextLinkPropagationGuard() {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const links = Array.from(containerRef.current?.querySelectorAll('a') ?? [])
+
+    function stopPropagation(mouseEvent: MouseEvent) {
+      mouseEvent.stopPropagation()
+    }
+
+    links.forEach((link) => link.addEventListener('click', stopPropagation))
+
+    return () => {
+      links.forEach((link) => link.removeEventListener('click', stopPropagation))
+    }
+  })
+
+  return containerRef
 }
 
 function CalendarRichContent({
@@ -57,12 +72,14 @@ function CalendarRichContent({
   language: Language
   className?: string
 }) {
+  const richTextRef = useRichTextLinkPropagationGuard()
+
   if (!blocks || blocks.length === 0) {
     return null
   }
 
   return (
-    <div className={className} onClick={stopCalendarLinkPropagation}>
+    <div className={className} ref={richTextRef}>
       {blocks.map((block, index) => {
         if (block.kind === 'paragraph') {
           return (
@@ -108,12 +125,17 @@ function AttachmentList({
   }
 
   return (
-    <div className={className} onClick={stopCalendarLinkPropagation}>
+    <div className={className}>
       <p className="event-attachments-title">{translate(scheduleText.attachmentsLabel, language)}</p>
       <ul>
         {attachments.map((attachment) => (
           <li key={attachment.id}>
-            <a href={attachment.url} target="_blank" rel="noreferrer">
+            <a
+              href={attachment.url}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(mouseEvent) => mouseEvent.stopPropagation()}
+            >
               {attachment.iconUrl && <img src={attachment.iconUrl} alt="" />}
               <span>{attachment.title}</span>
             </a>
@@ -184,19 +206,6 @@ function EventList({
           onExpandedEventChange(isExpanded ? null : event.id)
         }
 
-        function handleEventKeyDown(keyboardEvent: ReactKeyboardEvent<HTMLElement>) {
-          if (keyboardEvent.target !== keyboardEvent.currentTarget) {
-            return
-          }
-
-          if (keyboardEvent.key !== 'Enter' && keyboardEvent.key !== ' ') {
-            return
-          }
-
-          keyboardEvent.preventDefault()
-          toggleEvent()
-        }
-
         function handleCopyEventLink(mouseEvent: ReactMouseEvent<HTMLButtonElement>) {
           mouseEvent.stopPropagation()
 
@@ -248,7 +257,22 @@ function EventList({
                         <CopyLinkIcon isCopied={isCopied} />
                       </button>
                     )}
-                    {shouldShowDetailSymbol && (
+                    {canExpandEvent && (
+                      <button
+                        type="button"
+                        className="event-action-button event-expand-button"
+                        aria-expanded={isExpanded}
+                        aria-controls={detailsId}
+                        aria-label={`${translate(
+                          isExpanded ? scheduleText.collapseEvent : scheduleText.expandEvent,
+                          language,
+                        )}: ${event.title}`}
+                        onClick={toggleEvent}
+                      >
+                        {isExpanded ? '-' : '+'}
+                      </button>
+                    )}
+                    {shouldShowDetailSymbol && !canExpandEvent && (
                       <span
                         className="event-expand-status-icon"
                         aria-label={translate(scheduleText.eventInfoLabel, language)}
@@ -313,20 +337,6 @@ function EventList({
             key={event.id}
             id={getEventDomId(event)}
             style={getEventCardStyle(event)}
-            role={canExpandEvent ? 'button' : undefined}
-            tabIndex={canExpandEvent ? 0 : undefined}
-            aria-expanded={canExpandEvent ? isExpanded : undefined}
-            aria-controls={canExpandEvent ? detailsId : undefined}
-            aria-label={
-              canExpandEvent
-                ? `${translate(
-                    isExpanded ? scheduleText.collapseEvent : scheduleText.expandEvent,
-                    language,
-                  )}: ${event.title}`
-                : undefined
-            }
-            onClick={canExpandEvent ? toggleEvent : undefined}
-            onKeyDown={canExpandEvent ? handleEventKeyDown : undefined}
           >
             {eventCardContent}
           </article>
