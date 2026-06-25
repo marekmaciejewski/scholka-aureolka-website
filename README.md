@@ -70,9 +70,27 @@ Run linting:
 npm run lint
 ```
 
+Install the Playwright browser once before running end-to-end tests locally:
+
+```bash
+npx playwright install chromium
+```
+
+Run the browser UI test suite:
+
+```bash
+npm run test:e2e
+```
+
+For an interactive browser run:
+
+```bash
+npm run test:e2e:headed
+```
+
 ## Code Quality
 
-SonarQube Cloud analysis is configured with `sonar-project.properties` and runs from GitHub Actions in `.github/workflows/sonarqube.yml`.
+SonarQube Cloud analysis is configured with `sonar-project.properties` and runs from GitHub Actions in `.github/workflows/sonarqube.yml`. The same workflow builds, lints, installs Chromium for Playwright, and runs the end-to-end UI suite before analysis.
 
 The project key is:
 
