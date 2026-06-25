@@ -1,5 +1,8 @@
 # Scholka Aureolka Website
 
+| [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=marekmaciejewski_scholka-aureolka-website&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=marekmaciejewski_scholka-aureolka-website)<br>[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=marekmaciejewski_scholka-aureolka-website&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=marekmaciejewski_scholka-aureolka-website)<br>[![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=marekmaciejewski_scholka-aureolka-website&metric=sqale_index)](https://sonarcloud.io/summary/new_code?id=marekmaciejewski_scholka-aureolka-website) | [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=marekmaciejewski_scholka-aureolka-website&metric=bugs)](https://sonarcloud.io/summary/new_code?id=marekmaciejewski_scholka-aureolka-website)<br>[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=marekmaciejewski_scholka-aureolka-website&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=marekmaciejewski_scholka-aureolka-website)<br>[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=marekmaciejewski_scholka-aureolka-website&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=marekmaciejewski_scholka-aureolka-website) | [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=marekmaciejewski_scholka-aureolka-website&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=marekmaciejewski_scholka-aureolka-website)<br>[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=marekmaciejewski_scholka-aureolka-website&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=marekmaciejewski_scholka-aureolka-website)<br>[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=marekmaciejewski_scholka-aureolka-website&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=marekmaciejewski_scholka-aureolka-website) |
+|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+
 Static React website for the children's Polish Christian choir "Scholka Aureolka".
 
 The site is built with React, TypeScript, and Vite, and is hosted on GitHub Pages.
@@ -69,7 +72,7 @@ npm run lint
 
 ## Code Quality
 
-SonarQube Cloud analysis is configured with `sonar-project.properties`.
+SonarQube Cloud analysis is configured with `sonar-project.properties` and runs from GitHub Actions in `.github/workflows/sonarqube.yml`.
 
 The project key is:
 
@@ -83,7 +86,7 @@ The report URL is:
 https://sonarcloud.io/summary/overall?id=marekmaciejewski_scholka-aureolka-website&branch=master
 ```
 
-The project uses SonarQube Cloud Automatic Analysis, so no GitHub Actions scan workflow or `SONAR_TOKEN` repository secret is required for now.
+The project uses CI-based SonarQube Cloud analysis. Add a repository secret named `SONAR_TOKEN`, and keep SonarQube Cloud Automatic Analysis disabled so GitHub Actions is the only analysis source.
 
 Local Codex MCP configuration for SonarQube belongs in `.codex/config.toml`. The `.codex/` directory is ignored because it contains a personal token.
 

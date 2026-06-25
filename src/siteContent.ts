@@ -400,8 +400,3 @@ export const contactDetails = {
     }
   ],
 }
-
-export const weekdayLabels: Record<Language, string[]> = {
-  pl: ['niedziela', 'poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota'],
-  en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-}

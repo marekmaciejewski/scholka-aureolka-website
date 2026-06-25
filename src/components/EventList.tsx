@@ -1,6 +1,7 @@
-import type {
-  KeyboardEvent as ReactKeyboardEvent,
-  MouseEvent as ReactMouseEvent,
+import {
+  useEffect,
+  useRef,
+  type MouseEvent as ReactMouseEvent,
 } from 'react'
 import {
   calendarEventHighlightText,
@@ -21,7 +22,46 @@ import {
   type UpcomingEvent,
 } from '../core'
 
-function CopyLinkIcon({ isCopied }: { isCopied: boolean }) {
+type CalendarRichKeyCounts = Map<string, number>
+
+type EventListOptions = Readonly<{
+  language: Language
+  compact?: boolean
+  expandable?: boolean
+  showDetailSymbols?: boolean
+  expandedEventId?: string | null
+  linkedEventId?: string | null
+  copiedEventId?: string | null
+  getEventHref?: (event: UpcomingEvent) => string
+  onExpandedEventChange?: (eventId: string | null) => void
+  onEventLinkCopy?: (event: UpcomingEvent) => void
+}>
+
+type EventListProps = EventListOptions &
+  Readonly<{
+    events: UpcomingEvent[]
+  }>
+
+type EventCardProps = EventListOptions &
+  Readonly<{
+    event: UpcomingEvent
+  }>
+
+type EventTitleActionsProps = Readonly<{
+  canCopyEventLink: boolean
+  canExpandEvent: boolean
+  event: UpcomingEvent
+  isBirthdayEvent: boolean
+  isCopied: boolean
+  isExpanded: boolean
+  language: Language
+  detailsId: string
+  shouldShowDetailSymbol: boolean
+  onCopyEventLink: (mouseEvent: ReactMouseEvent<HTMLButtonElement>) => void
+  onToggleEvent: () => void
+}>
+
+function CopyLinkIcon({ isCopied }: Readonly<{ isCopied: boolean }>) {
   return (
     <svg
       className="event-action-icon"
@@ -42,48 +82,91 @@ function CopyLinkIcon({ isCopied }: { isCopied: boolean }) {
   )
 }
 
-function stopCalendarLinkPropagation(mouseEvent: ReactMouseEvent<HTMLElement>) {
-  if ((mouseEvent.target as HTMLElement).closest('a')) {
-    mouseEvent.stopPropagation()
+function useRichTextLinkPropagationGuard() {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const links = Array.from(containerRef.current?.querySelectorAll('a') ?? [])
+
+    function stopPropagation(mouseEvent: MouseEvent) {
+      mouseEvent.stopPropagation()
+    }
+
+    links.forEach((link) => link.addEventListener('click', stopPropagation))
+
+    return () => {
+      links.forEach((link) => link.removeEventListener('click', stopPropagation))
+    }
+  })
+
+  return containerRef
+}
+
+function getCalendarRichBlockBaseKey(block: CalendarRichBlock) {
+  if (block.kind === 'paragraph') {
+    return `paragraph-${block.html}`
   }
+
+  if (block.kind === 'spacer') {
+    return 'spacer'
+  }
+
+  return `${block.kind}-${block.items.map((item) => item.html).join('|')}`
+}
+
+function getUniqueCalendarRichKey(baseKey: string, keyCounts: CalendarRichKeyCounts) {
+  const currentCount = keyCounts.get(baseKey) ?? 0
+  keyCounts.set(baseKey, currentCount + 1)
+
+  return currentCount === 0 ? baseKey : `${baseKey}-${currentCount}`
 }
 
 function CalendarRichContent({
   blocks,
   language,
   className = 'calendar-rich-text',
-}: {
+}: Readonly<{
   blocks: CalendarRichBlock[] | undefined
   language: Language
   className?: string
-}) {
+}>) {
+  const richTextRef = useRichTextLinkPropagationGuard()
+
   if (!blocks || blocks.length === 0) {
     return null
   }
 
+  const blockKeyCounts: CalendarRichKeyCounts = new Map()
+
   return (
-    <div className={className} onClick={stopCalendarLinkPropagation}>
-      {blocks.map((block, index) => {
+    <div className={className} ref={richTextRef}>
+      {blocks.map((block) => {
+        const blockKey = getUniqueCalendarRichKey(
+          getCalendarRichBlockBaseKey(block),
+          blockKeyCounts,
+        )
+
         if (block.kind === 'paragraph') {
           return (
             <p
-              key={index}
+              key={blockKey}
               dangerouslySetInnerHTML={{ __html: formatLocalizedHtml(block.html, language) }}
             />
           )
         }
 
         if (block.kind === 'spacer') {
-          return <div className="calendar-rich-space" key={index} aria-hidden="true" />
+          return <div className="calendar-rich-space" key={blockKey} aria-hidden="true" />
         }
 
         const ListTag = block.kind === 'ordered-list' ? 'ol' : 'ul'
+        const itemKeyCounts: CalendarRichKeyCounts = new Map()
 
         return (
-          <ListTag key={index}>
-            {block.items.map((item, itemIndex) => (
+          <ListTag key={blockKey}>
+            {block.items.map((item) => (
               <li
-                key={`${index}-${itemIndex}`}
+                key={getUniqueCalendarRichKey(item.html, itemKeyCounts)}
                 dangerouslySetInnerHTML={{ __html: formatLocalizedHtml(item.html, language) }}
               />
             ))}
@@ -98,22 +181,27 @@ function AttachmentList({
   attachments,
   language,
   className = 'event-attachments',
-}: {
+}: Readonly<{
   attachments: CalendarEventAttachment[] | undefined
   language: Language
   className?: string
-}) {
+}>) {
   if (!attachments || attachments.length === 0) {
     return null
   }
 
   return (
-    <div className={className} onClick={stopCalendarLinkPropagation}>
+    <div className={className}>
       <p className="event-attachments-title">{translate(scheduleText.attachmentsLabel, language)}</p>
       <ul>
         {attachments.map((attachment) => (
           <li key={attachment.id}>
-            <a href={attachment.url} target="_blank" rel="noreferrer">
+            <a
+              href={attachment.url}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(mouseEvent) => mouseEvent.stopPropagation()}
+            >
               {attachment.iconUrl && <img src={attachment.iconUrl} alt="" />}
               <span>{attachment.title}</span>
             </a>
@@ -121,6 +209,255 @@ function AttachmentList({
         ))}
       </ul>
     </div>
+  )
+}
+
+function getEventDetailsId(event: UpcomingEvent) {
+  return `event-details-${event.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`
+}
+
+function getEventCardClassName({
+  eventHref,
+  isBirthdayEvent,
+  isExpanded,
+  isImportantEvent,
+  isLinked,
+  shouldShowDetailSymbol,
+}: Readonly<{
+  eventHref: string | undefined
+  isBirthdayEvent: boolean
+  isExpanded: boolean
+  isImportantEvent: boolean
+  isLinked: boolean
+  shouldShowDetailSymbol: boolean
+}>) {
+  return [
+    'event-card',
+    eventHref ? 'event-card-link' : '',
+    isBirthdayEvent ? 'event-card--birthday' : '',
+    isImportantEvent ? 'event-card--important' : '',
+    shouldShowDetailSymbol ? 'has-details' : '',
+    isExpanded ? 'is-expanded' : '',
+    isLinked ? 'is-linked' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+function EventTitleActions({
+  canCopyEventLink,
+  canExpandEvent,
+  event,
+  isBirthdayEvent,
+  isCopied,
+  isExpanded,
+  language,
+  detailsId,
+  shouldShowDetailSymbol,
+  onCopyEventLink,
+  onToggleEvent,
+}: EventTitleActionsProps) {
+  const copyButtonClassName = isCopied
+    ? 'event-action-button event-copy-link-button is-copied'
+    : 'event-action-button event-copy-link-button'
+  const copyEventLinkText = translate(
+    isCopied ? scheduleText.eventLinkCopied : scheduleText.copyEventLink,
+    language,
+  )
+  const expandEventText = translate(
+    isExpanded ? scheduleText.collapseEvent : scheduleText.expandEvent,
+    language,
+  )
+
+  return (
+    <div className="event-title-actions">
+      {isBirthdayEvent && (
+        <span
+          className="event-birthday-cake"
+          role="img"
+          aria-label={translate(calendarEventHighlightText.birthday, language)}
+        >
+          {'\uD83C\uDF82'}
+        </span>
+      )}
+      {canCopyEventLink && (
+        <button
+          type="button"
+          className={copyButtonClassName}
+          aria-label={`${copyEventLinkText}: ${event.title}`}
+          onClick={onCopyEventLink}
+        >
+          <CopyLinkIcon isCopied={isCopied} />
+        </button>
+      )}
+      {canExpandEvent && (
+        <button
+          type="button"
+          className="event-action-button event-expand-button"
+          aria-expanded={isExpanded}
+          aria-controls={detailsId}
+          aria-label={`${expandEventText}: ${event.title}`}
+          onClick={onToggleEvent}
+        >
+          {isExpanded ? '-' : '+'}
+        </button>
+      )}
+      {shouldShowDetailSymbol && !canExpandEvent && (
+        <span
+          className="event-expand-status-icon"
+          aria-label={translate(scheduleText.eventInfoLabel, language)}
+        >
+          {isExpanded ? '-' : '+'}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function EventDetails({
+  detailsId,
+  event,
+  language,
+}: Readonly<{
+  detailsId: string
+  event: UpcomingEvent
+  language: Language
+}>) {
+  return (
+    <div className="event-details" id={detailsId}>
+      {event.location && (
+        <dl className="event-detail-list">
+          <div>
+            <dt>{translate(scheduleText.whereLabel, language)}</dt>
+            <dd>{event.location}</dd>
+          </div>
+        </dl>
+      )}
+      <CalendarRichContent
+        blocks={event.noteBlocks}
+        language={language}
+        className="event-detail-note calendar-rich-text"
+      />
+      <AttachmentList attachments={event.attachments} language={language} />
+    </div>
+  )
+}
+
+function EventCard({
+  event,
+  language,
+  compact = false,
+  expandable = false,
+  showDetailSymbols = expandable,
+  expandedEventId = null,
+  linkedEventId = null,
+  copiedEventId = null,
+  getEventHref,
+  onExpandedEventChange,
+  onEventLinkCopy,
+}: EventCardProps) {
+  const eventHighlight = event.eventHighlight
+  const isBirthdayEvent = eventHighlight?.kind === 'birthday'
+  const isImportantEvent = eventHighlight?.kind === 'important'
+  const hasEventDetails = isExpandableScheduleEvent(event)
+  const canExpandEvent = expandable && hasEventDetails
+  const shouldShowDetailSymbol = showDetailSymbols && hasEventDetails
+  const isExpanded = canExpandEvent && expandedEventId === event.id
+  const detailsId = getEventDetailsId(event)
+  const canCopyEventLink = canExpandEvent && Boolean(event.slug)
+  const eventHref = getEventHref?.(event)
+  const eventCardClassName = getEventCardClassName({
+    eventHref,
+    isBirthdayEvent,
+    isExpanded,
+    isImportantEvent,
+    isLinked: linkedEventId === event.id,
+    shouldShowDetailSymbol,
+  })
+
+  function toggleEvent() {
+    if (canExpandEvent && onExpandedEventChange) {
+      onExpandedEventChange(isExpanded ? null : event.id)
+    }
+  }
+
+  function handleCopyEventLink(mouseEvent: ReactMouseEvent<HTMLButtonElement>) {
+    mouseEvent.stopPropagation()
+
+    if (canCopyEventLink && onEventLinkCopy) {
+      onEventLinkCopy(event)
+    }
+  }
+
+  const eventCardContent = (
+    <>
+      <div className="event-card-summary">
+        <div className="event-date">
+          <strong>{formatEventDate(event.date, language)}</strong>
+          <span>
+            {event.isAllDay
+              ? translate(scheduleText.allDay, language)
+              : formatEventTime(event.date, language)}
+          </span>
+        </div>
+        <div className="event-body">
+          <div className="event-title-row">
+            <h3>{event.title}</h3>
+            <EventTitleActions
+              canCopyEventLink={canCopyEventLink}
+              canExpandEvent={canExpandEvent}
+              event={event}
+              isBirthdayEvent={isBirthdayEvent}
+              isCopied={copiedEventId === event.id}
+              isExpanded={isExpanded}
+              language={language}
+              detailsId={detailsId}
+              shouldShowDetailSymbol={shouldShowDetailSymbol}
+              onCopyEventLink={handleCopyEventLink}
+              onToggleEvent={toggleEvent}
+            />
+          </div>
+          {event.location && <p className="muted">{event.location}</p>}
+          {!compact && !expandable && !eventHref && (
+            <>
+              <CalendarRichContent
+                blocks={event.noteBlocks}
+                language={language}
+                className="event-summary-note calendar-rich-text"
+              />
+              <AttachmentList attachments={event.attachments} language={language} />
+            </>
+          )}
+        </div>
+      </div>
+
+      {canExpandEvent && isExpanded && (
+        <EventDetails detailsId={detailsId} event={event} language={language} />
+      )}
+    </>
+  )
+
+  if (eventHref) {
+    return (
+      <a
+        className={eventCardClassName}
+        id={getEventDomId(event)}
+        href={eventHref}
+        style={getEventCardStyle(event)}
+      >
+        {eventCardContent}
+      </a>
+    )
+  }
+
+  return (
+    <article
+      className={eventCardClassName}
+      id={getEventDomId(event)}
+      style={getEventCardStyle(event)}
+    >
+      {eventCardContent}
+    </article>
   )
 }
 
@@ -136,202 +473,25 @@ function EventList({
   getEventHref,
   onExpandedEventChange,
   onEventLinkCopy,
-}: {
-  events: UpcomingEvent[]
-  language: Language
-  compact?: boolean
-  expandable?: boolean
-  showDetailSymbols?: boolean
-  expandedEventId?: string | null
-  linkedEventId?: string | null
-  copiedEventId?: string | null
-  getEventHref?: (event: UpcomingEvent) => string
-  onExpandedEventChange?: (eventId: string | null) => void
-  onEventLinkCopy?: (event: UpcomingEvent) => void
-}) {
+}: EventListProps) {
   return (
     <div className={compact ? 'event-list compact' : 'event-list'}>
-      {events.map((event) => {
-        const eventHighlight = event.eventHighlight
-        const isBirthdayEvent = eventHighlight?.kind === 'birthday'
-        const isImportantEvent = eventHighlight?.kind === 'important'
-        const hasEventDetails = isExpandableScheduleEvent(event)
-        const canExpandEvent = expandable && hasEventDetails
-        const shouldShowDetailSymbol = showDetailSymbols && hasEventDetails
-        const isExpanded = canExpandEvent && expandedEventId === event.id
-        const isLinked = linkedEventId === event.id
-        const detailsId = `event-details-${event.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`
-        const canCopyEventLink = canExpandEvent && Boolean(event.slug)
-        const isCopied = copiedEventId === event.id
-        const eventHref = getEventHref?.(event)
-        const eventCardClassName = [
-          'event-card',
-          eventHref ? 'event-card-link' : '',
-          isBirthdayEvent ? 'event-card--birthday' : '',
-          isImportantEvent ? 'event-card--important' : '',
-          shouldShowDetailSymbol ? 'has-details' : '',
-          isExpanded ? 'is-expanded' : '',
-          isLinked ? 'is-linked' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')
-
-        function toggleEvent() {
-          if (!canExpandEvent || !onExpandedEventChange) {
-            return
-          }
-
-          onExpandedEventChange(isExpanded ? null : event.id)
-        }
-
-        function handleEventKeyDown(keyboardEvent: ReactKeyboardEvent<HTMLElement>) {
-          if (keyboardEvent.target !== keyboardEvent.currentTarget) {
-            return
-          }
-
-          if (keyboardEvent.key !== 'Enter' && keyboardEvent.key !== ' ') {
-            return
-          }
-
-          keyboardEvent.preventDefault()
-          toggleEvent()
-        }
-
-        function handleCopyEventLink(mouseEvent: ReactMouseEvent<HTMLButtonElement>) {
-          mouseEvent.stopPropagation()
-
-          if (!canCopyEventLink || !onEventLinkCopy) {
-            return
-          }
-
-          onEventLinkCopy(event)
-        }
-
-        const eventCardContent = (
-          <>
-            <div className="event-card-summary">
-              <div className="event-date">
-                <strong>{formatEventDate(event.date, language)}</strong>
-                <span>
-                  {event.isAllDay
-                    ? translate(scheduleText.allDay, language)
-                    : formatEventTime(event.date, language)}
-                </span>
-              </div>
-              <div className="event-body">
-                <div className="event-title-row">
-                  <h3>{event.title}</h3>
-                  <div className="event-title-actions">
-                    {isBirthdayEvent && (
-                      <span
-                        className="event-birthday-cake"
-                        role="img"
-                        aria-label={translate(calendarEventHighlightText.birthday, language)}
-                      >
-                        {'\uD83C\uDF82'}
-                      </span>
-                    )}
-                    {canCopyEventLink && (
-                      <button
-                        type="button"
-                        className={
-                          isCopied
-                            ? 'event-action-button event-copy-link-button is-copied'
-                            : 'event-action-button event-copy-link-button'
-                        }
-                        aria-label={`${translate(
-                          isCopied ? scheduleText.eventLinkCopied : scheduleText.copyEventLink,
-                          language,
-                        )}: ${event.title}`}
-                        onClick={handleCopyEventLink}
-                      >
-                        <CopyLinkIcon isCopied={isCopied} />
-                      </button>
-                    )}
-                    {shouldShowDetailSymbol && (
-                      <span
-                        className="event-expand-status-icon"
-                        aria-label={translate(scheduleText.eventInfoLabel, language)}
-                      >
-                        {isExpanded ? '-' : '+'}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {event.location && <p className="muted">{event.location}</p>}
-                {!compact && !expandable && !eventHref && (
-                  <>
-                    <CalendarRichContent
-                      blocks={event.noteBlocks}
-                      language={language}
-                      className="event-summary-note calendar-rich-text"
-                    />
-                    <AttachmentList attachments={event.attachments} language={language} />
-                  </>
-                )}
-              </div>
-            </div>
-
-            {canExpandEvent && isExpanded && (
-              <div className="event-details" id={detailsId}>
-                {event.location && (
-                  <dl className="event-detail-list">
-                    <div>
-                      <dt>{translate(scheduleText.whereLabel, language)}</dt>
-                      <dd>{event.location}</dd>
-                    </div>
-                  </dl>
-                )}
-                <CalendarRichContent
-                  blocks={event.noteBlocks}
-                  language={language}
-                  className="event-detail-note calendar-rich-text"
-                />
-                <AttachmentList attachments={event.attachments} language={language} />
-              </div>
-            )}
-          </>
-        )
-
-        if (eventHref) {
-          return (
-            <a
-              className={eventCardClassName}
-              key={event.id}
-              id={getEventDomId(event)}
-              href={eventHref}
-              style={getEventCardStyle(event)}
-            >
-              {eventCardContent}
-            </a>
-          )
-        }
-
-        return (
-          <article
-            className={eventCardClassName}
-            key={event.id}
-            id={getEventDomId(event)}
-            style={getEventCardStyle(event)}
-            role={canExpandEvent ? 'button' : undefined}
-            tabIndex={canExpandEvent ? 0 : undefined}
-            aria-expanded={canExpandEvent ? isExpanded : undefined}
-            aria-controls={canExpandEvent ? detailsId : undefined}
-            aria-label={
-              canExpandEvent
-                ? `${translate(
-                    isExpanded ? scheduleText.collapseEvent : scheduleText.expandEvent,
-                    language,
-                  )}: ${event.title}`
-                : undefined
-            }
-            onClick={canExpandEvent ? toggleEvent : undefined}
-            onKeyDown={canExpandEvent ? handleEventKeyDown : undefined}
-          >
-            {eventCardContent}
-          </article>
-        )
-      })}
+      {events.map((event) => (
+        <EventCard
+          key={event.id}
+          event={event}
+          language={language}
+          compact={compact}
+          expandable={expandable}
+          showDetailSymbols={showDetailSymbols}
+          expandedEventId={expandedEventId}
+          linkedEventId={linkedEventId}
+          copiedEventId={copiedEventId}
+          getEventHref={getEventHref}
+          onExpandedEventChange={onExpandedEventChange}
+          onEventLinkCopy={onEventLinkCopy}
+        />
+      ))}
     </div>
   )
 }
@@ -339,10 +499,10 @@ function EventList({
 function ImportantNotice({
   language,
   notices,
-}: {
+}: Readonly<{
   language: Language
   notices: UpcomingEvent[]
-}) {
+}>) {
   if (notices.length === 0) {
     return null
   }
@@ -350,7 +510,6 @@ function ImportantNotice({
   return (
     <div
       className="important-notice-stack"
-      role="status"
       aria-label={translate(noticeText.listLabel, language)}
     >
       {notices.map((notice) => (

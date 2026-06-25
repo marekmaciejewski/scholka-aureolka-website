@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { scheduleText, type Language } from '../siteContent'
 import { EventList } from '../components/EventList'
 import { PageHeading } from '../components/Layout'
@@ -19,11 +19,11 @@ function SchedulePage({
   language,
   upcomingEvents,
   calendarStatus,
-}: {
+}: Readonly<{
   language: Language
   upcomingEvents: UpcomingEvent[]
   calendarStatus: CalendarLoadStatus
-}) {
+}>) {
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
   const [linkedEventSlug, setLinkedEventSlug] = useState<string | null>(getEventSlugFromLocation)
   const [copiedEventId, setCopiedEventId] = useState<string | null>(null)
@@ -39,17 +39,37 @@ function SchedulePage({
   const activeExpandedEventId = linkedExpandedEventId ?? stateExpandedEventId
   const linkedEventId = linkedEvent?.id ?? null
 
-  const statusMessage =
-    calendarStatus === 'loading'
-      ? scheduleText.loading
-      : calendarStatus === 'error'
-        ? scheduleText.errorNotice
-        : calendarStatus === 'unconfigured'
-          ? scheduleText.notConfiguredNotice
-          : null
+  const statusMessage = getScheduleStatusMessage(calendarStatus)
   const shouldShowEmptyState = calendarStatus === 'ready' && upcomingEvents.length === 0
   const shouldShowMissingLinkedEvent =
     calendarStatus === 'ready' && Boolean(linkedEventSlug) && !linkedEvent
+  let scheduleContent: ReactNode = null
+
+  if (shouldShowEmptyState) {
+    scheduleContent = (
+      <p className="schedule-empty">{translate(scheduleText.emptyState, language)}</p>
+    )
+  } else if (upcomingEvents.length > 0) {
+    scheduleContent = groupedEvents.map((group, index) => {
+      const headingId = `month-${index}`
+
+      return (
+        <section className="month-group" key={group.month} aria-labelledby={headingId}>
+          <h2 id={headingId}>{group.month}</h2>
+          <EventList
+            events={group.events}
+            language={language}
+            expandable
+            expandedEventId={activeExpandedEventId}
+            linkedEventId={linkedEventId}
+            copiedEventId={copiedEventId}
+            onExpandedEventChange={handleExpandedEventChange}
+            onEventLinkCopy={copyEventLink}
+          />
+        </section>
+      )
+    })
+  }
 
   function handleExpandedEventChange(eventId: string | null) {
     setExpandedEventId(eventId)
@@ -75,10 +95,10 @@ function SchedulePage({
       setLinkedEventSlug(getEventSlugFromLocation())
     }
 
-    window.addEventListener('popstate', handlePopState)
+    globalThis.addEventListener('popstate', handlePopState)
 
     return () => {
-      window.removeEventListener('popstate', handlePopState)
+      globalThis.removeEventListener('popstate', handlePopState)
     }
   }, [])
 
@@ -87,14 +107,14 @@ function SchedulePage({
       return
     }
 
-    const scrollTimeout = window.setTimeout(() => {
+    const scrollTimeout = globalThis.setTimeout(() => {
       document
         .getElementById(getEventDomId(linkedEvent))
         ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
     }, 0)
 
     return () => {
-      window.clearTimeout(scrollTimeout)
+      globalThis.clearTimeout(scrollTimeout)
     }
   }, [linkedEvent])
 
@@ -104,44 +124,38 @@ function SchedulePage({
       <section className="content-section">
         <div className="content-width narrow month-list">
           {statusMessage && (
-            <p className={`schedule-status ${calendarStatus}`} role="status">
+            <output className={`schedule-status ${calendarStatus}`}>
               {translate(statusMessage, language)}
-            </p>
+            </output>
           )}
 
           {shouldShowMissingLinkedEvent && (
-            <p className="schedule-status warning" role="status">
+            <output className="schedule-status warning">
               {translate(scheduleText.eventLinkNotFound, language)}
-            </p>
+            </output>
           )}
 
-          {shouldShowEmptyState ? (
-            <p className="schedule-empty">{translate(scheduleText.emptyState, language)}</p>
-          ) : upcomingEvents.length > 0 ? (
-            groupedEvents.map((group, index) => {
-              const headingId = `month-${index}`
-
-              return (
-                <section className="month-group" key={group.month} aria-labelledby={headingId}>
-                  <h2 id={headingId}>{group.month}</h2>
-                  <EventList
-                    events={group.events}
-                    language={language}
-                    expandable
-                    expandedEventId={activeExpandedEventId}
-                    linkedEventId={linkedEventId}
-                    copiedEventId={copiedEventId}
-                    onExpandedEventChange={handleExpandedEventChange}
-                    onEventLinkCopy={copyEventLink}
-                  />
-                </section>
-              )
-            })
-          ) : null}
+          {scheduleContent}
         </div>
       </section>
     </>
   )
+}
+
+function getScheduleStatusMessage(calendarStatus: CalendarLoadStatus) {
+  if (calendarStatus === 'loading') {
+    return scheduleText.loading
+  }
+
+  if (calendarStatus === 'error') {
+    return scheduleText.errorNotice
+  }
+
+  if (calendarStatus === 'unconfigured') {
+    return scheduleText.notConfiguredNotice
+  }
+
+  return null
 }
 
 export { SchedulePage }

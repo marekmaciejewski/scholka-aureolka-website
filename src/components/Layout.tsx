@@ -18,13 +18,13 @@ function Header({
   setLanguage,
   theme,
   setTheme,
-}: {
+}: Readonly<{
   activePage: PageKey
   language: Language
   setLanguage: (language: Language) => void
   theme: ThemeName
   setTheme: (theme: ThemeName) => void
-}) {
+}>) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
   return (
@@ -101,7 +101,7 @@ function Header({
   )
 }
 
-function PageHeading({ page, language }: { page: PageKey; language: Language }) {
+function PageHeading({ page, language }: Readonly<{ page: PageKey; language: Language }>) {
   const intro = pageIntro[page]
 
   return (

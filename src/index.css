@@ -531,16 +531,36 @@ main {
   position: fixed;
   z-index: 30;
   inset: 0;
+  overflow: auto;
   display: grid;
   place-items: center;
   padding: 1rem;
   background: rgb(18 10 24 / 62%);
 }
 
+.dialog-backdrop-button {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.dialog-backdrop-button:focus {
+  outline: 0;
+}
+
 .parent-info-modal {
   position: relative;
+  z-index: 1;
   width: min(680px, 100%);
   max-height: min(760px, calc(100vh - 2rem));
+  margin: 0;
   overflow: auto;
   border: 1px solid var(--color-border);
   border-radius: 8px;
@@ -872,7 +892,6 @@ main {
 
 .event-card.has-details,
 .event-card.event-card-link {
-  cursor: pointer;
   transition:
     border-color 160ms ease,
     background 160ms ease,
@@ -881,12 +900,11 @@ main {
 }
 
 .event-card.event-card-link {
+  cursor: pointer;
   color: inherit;
   text-decoration: none;
 }
 
-.event-card.has-details:hover,
-.event-card.has-details:focus-visible,
 .event-card.event-card-link:hover,
 .event-card.event-card-link:focus-visible {
   border-left-color: var(--event-accent);
@@ -895,7 +913,6 @@ main {
   transform: translateY(-1px);
 }
 
-.event-card.has-details:focus-visible,
 .event-card.event-card-link:focus-visible {
   box-shadow:
     var(--shadow-soft),
@@ -921,14 +938,11 @@ main {
   background: color-mix(in srgb, var(--color-important) 14%, var(--color-surface));
 }
 
-.event-card--important.has-details:hover,
-.event-card--important.has-details:focus-visible,
 .event-card--important.event-card-link:hover,
 .event-card--important.event-card-link:focus-visible {
   background: color-mix(in srgb, var(--color-important) 17%, var(--color-surface));
 }
 
-.event-card--important.has-details:focus-visible,
 .event-card--important.event-card-link:focus-visible {
   box-shadow:
     var(--shadow-soft),
@@ -996,12 +1010,19 @@ main {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--event-accent) 36%, transparent);
 }
 
-.event-copy-link-button {
+.event-copy-link-button,
+.event-expand-button {
   display: grid;
   place-items: center;
   width: 1.9rem;
   height: 1.9rem;
   padding: 0;
+}
+
+.event-expand-button {
+  font-size: 1rem;
+  font-weight: 950;
+  line-height: 1;
 }
 
 .event-copy-link-button.is-copied {
@@ -1255,6 +1276,7 @@ main {
   position: fixed;
   z-index: 40;
   inset: 0;
+  overflow: auto;
   display: grid;
   place-items: center;
   padding: 1rem;
@@ -1262,12 +1284,18 @@ main {
 }
 
 .gallery-lightbox {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 0.75rem;
   width: min(1120px, 100%);
   max-height: calc(100vh - 2rem);
+  margin: 0;
+  border: 0;
+  padding: 0;
   color: var(--color-hero-text);
+  background: transparent;
 }
 
 .gallery-lightbox-bar {
@@ -1525,6 +1553,7 @@ main {
 .schedule-status,
 .schedule-empty,
 .gallery-status {
+  display: block;
   margin-bottom: 0;
   border: 1px solid color-mix(in srgb, var(--color-gold) 58%, var(--color-border));
   border-radius: 8px;
@@ -1908,7 +1937,8 @@ main {
     order: 1;
   }
 
-  .event-copy-link-button {
+  .event-copy-link-button,
+  .event-expand-button {
     order: 2;
   }
 

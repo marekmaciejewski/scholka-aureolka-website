@@ -2,7 +2,7 @@ import { contactDetails, defaultLanguage, type Language } from '../siteContent'
 import { PageHeading } from '../components/Layout'
 import { translate, translateOptional } from '../core'
 
-function ContactPage({ language }: { language: Language }) {
+function ContactPage({ language }: Readonly<{ language: Language }>) {
   return (
     <>
       <PageHeading page="contact" language={language} />
