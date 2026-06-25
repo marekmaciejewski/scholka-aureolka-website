@@ -1,0 +1,407 @@
+export type Language = 'pl' | 'en'
+
+export type ThemeName = 'light' | 'dark'
+
+export type PageKey = 'home' | 'schedule' | 'gallery' | 'contact'
+
+export type LocalizedText = Record<Language, string>
+
+export type NavigationItem = {
+  key: PageKey
+  href: string
+  label: LocalizedText
+}
+
+export type FooterCredit = {
+  label: string
+  value: string
+}
+
+export type ScheduleCard = {
+  title: LocalizedText
+  time: LocalizedText
+  note: LocalizedText
+}
+
+export type ParentInfoItem = {
+  title: LocalizedText
+  body?: LocalizedText
+  note?: LocalizedText
+  bodyLink?: {
+    prefix: LocalizedText
+    href: string
+    label: LocalizedText
+    suffix?: LocalizedText
+  }
+  details?: Array<{
+    title: LocalizedText
+    body: LocalizedText
+  }>
+  link?: {
+    href: string
+    label: LocalizedText
+    tone?: 'subtle' | 'strong'
+  }
+}
+
+export const defaultLanguage: Language = 'pl'
+
+export const languageOptions: Array<{ key: Language; label: string }> = [
+  { key: 'pl', label: 'PL' },
+  { key: 'en', label: 'EN' },
+]
+
+export const logoPaths: Record<
+  'lightHeader' | 'darkHeader' | 'lightPurple' | 'darkPurple',
+  string
+> = {
+  lightHeader: '/Logo1 - light theme - with circle.svg',
+  darkHeader: '/Logo2 - dark theme - with circle.svg',
+  lightPurple: '/Logo5 - light theme - for purple background.svg',
+  darkPurple: '/Logo6 - dark theme - for purple background.svg',
+}
+
+export const navigationItems: NavigationItem[] = [
+  { key: 'home', href: '/', label: { pl: 'Start', en: 'Home' } },
+  { key: 'schedule', href: '/schedule/', label: { pl: 'Ogarniajzer', en: 'Schedule' } },
+  { key: 'gallery', href: '/gallery/', label: { pl: 'Galeria', en: 'Gallery' } },
+  { key: 'contact', href: '/contact/', label: { pl: 'Kontakt', en: 'Contact' } },
+]
+
+export const commonText = {
+  skipToContent: { pl: 'Przejdź do treści', en: 'Skip to content' },
+  siteKicker: { pl: 'Parafia Św. Urszuli w Gdyni', en: 'St. Ursula Parish in Gdynia' },
+  mainNavigation: { pl: 'Nawigacja główna', en: 'Main navigation' },
+  sitePreferences: { pl: 'Ustawienia strony', en: 'Site preferences' },
+  openMenu: { pl: 'Otwórz menu', en: 'Open menu' },
+  closeMenu: { pl: 'Zamknij menu', en: 'Close menu' },
+  languageLabel: { pl: 'Język', en: 'Language' },
+  themeLabel: { pl: 'Motyw', en: 'Theme' },
+  darkThemeToggle: { pl: 'Ciemny motyw', en: 'Dark theme' },
+  lightTheme: { pl: 'Jasny', en: 'Light' },
+  darkTheme: { pl: 'Ciemny', en: 'Dark' },
+  quickLinks: { pl: 'Szybkie przejścia', en: 'Quick links' },
+  schedule: { pl: 'Najbliższy rytm spotkań', en: 'Regular meeting rhythm' },
+  upcoming: { pl: 'Najbliższe wydarzenia', en: 'Upcoming events' },
+  galleryPreview: { pl: 'Ostatnie albumy', en: 'Recent albums' },
+  contactTeaser: { pl: 'Kontakt na miejscu', en: 'Contact in person' },
+  viewSchedule: { pl: 'Ogarniajzer', en: 'Schedule' },
+  viewGallery: { pl: 'Zobacz galerię', en: 'View gallery' },
+  firstSteps: { pl: 'Pierwsze kroki', en: 'First steps' },
+  closeModal: { pl: 'Zamknij', en: 'Close' },
+  goToContact: { pl: 'Jak porozmawiać', en: 'How to get in touch' },
+  externalLinks: { pl: 'Linki zewnętrzne', en: 'External links' },
+}
+
+export const scheduleText = {
+  loading: {
+    pl: 'Pobieramy aktualne wydarzenia z kalendarza.',
+    en: 'Loading current events from the calendar.',
+  },
+  notConfiguredNotice: {
+    pl: 'Kalendarz Google nie jest jeszcze podłączony. Po konfiguracji pokażemy tutaj wydarzenia z najbliższych 3 miesięcy.',
+    en: 'Google Calendar is not connected yet. After configuration, events from the next 3 months will appear here.',
+  },
+  errorNotice: {
+    pl: 'Nie udało się pobrać wydarzeń z kalendarza Google. Spróbuj odświeżyć stronę później.',
+    en: 'Google Calendar events could not be loaded. Try refreshing the page later.',
+  },
+  emptyState: {
+    pl: 'Brak zaplanowanych wydarzeń w najbliższych 3 miesiącach.',
+    en: 'There are no scheduled events in the next 3 months.',
+  },
+  expandEvent: { pl: 'Pokaż szczegóły wydarzenia', en: 'Show event details' },
+  collapseEvent: { pl: 'Ukryj szczegóły wydarzenia', en: 'Hide event details' },
+  copyEventLink: { pl: 'Kopiuj link do wydarzenia', en: 'Copy event link' },
+  eventLinkCopied: { pl: 'Skopiowano link do wydarzenia', en: 'Event link copied' },
+  eventInfoLabel: { pl: 'Wydarzenie ma dodatkowe informacje', en: 'This event has additional information' },
+  eventLinkNotFound: {
+    pl: 'Nie znaleziono wydarzenia z podanego linku w najbliższych 3 miesiącach.',
+    en: 'The event from this link was not found in the next 3 months.',
+  },
+  whenLabel: { pl: 'Kiedy', en: 'When' },
+  whereLabel: { pl: 'Gdzie', en: 'Where' },
+  noteLabel: { pl: 'Informacje', en: 'Details' },
+  attachmentsLabel: { pl: 'Za\u0142\u0105czniki', en: 'Attachments' },
+  attachmentFallbackTitle: { pl: 'Za\u0142\u0105cznik', en: 'Attachment' },
+  allDay: { pl: 'cały dzień', en: 'all day' },
+  untitledEvent: { pl: 'Wydarzenie', en: 'Event' },
+}
+
+export const galleryText = {
+  loadingAlbums: {
+    pl: 'Pobieramy albumy z Dysku Google.',
+    en: 'Loading albums from Google Drive.',
+  },
+  notConfiguredNotice: {
+    pl: 'Galeria z Dysku Google nie jest jeszcze podłączona.',
+    en: 'Google Drive gallery is not connected yet.',
+  },
+  errorNotice: {
+    pl: 'Nie udało się pobrać galerii z Dysku Google. Spróbuj odświeżyć stronę później.',
+    en: 'The Google Drive gallery could not be loaded. Try refreshing the page later.',
+  },
+  emptyAlbums: {
+    pl: 'Nie ma jeszcze opublikowanych albumów.',
+    en: 'There are no published albums yet.',
+  },
+  albumNotFound: {
+    pl: 'Nie znaleziono albumu z podanego linku.',
+    en: 'The album from this link was not found.',
+  },
+  loadingPhotos: {
+    pl: 'Pobieramy zdjęcia z albumu.',
+    en: 'Loading photos from the album.',
+  },
+  errorPhotos: {
+    pl: 'Nie udało się pobrać zdjęć z tego albumu.',
+    en: 'Photos from this album could not be loaded.',
+  },
+  emptyPhotos: {
+    pl: 'Ten album nie ma jeszcze zdjęć.',
+    en: 'This album does not have photos yet.',
+  },
+  backToAlbums: { pl: 'Wróć do albumów', en: 'Back to albums' },
+  openAlbum: { pl: 'Otwórz album', en: 'Open album' },
+  openPhoto: { pl: 'Otwórz zdjęcie', en: 'Open photo' },
+  closePhoto: { pl: 'Zamknij zdjęcie', en: 'Close photo' },
+  previousPhoto: { pl: 'Poprzednie zdjęcie', en: 'Previous photo' },
+  nextPhoto: { pl: 'Następne zdjęcie', en: 'Next photo' },
+  photoCountSingular: { pl: '1 zdjęcie', en: '1 photo' },
+  photoCountPlural: { pl: '{count} zdjęć', en: '{count} photos' },
+  photoPosition: { pl: '{current} z {total}', en: '{current} of {total}' },
+  albumPhotoAlt: { pl: 'Zdjęcie z albumu {album}', en: 'Photo from album {album}' },
+}
+
+export const calendarEventHighlightText = {
+  birthday: { pl: 'Urodziny', en: 'Birthday' },
+  important: { pl: 'Wa\u017cne', en: 'Important' },
+}
+
+export const noticeText = {
+  listLabel: { pl: 'Wa\u017cne informacje', en: 'Important notices' },
+  defaultTitle: { pl: 'Wa\u017cna informacja', en: 'Important notice' },
+}
+
+export const footerQuote = '„Qui cantat, bis orat”'
+
+export const footerCredits: FooterCredit[] = [
+  {
+    label: 'Site creator',
+    value: 'Marek Maciejewski',
+  },
+  {
+    label: 'Logo creator',
+    value: 'Kamil Jadczuk',
+  },
+  {
+    label: 'Tech stack',
+    value: 'React, TypeScript, Vite, GitHub Pages',
+  },
+]
+
+export const pageIntro: Record<
+  PageKey,
+  { eyebrow: LocalizedText; title: LocalizedText; lead?: LocalizedText }
+> = {
+  home: {
+    eyebrow: { pl: 'Scholka Aureolka', en: 'Scholka Aureolka' },
+    title: { pl: 'Śpiewamy razem przy parafii', en: 'Singing together at the parish' },
+    lead: {
+      pl: 'Ciepłe i praktyczne miejsce dla rodziców: terminy prób, najbliższe wydarzenia, zdjęcia i najważniejsze informacje w jednym miejscu.',
+      en: 'A warm, practical place for parents: rehearsal times, upcoming events, photos, and key practical information in one place.',
+    },
+  },
+  gallery: {
+    eyebrow: { pl: 'Zdjęcia z życia scholi', en: 'Photos from choir life' },
+    title: { pl: 'Galeria', en: 'Gallery' },
+  },
+  schedule: {
+    eyebrow: {
+      pl: 'Najbliższe 3 miesiące',
+      en: 'Next 3 months',
+    },
+    title: { pl: 'Ogarniajzer', en: 'Schedule' },
+  },
+  contact: {
+    eyebrow: { pl: 'Porozmawiajmy', en: 'Let’s talk' },
+    title: { pl: 'Kontakt', en: 'Contact' },
+    lead: {
+      pl: 'Z osobą prowadzącą można porozmawiać osobiście, najlepiej przed próbą scholi zarówno w czwartek jak i niedzielę.',
+      en: 'You can speak with the organizer in person, preferably before choir rehearsal on both Thursday and Sunday.',
+    },
+  },
+}
+
+export const homeHeroCta = {
+  schedule: { href: '/schedule/', label: commonText.viewSchedule },
+  firstSteps: { label: commonText.firstSteps },
+}
+
+export const homeHeroText = {
+  description: {
+    pl: 'Tworzymy wspólnotę, w której radość i nauka idą w parze. Z pasją wprowadzamy nasze pociechy w świat chrześcijańskich wartości, pomagając im odkrywać piękno wiary w atmosferze miłości i akceptacji. Każde spotkanie to dla nas nie tylko lekcja, ale także czas radosnej zabawy, kreatywności i odkrywania talentów.',
+    en: 'We build a community where joy and learning go hand in hand. With passion, we introduce our children to Christian values, helping them discover the beauty of faith in an atmosphere of love and acceptance. Each gathering is not only a lesson for us, but also a time for joyful play, creativity, and discovering talents.',
+  },
+  rehearsalsLabel: { pl: 'Próby', en: 'Rehearsals' },
+  massLabel: { pl: 'Msza dziecięca', en: "Children's Mass" },
+}
+
+export const scheduleCards: ScheduleCard[] = [
+  {
+    title: { pl: 'Próba czwartkowa', en: 'Thursday rehearsal' },
+    time: { pl: 'Czwartek, 18:30', en: 'Thursday, 18:30' },
+    note: { pl: 'Stały termin spotkania scholi.', en: 'Regular choir meeting time.' },
+  },
+  {
+    title: { pl: 'Próba niedzielna', en: 'Sunday rehearsal' },
+    time: { pl: 'Niedziela, 11:00', en: 'Sunday, 11:00' },
+    note: {
+      pl: 'Przed Mszą dziecięcą, poza okresami świątecznymi.',
+      en: 'Before Children’s Mass, outside holiday periods.',
+    },
+  },
+  {
+    title: { pl: 'Msza dziecięca', en: 'Children’s Mass' },
+    time: { pl: 'Niedziela, 12:00', en: 'Sunday, 12:00' },
+    note: {
+      pl: 'Obowiązuje poza okresami świątecznymi.',
+      en: 'Applies outside holiday periods.',
+    },
+  },
+]
+
+const consentPdfHref = '/Zgoda.pdf'
+const safeguardingStandardsUrl = 'https://www.urszula-gdynia.pl/maloletni.html'
+
+export const firstStepsModal: {
+  title: LocalizedText
+  items: ParentInfoItem[]
+} = {
+  title: { pl: 'Pierwsze kroki', en: 'First steps' },
+  items: [
+    {
+      title: { pl: 'Gdzie', en: 'Where' },
+      body: {
+        pl: 'Czwartki - salka pod schodami.\nNiedziele - kościół.',
+        en: 'Thursdays - the room under the stairs.\nSundays - the church.',
+      },
+    },
+    {
+      title: { pl: 'Co zabrać', en: 'What to bring' },
+      body: {
+        pl: 'Coś niesłodkiego do picia i dobry humor.',
+        en: 'A non-sweet drink and a good mood.',
+      },
+    },
+    {
+      title: { pl: 'Toaleta', en: 'Toilet' },
+      body: {
+        pl: 'Dostępna na miejscu.',
+        en: 'Available on site.',
+      },
+    },
+    {
+      title: { pl: 'Papierologia', en: 'Paperwork' },
+      body: {
+        pl: 'Zgoda na udział i niezależna zgoda na publikację wizerunku dziecka.',
+        en: "Consent to participate and separate permission to publish the child's image.",
+      },
+      note: {
+        pl: 'Najlepiej wydrukować dwustronnie.',
+        en: 'It is best to print it double-sided.',
+      },
+      link: consentPdfHref
+        ? {
+            href: consentPdfHref,
+            label: { pl: 'PDF zgody', en: 'Consent PDF' },
+            tone: 'strong',
+          }
+        : undefined,
+    },
+    {
+      title: { pl: 'WhatsApp', en: 'WhatsApp' },
+      body: {
+        pl: 'Po pierwszym spotkaniu osoba prowadząca doda rodzinę do odpowiednich grup WhatsApp: wspólnej grupy scholi oraz osobnej grupy tylko dla rodziców.',
+        en: 'After the first meeting, the organizer will add the family to the appropriate WhatsApp groups: the shared choir group and a separate parents-only group.',
+      },
+    },
+    {
+      title: { pl: 'Strój', en: 'Outfit' },
+      details: [
+        {
+          title: { pl: 'Odświętny, chłodniejszy', en: 'Formal, cooler' },
+          body: {
+            pl: 'Fioletowa spódnica, złota apaszka i logo mocowane na magnesy. Zwrotna kaucja zestawu to 60,- zł. Czarna baza z długim rękawem we własnym zakresie.',
+            en: 'Purple skirt, gold scarf, and logo attached with magnets. The refundable set deposit is PLN 60. The black long-sleeve base is arranged individually.',
+          },
+        },
+        {
+          title: { pl: 'Casualowy, cieplejszy', en: 'Casual, warmer' },
+          body: {
+            pl: 'Fioletowa bluza z logo i fioletowe ogrzewacze na nogi. Zestaw: ~100,- zł; cena zależy od liczby sztuk zamawianych jednorazowo ze względu na stałe koszty nadruku. Czarne gerty we własnym zakresie',
+            en: 'Purple hoodie with logo and purple leg warmers. Set: about PLN 100; the price depends on the number of items ordered at one time because printing has fixed setup costs. The black gaiters are arranged individually.',
+          },
+        },
+      ],
+    },
+    {
+      title: { pl: 'Bezpieczeństwo', en: 'Safeguarding' },
+      bodyLink: {
+        prefix: { pl: 'Obowiązują ', en: '' },
+        href: safeguardingStandardsUrl,
+        label: { pl: 'standardy ochrony małoletnich', en: 'Safeguarding standards for minors' },
+        suffix: { pl: '.', en: ' apply.' },
+      },
+    },
+  ],
+}
+
+export const contactDetails = {
+  people: [
+    {
+      role: { pl: 'Prowadzący', en: 'Lead Organizer' },
+      name: 'Marek Maciejewski',
+    },
+    {
+      role: { pl: 'Duszpasterz', en: 'Chaplain' },
+      name: { pl: 'ks. Marek Styn', en: 'Fr. Marek Styn' },
+    },
+    {
+      role: { pl: 'Wsparcie organizacyjne', en: 'Organizational Support' },
+      name: 'Anna Maciejewska',
+    },
+    {
+      role: { pl: 'Wsparcie muzyczne', en: 'Musical Support' },
+      name: 'Olga Andrzejewska',
+    },
+    {
+      role: { pl: 'Wsparcie techniczne', en: 'Technical Support' },
+      name: 'Piotr Andrzejewski',
+    },
+  ],
+  linksLabel: { pl: 'Przydatne linki', en: 'Useful Links' },
+  links: [
+    {
+      href: 'https://www.facebook.com/people/Scholka-Aureolka/61569393120295/',
+      label: 'Facebook',
+    },
+    {
+      href: 'https://www.urszula-gdynia.pl/kontakt.html',
+      label: { pl: 'Kontakt Do Parafii', en: 'Parish Contact' },
+    },
+    {
+      href: safeguardingStandardsUrl,
+      label: { pl: 'Standardy Ochrony Małoletnich', en: 'Safeguarding Standards For Minors' },
+    },
+    {
+      href: 'https://niezbednik.niedziela.pl/',
+      label: { pl: 'Niezbędnik Katolika', en: 'Catholic Essentials' },
+    }
+  ],
+}
+
+export const weekdayLabels: Record<Language, string[]> = {
+  pl: ['niedziela', 'poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota'],
+  en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+}
