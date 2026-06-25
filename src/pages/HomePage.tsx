@@ -18,7 +18,7 @@ import {
   type UpcomingEvent,
 } from '../core'
 
-function HeroScheduleRibbon({ language }: { language: Language }) {
+function HeroScheduleRibbon({ language }: Readonly<{ language: Language }>) {
   return (
     <div className="hero-schedule-ribbon" aria-label={translate(commonText.schedule, language)}>
       <div className="hero-ribbon-line">
@@ -38,10 +38,10 @@ function HeroScheduleRibbon({ language }: { language: Language }) {
 function FirstStepsModal({
   language,
   onClose,
-}: {
+}: Readonly<{
   language: Language
   onClose: () => void
-}) {
+}>) {
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
 
@@ -52,11 +52,11 @@ function FirstStepsModal({
     }
 
     document.body.style.overflow = 'hidden'
-    window.addEventListener('keydown', closeOnEscape)
+    globalThis.addEventListener('keydown', closeOnEscape)
 
     return () => {
       document.body.style.overflow = previousOverflow
-      window.removeEventListener('keydown', closeOnEscape)
+      globalThis.removeEventListener('keydown', closeOnEscape)
     }
   }, [onClose])
 
@@ -69,9 +69,9 @@ function FirstStepsModal({
         tabIndex={-1}
         onClick={onClose}
       />
-      <section
+      <dialog
+        open
         className="parent-info-modal"
-        role="dialog"
         aria-modal="true"
         aria-labelledby="first-steps-title"
       >
@@ -134,7 +134,7 @@ function FirstStepsModal({
             </li>
           ))}
         </ul>
-      </section>
+      </dialog>
     </div>
   )
 }
@@ -144,12 +144,12 @@ function HomePage({
   theme,
   noticeEvents,
   upcomingEvents,
-}: {
+}: Readonly<{
   language: Language
   theme: ThemeName
   noticeEvents: UpcomingEvent[]
   upcomingEvents: UpcomingEvent[]
-}) {
+}>) {
   const [isFirstStepsOpen, setIsFirstStepsOpen] = useState(false)
 
   return (

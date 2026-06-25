@@ -26,17 +26,19 @@ import {
   type GalleryPhoto,
 } from '../core'
 
+type GalleryImageStatus = 'failed' | 'loaded' | 'loading'
+
 function GalleryStatusMessage({
   status,
   children,
-}: {
+}: Readonly<{
   status: GalleryLoadStatus | 'warning'
   children: string
-}) {
+}>) {
   return (
-    <p className={`gallery-status ${status}`} role="status">
+    <output className={`gallery-status ${status}`}>
       {children}
-    </p>
+    </output>
   )
 }
 
@@ -64,24 +66,27 @@ function GalleryImage({
   loading = 'lazy',
   variant,
   style,
-}: {
+}: Readonly<{
   src: string
   refreshSrc?: () => Promise<string | undefined>
   alt: string
   loading?: 'eager' | 'lazy'
   variant: 'cover' | 'thumbnail' | 'lightbox'
   style?: CSSProperties
-}) {
+}>) {
   const [attempt, setAttempt] = useState({ retryCount: 0, src })
-  const [status, setStatus] = useState<'failed' | 'loaded' | 'loading'>('loading')
-  const retryTimeoutRef = useRef<number | undefined>(undefined)
-  const loadCompleteTimeoutRef = useRef<number | undefined>(undefined)
+  const [status, setStatus] = useState<GalleryImageStatus>('loading')
+  const retryTimeoutRef = useRef<ReturnType<typeof globalThis.setTimeout> | undefined>(undefined)
+  const loadCompleteTimeoutRef = useRef<ReturnType<typeof globalThis.setTimeout> | undefined>(
+    undefined,
+  )
   const loadingStartedAtRef = useRef(0)
   const isMountedRef = useRef(true)
+  const imageStatusClassName = getGalleryImageStatusClassName(status)
   const imageClassName = [
     'gallery-image',
     `gallery-image-${variant}`,
-    status === 'loaded' ? 'is-loaded' : status === 'failed' ? 'is-failed' : 'is-loading',
+    imageStatusClassName,
   ]
     .filter(Boolean)
     .join(' ')
@@ -95,12 +100,12 @@ function GalleryImage({
         isMountedRef.current = false
 
         if (retryTimeoutRef.current) {
-          window.clearTimeout(retryTimeoutRef.current)
+          globalThis.clearTimeout(retryTimeoutRef.current)
           retryTimeoutRef.current = undefined
         }
 
         if (loadCompleteTimeoutRef.current) {
-          window.clearTimeout(loadCompleteTimeoutRef.current)
+          globalThis.clearTimeout(loadCompleteTimeoutRef.current)
           loadCompleteTimeoutRef.current = undefined
         }
       }
@@ -115,7 +120,7 @@ function GalleryImage({
 
     setStatus('loading')
     loadingStartedAtRef.current = Date.now()
-    retryTimeoutRef.current = window.setTimeout(async () => {
+    retryTimeoutRef.current = globalThis.setTimeout(async () => {
       retryTimeoutRef.current = undefined
 
       let nextSrc = attempt.src
@@ -164,10 +169,10 @@ function GalleryImage({
     }
 
     if (loadCompleteTimeoutRef.current) {
-      window.clearTimeout(loadCompleteTimeoutRef.current)
+      globalThis.clearTimeout(loadCompleteTimeoutRef.current)
     }
 
-    loadCompleteTimeoutRef.current = window.setTimeout(() => {
+    loadCompleteTimeoutRef.current = globalThis.setTimeout(() => {
       loadCompleteTimeoutRef.current = undefined
 
       if (isMountedRef.current) {
@@ -183,7 +188,7 @@ function GalleryImage({
     }
 
     if (retryTimeoutRef.current) {
-      window.clearTimeout(retryTimeoutRef.current)
+      globalThis.clearTimeout(retryTimeoutRef.current)
       retryTimeoutRef.current = undefined
     }
 
@@ -210,17 +215,29 @@ function GalleryImage({
   )
 }
 
+function getGalleryImageStatusClassName(status: GalleryImageStatus) {
+  if (status === 'loaded') {
+    return 'is-loaded'
+  }
+
+  if (status === 'failed') {
+    return 'is-failed'
+  }
+
+  return 'is-loading'
+}
+
 function AlbumGrid({
   albums,
   apiKey,
   language,
   onAlbumSelect,
-}: {
+}: Readonly<{
   albums: GalleryAlbum[]
   apiKey?: string
   language: Language
   onAlbumSelect: (albumSlug: string) => void
-}) {
+}>) {
   return (
     <div className="card-grid album-grid">
       {albums.map((album) => {
@@ -279,12 +296,12 @@ function GalleryAlbumHeader({
   language,
   photoCount,
   onBack,
-}: {
+}: Readonly<{
   album: GalleryAlbum
   language: Language
   photoCount?: number
   onBack: () => void
-}) {
+}>) {
   return (
     <div className="gallery-album-header">
       <div>
@@ -313,13 +330,13 @@ function PhotoGrid({
   language,
   photos,
   onPhotoSelect,
-}: {
+}: Readonly<{
   album: GalleryAlbum
   apiKey?: string
   language: Language
   photos: GalleryPhoto[]
   onPhotoSelect: (photoId: string) => void
-}) {
+}>) {
   const photoAlt = getGalleryPhotoAlt(album, language)
 
   return (
@@ -363,7 +380,7 @@ function GalleryLightbox({
   photoId,
   onClose,
   onPhotoSelect,
-}: {
+}: Readonly<{
   album: GalleryAlbum
   apiKey?: string
   language: Language
@@ -371,7 +388,7 @@ function GalleryLightbox({
   photoId: string
   onClose: () => void
   onPhotoSelect: (photoId: string) => void
-}) {
+}>) {
   const photoIndex = photos.findIndex((photo) => photo.id === photoId)
   const photo = photoIndex >= 0 ? photos[photoIndex] : undefined
   const previousPhoto = photoIndex > 0 ? photos[photoIndex - 1] : undefined
@@ -395,11 +412,11 @@ function GalleryLightbox({
     }
 
     document.body.style.overflow = 'hidden'
-    window.addEventListener('keydown', handleKeyDown)
+    globalThis.addEventListener('keydown', handleKeyDown)
 
     return () => {
       document.body.style.overflow = previousOverflow
-      window.removeEventListener('keydown', handleKeyDown)
+      globalThis.removeEventListener('keydown', handleKeyDown)
     }
   }, [nextPhoto, onClose, onPhotoSelect, previousPhoto])
 
@@ -416,9 +433,9 @@ function GalleryLightbox({
         tabIndex={-1}
         onClick={onClose}
       />
-      <section
+      <dialog
+        open
         className="gallery-lightbox"
-        role="dialog"
         aria-modal="true"
         aria-label={translate(album.title, language)}
       >
@@ -468,7 +485,7 @@ function GalleryLightbox({
             {'>'}
           </button>
         </div>
-      </section>
+      </dialog>
     </div>
   )
 }

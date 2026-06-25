@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { galleryText, type Language } from '../siteContent'
 import { PageHeading } from '../components/Layout'
 import {
@@ -17,11 +17,193 @@ import {
   getGoogleDriveGalleryConfig,
   translate,
   updateGalleryUrl,
+  type GalleryAlbum,
+  type GalleryPhoto,
   type GalleryPhotosState,
   type GalleryState,
 } from '../core'
 
-function GalleryPage({ language }: { language: Language }) {
+function GalleryStateMessages({
+  galleryState,
+  language,
+  shouldShowMissingAlbum,
+}: Readonly<{
+  galleryState: GalleryState
+  language: Language
+  shouldShowMissingAlbum: boolean
+}>) {
+  return (
+    <>
+      {galleryState.status === 'loading' && (
+        <GalleryStatusMessage status="loading">
+          {translate(galleryText.loadingAlbums, language)}
+        </GalleryStatusMessage>
+      )}
+
+      {galleryState.status === 'unconfigured' && (
+        <GalleryStatusMessage status="unconfigured">
+          {translate(galleryText.notConfiguredNotice, language)}
+        </GalleryStatusMessage>
+      )}
+
+      {galleryState.status === 'error' && (
+        <GalleryStatusMessage status="error">
+          {translate(galleryText.errorNotice, language)}
+        </GalleryStatusMessage>
+      )}
+
+      {shouldShowMissingAlbum && (
+        <GalleryStatusMessage status="warning">
+          {translate(galleryText.albumNotFound, language)}
+        </GalleryStatusMessage>
+      )}
+
+      {galleryState.status === 'ready' && galleryState.albums.length === 0 && (
+        <GalleryStatusMessage status="ready">
+          {translate(galleryText.emptyAlbums, language)}
+        </GalleryStatusMessage>
+      )}
+    </>
+  )
+}
+
+function GalleryAlbumView({
+  activeAlbum,
+  activePhoto,
+  activePhotos,
+  activePhotosState,
+  apiKey,
+  language,
+  onBack,
+  onPhotoSelect,
+  photoId,
+}: Readonly<{
+  activeAlbum: GalleryAlbum
+  activePhoto: GalleryPhoto | undefined
+  activePhotos: GalleryPhoto[]
+  activePhotosState: GalleryPhotosState | undefined
+  apiKey: string | undefined
+  language: Language
+  onBack: () => void
+  onPhotoSelect: (photoId: string | null, replace?: boolean) => void
+  photoId: string | null
+}>) {
+  let photosContent: ReactNode
+
+  if (!activePhotosState || activePhotosState.status === 'loading') {
+    photosContent = (
+      <GalleryStatusMessage status="loading">
+        {translate(galleryText.loadingPhotos, language)}
+      </GalleryStatusMessage>
+    )
+  } else if (activePhotosState.status === 'error') {
+    photosContent = (
+      <GalleryStatusMessage status="error">
+        {translate(galleryText.errorPhotos, language)}
+      </GalleryStatusMessage>
+    )
+  } else if (activePhotos.length === 0) {
+    photosContent = (
+      <GalleryStatusMessage status="ready">
+        {translate(galleryText.emptyPhotos, language)}
+      </GalleryStatusMessage>
+    )
+  } else {
+    photosContent = (
+      <PhotoGrid
+        album={activeAlbum}
+        apiKey={apiKey}
+        language={language}
+        photos={activePhotos}
+        onPhotoSelect={(nextPhotoId) => onPhotoSelect(nextPhotoId)}
+      />
+    )
+  }
+
+  return (
+    <div className="gallery-album-view">
+      <GalleryAlbumHeader
+        album={activeAlbum}
+        language={language}
+        photoCount={activePhotosState?.status === 'ready' ? activePhotos.length : undefined}
+        onBack={onBack}
+      />
+
+      {photosContent}
+
+      {activePhoto && photoId && (
+        <GalleryLightbox
+          album={activeAlbum}
+          apiKey={apiKey}
+          language={language}
+          photos={activePhotos}
+          photoId={photoId}
+          onClose={() => onPhotoSelect(null)}
+          onPhotoSelect={(nextPhotoId) => onPhotoSelect(nextPhotoId, true)}
+        />
+      )}
+    </div>
+  )
+}
+
+function GalleryReadyContent({
+  activeAlbum,
+  activePhoto,
+  activePhotos,
+  activePhotosState,
+  apiKey,
+  galleryState,
+  language,
+  onAlbumSelect,
+  onPhotoSelect,
+  photoId,
+}: Readonly<{
+  activeAlbum: GalleryAlbum | undefined
+  activePhoto: GalleryPhoto | undefined
+  activePhotos: GalleryPhoto[]
+  activePhotosState: GalleryPhotosState | undefined
+  apiKey: string | undefined
+  galleryState: GalleryState
+  language: Language
+  onAlbumSelect: (albumSlug: string | null) => void
+  onPhotoSelect: (photoId: string | null, replace?: boolean) => void
+  photoId: string | null
+}>) {
+  if (galleryState.status !== 'ready') {
+    return null
+  }
+
+  if (activeAlbum) {
+    return (
+      <GalleryAlbumView
+        activeAlbum={activeAlbum}
+        activePhoto={activePhoto}
+        activePhotos={activePhotos}
+        activePhotosState={activePhotosState}
+        apiKey={apiKey}
+        language={language}
+        onBack={() => onAlbumSelect(null)}
+        onPhotoSelect={onPhotoSelect}
+        photoId={photoId}
+      />
+    )
+  }
+
+  if (galleryState.albums.length === 0) {
+    return null
+  }
+
+  return (
+    <AlbumGrid
+      albums={galleryState.albums}
+      apiKey={apiKey}
+      language={language}
+      onAlbumSelect={(nextAlbumSlug) => onAlbumSelect(nextAlbumSlug)}
+    />
+  )
+}
+
+function GalleryPage({ language }: Readonly<{ language: Language }>) {
   const googleDriveGalleryConfig = useMemo(() => getGoogleDriveGalleryConfig(), [])
   const [galleryState, setGalleryState] = useState<GalleryState>({
     status: googleDriveGalleryConfig ? 'loading' : 'unconfigured',
@@ -95,10 +277,10 @@ function GalleryPage({ language }: { language: Language }) {
       setPhotoId(getGalleryPhotoIdFromLocation())
     }
 
-    window.addEventListener('popstate', handlePopState)
+    globalThis.addEventListener('popstate', handlePopState)
 
     return () => {
-      window.removeEventListener('popstate', handlePopState)
+      globalThis.removeEventListener('popstate', handlePopState)
     }
   }, [])
 
@@ -155,87 +337,23 @@ function GalleryPage({ language }: { language: Language }) {
       <PageHeading page="gallery" language={language} />
       <section className="content-section">
         <div className="content-width gallery-layout">
-          {galleryState.status === 'loading' && (
-            <GalleryStatusMessage status="loading">
-              {translate(galleryText.loadingAlbums, language)}
-            </GalleryStatusMessage>
-          )}
-
-          {galleryState.status === 'unconfigured' && (
-            <GalleryStatusMessage status="unconfigured">
-              {translate(galleryText.notConfiguredNotice, language)}
-            </GalleryStatusMessage>
-          )}
-
-          {galleryState.status === 'error' && (
-            <GalleryStatusMessage status="error">
-              {translate(galleryText.errorNotice, language)}
-            </GalleryStatusMessage>
-          )}
-
-          {shouldShowMissingAlbum && (
-            <GalleryStatusMessage status="warning">
-              {translate(galleryText.albumNotFound, language)}
-            </GalleryStatusMessage>
-          )}
-
-          {galleryState.status === 'ready' && !activeAlbum && galleryState.albums.length === 0 && (
-            <GalleryStatusMessage status="ready">
-              {translate(galleryText.emptyAlbums, language)}
-            </GalleryStatusMessage>
-          )}
-
-          {galleryState.status === 'ready' && activeAlbum ? (
-            <div className="gallery-album-view">
-              <GalleryAlbumHeader
-                album={activeAlbum}
-                language={language}
-                photoCount={activePhotosState?.status === 'ready' ? activePhotos.length : undefined}
-                onBack={() => selectAlbum(null)}
-              />
-
-              {activePhotosState?.status === 'loading' || !activePhotosState ? (
-                <GalleryStatusMessage status="loading">
-                  {translate(galleryText.loadingPhotos, language)}
-                </GalleryStatusMessage>
-              ) : activePhotosState.status === 'error' ? (
-                <GalleryStatusMessage status="error">
-                  {translate(galleryText.errorPhotos, language)}
-                </GalleryStatusMessage>
-              ) : activePhotos.length === 0 ? (
-                <GalleryStatusMessage status="ready">
-                  {translate(galleryText.emptyPhotos, language)}
-                </GalleryStatusMessage>
-              ) : (
-                <PhotoGrid
-                  album={activeAlbum}
-                  apiKey={googleDriveGalleryConfig?.apiKey}
-                  language={language}
-                  photos={activePhotos}
-                  onPhotoSelect={(nextPhotoId) => selectPhoto(nextPhotoId)}
-                />
-              )}
-
-              {activePhoto && photoId && (
-                <GalleryLightbox
-                  album={activeAlbum}
-                  apiKey={googleDriveGalleryConfig?.apiKey}
-                  language={language}
-                  photos={activePhotos}
-                  photoId={photoId}
-                  onClose={() => selectPhoto(null)}
-                  onPhotoSelect={(nextPhotoId) => selectPhoto(nextPhotoId, true)}
-                />
-              )}
-            </div>
-          ) : galleryState.status === 'ready' && galleryState.albums.length > 0 ? (
-            <AlbumGrid
-              albums={galleryState.albums}
-              apiKey={googleDriveGalleryConfig?.apiKey}
-              language={language}
-              onAlbumSelect={(nextAlbumSlug) => selectAlbum(nextAlbumSlug)}
-            />
-          ) : null}
+          <GalleryStateMessages
+            galleryState={galleryState}
+            language={language}
+            shouldShowMissingAlbum={shouldShowMissingAlbum}
+          />
+          <GalleryReadyContent
+            activeAlbum={activeAlbum}
+            activePhoto={activePhoto}
+            activePhotos={activePhotos}
+            activePhotosState={activePhotosState}
+            apiKey={googleDriveGalleryConfig?.apiKey}
+            galleryState={galleryState}
+            language={language}
+            onAlbumSelect={selectAlbum}
+            onPhotoSelect={selectPhoto}
+            photoId={photoId}
+          />
         </div>
       </section>
     </>

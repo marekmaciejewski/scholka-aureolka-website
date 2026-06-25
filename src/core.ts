@@ -376,32 +376,20 @@ function getHomeEventHref(event: UpcomingEvent) {
 }
 
 function getAbsoluteScheduleEventHref(slug: string) {
-  return new URL(getScheduleEventHref(slug), window.location.origin).href
+  return new URL(getScheduleEventHref(slug), globalThis.location.origin).href
 }
 
 async function copyTextToClipboard(text: string) {
-  if (navigator.clipboard) {
-    await navigator.clipboard.writeText(text)
+  if (globalThis.navigator.clipboard) {
+    await globalThis.navigator.clipboard.writeText(text)
     return
   }
 
-  const textArea = document.createElement('textarea')
-  textArea.value = text
-  textArea.style.position = 'fixed'
-  textArea.style.left = '-9999px'
-  document.body.append(textArea)
-  textArea.focus()
-  textArea.select()
-
-  try {
-    document.execCommand('copy')
-  } finally {
-    textArea.remove()
-  }
+  throw new Error('Clipboard API is unavailable')
 }
 
 function removeBasePath(pathname: string) {
-  const basePath = new URL(getBasePath(), window.location.origin).pathname
+  const basePath = new URL(getBasePath(), globalThis.location.origin).pathname
 
   if (basePath !== '/' && pathname.startsWith(basePath)) {
     return `/${pathname.slice(basePath.length)}`
@@ -523,7 +511,7 @@ function getGoogleDriveGalleryConfig(): GoogleDriveGalleryConfig | null {
 }
 
 function getInitialLanguage(): Language {
-  const storedLanguage = window.localStorage.getItem(languageStorageKey)
+  const storedLanguage = globalThis.localStorage.getItem(languageStorageKey)
 
   if (storedLanguage === 'pl' || storedLanguage === 'en') {
     return storedLanguage
@@ -533,13 +521,13 @@ function getInitialLanguage(): Language {
 }
 
 function getInitialTheme(): ThemeName {
-  const storedTheme = window.localStorage.getItem(themeStorageKey)
+  const storedTheme = globalThis.localStorage.getItem(themeStorageKey)
 
   if (storedTheme === 'light' || storedTheme === 'dark') {
     return storedTheme
   }
 
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  return globalThis.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
 function getPageFromPath(pathname: string): PageKey {
@@ -636,16 +624,8 @@ function formatEventSlugDateTime(date: Date) {
   ].join('-')
 }
 
-function createEventSlug(value: string) {
-  return createSlug(value)
-}
-
 function createFallbackEventSlug(title: string, date: Date) {
-  return createEventSlug(`${formatEventSlugDateTime(date)}-${title}`)
-}
-
-function createGallerySlug(value: string) {
-  return createSlug(value)
+  return createSlug(`${formatEventSlugDateTime(date)}-${title}`)
 }
 
 function parseGalleryFolderDatePrefix(value: string) {
@@ -739,32 +719,32 @@ function getGalleryPhotoAlt(album: GalleryAlbum, language: Language) {
 }
 
 function getEventSlugFromLocation() {
-  const slug = new URLSearchParams(window.location.search).get(eventSlugSearchParam)
+  const slug = new URLSearchParams(globalThis.location.search).get(eventSlugSearchParam)
 
-  return slug ? createEventSlug(slug) ?? null : null
+  return slug ? createSlug(slug) ?? null : null
 }
 
 function getGalleryAlbumSlugFromLocation() {
-  const slug = new URLSearchParams(window.location.search).get(galleryAlbumSearchParam)
+  const slug = new URLSearchParams(globalThis.location.search).get(galleryAlbumSearchParam)
 
-  return slug ? createGallerySlug(slug) ?? null : null
+  return slug ? createSlug(slug) ?? null : null
 }
 
 function getGalleryPhotoIdFromLocation() {
-  return new URLSearchParams(window.location.search).get(galleryPhotoSearchParam)
+  return new URLSearchParams(globalThis.location.search).get(galleryPhotoSearchParam)
 }
 
 function replaceScheduleEventUrl(slug: string | null) {
-  const url = new URL(window.location.href)
+  const url = new URL(globalThis.location.href)
 
   if (slug) {
-    url.pathname = new URL(withBasePath('/schedule/'), window.location.origin).pathname
+    url.pathname = new URL(withBasePath('/schedule/'), globalThis.location.origin).pathname
     url.searchParams.set(eventSlugSearchParam, slug)
   } else {
     url.searchParams.delete(eventSlugSearchParam)
   }
 
-  window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+  globalThis.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
 }
 
 function getGalleryAlbumHref(slug: string) {
@@ -778,8 +758,8 @@ function getGalleryPhotoHref(albumSlug: string, photoId: string) {
 }
 
 function updateGalleryUrl(albumSlug: string | null, photoId: string | null, replace = false) {
-  const url = new URL(window.location.href)
-  url.pathname = new URL(withBasePath('/gallery/'), window.location.origin).pathname
+  const url = new URL(globalThis.location.href)
+  url.pathname = new URL(withBasePath('/gallery/'), globalThis.location.origin).pathname
   url.search = ''
 
   if (albumSlug) {
@@ -793,11 +773,11 @@ function updateGalleryUrl(albumSlug: string | null, photoId: string | null, repl
   const nextUrl = `${url.pathname}${url.search}${url.hash}`
 
   if (replace) {
-    window.history.replaceState({}, '', nextUrl)
+    globalThis.history.replaceState({}, '', nextUrl)
     return
   }
 
-  window.history.pushState({}, '', nextUrl)
+  globalThis.history.pushState({}, '', nextUrl)
 }
 
 function escapeDriveQueryString(value: string) {
@@ -983,7 +963,7 @@ async function fetchGoogleDriveGalleryAlbums(config: GoogleDriveGalleryConfig) {
       }
 
       const parsedFolderName = parseGalleryAlbumFolderName(folder.name)
-      const slug = createGallerySlug(folder.name)
+    const slug = createSlug(folder.name)
 
       if (!slug) {
         return null
@@ -1128,7 +1108,7 @@ function sanitizeCalendarUrl(value?: string | null) {
   }
 
   try {
-    const url = new URL(trimmedValue, window.location.origin)
+    const url = new URL(trimmedValue, globalThis.location.origin)
 
     if (url.protocol === 'http:' || url.protocol === 'https:') {
       return url.href
@@ -1605,7 +1585,7 @@ function extractCalendarNoteMetadata(blocks: CalendarRichBlock[]): CalendarDescr
         const slugValue = getCalendarSlugMetadataValue(block.text)
 
         if (slugValue) {
-          slug = slug ?? createEventSlug(slugValue)
+          slug = slug ?? createSlug(slugValue)
           return null
         }
 
@@ -1623,7 +1603,7 @@ function extractCalendarNoteMetadata(blocks: CalendarRichBlock[]): CalendarDescr
           return true
         }
 
-        slug = slug ?? createEventSlug(slugValue)
+        slug = slug ?? createSlug(slugValue)
         return false
       })
 
@@ -1834,9 +1814,11 @@ function mapGoogleCalendarEvent(
     (canCreateExpandableSlug
       ? createFallbackEventSlug(rawTitle, start.date)
       : undefined)
+  const fallbackEventId = `${start.date.toISOString()}-${index}`
+  const googleEventId = event.id ?? event.iCalUID ?? fallbackEventId
 
   return {
-    id: `${calendarId}-${event.id ?? event.iCalUID ?? `${start.date.toISOString()}-${index}`}`,
+    id: `${calendarId}-${googleEventId}`,
     date: start.date,
     endDate: end?.date,
     title,
