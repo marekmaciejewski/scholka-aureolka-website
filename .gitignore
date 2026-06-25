@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 .scannerwork
+coverage
 playwright-report
 test-results
 .codex/
