@@ -122,17 +122,17 @@ Local Codex MCP configuration for SonarQube belongs in `.codex/config.toml`. The
 
 ## Deployment
 
-This repository is currently deployed as a GitHub Pages project site:
+This repository is currently deployed as a GitHub Pages custom-domain site:
 
 ```text
-https://marekmaciejewski.github.io/scholka-aureolka-website/
+https://scholka.urszula-gdynia.pl/
 ```
 
 Deployment is handled by GitHub Actions in `.github/workflows/pages.yml`.
 
-For that deployment target, the workflow sets `GITHUB_PAGES=true`, and Vite builds production assets with the `/scholka-aureolka-website/` base path. Local development still uses `/`.
+For that deployment target, Vite builds production assets with the `/` base path. Local development also uses `/`.
 
-That project-site base path is intentional for the current deployment and should not be treated as a configuration warning. Revisit it only when moving to a custom domain or root user/organization Pages URL, where the production base path should become `/`.
+That root base path is intentional for the current custom-domain deployment and should not be treated as a configuration warning. Revisit it only if moving back to a GitHub Pages project URL such as `https://marekmaciejewski.github.io/scholka-aureolka-website/`, where the production base path should become `/scholka-aureolka-website/`.
 
 In the repository settings on GitHub:
 
