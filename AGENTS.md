@@ -13,13 +13,13 @@ The site should feel warm, clear, parish-friendly, and practical for parents. It
 - Vite
 - Static output hosted on GitHub Pages
 
-The current production deployment is a GitHub Pages project site at:
+The current production deployment is a GitHub Pages custom-domain site at:
 
-- `https://marekmaciejewski.github.io/scholka-aureolka-website/`
+- `https://scholka.urszula-gdynia.pl/`
 
-For this deployment, Vite's production base path must include `/scholka-aureolka-website/`; do not flag that as an issue while the site is served from that project URL.
+For this deployment, Vite's production base path must be `/`. Do not use `/scholka-aureolka-website/` while the site is served from the custom domain root.
 
-Revisit the production base path only if the site moves to a custom domain or to a root user/organization Pages URL such as `https://marekmaciejewski.github.io/`. In that case, the production base path should become `/`.
+Revisit the production base path only if the site moves back to a GitHub Pages project URL such as `https://marekmaciejewski.github.io/scholka-aureolka-website/`. In that case, the production base path should become `/scholka-aureolka-website/`.
 
 ## Site Model
 
