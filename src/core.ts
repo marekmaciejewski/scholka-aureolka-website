@@ -42,8 +42,11 @@ type CalendarState = {
 
 type GalleryLoadStatus = 'unconfigured' | 'loading' | 'ready' | 'error'
 
+type GalleryAlbumKind = 'achievements' | 'standard'
+
 type GalleryAlbum = {
   id: string
+  kind: GalleryAlbumKind
   folderName: string
   slug: string
   title: LocalizedText
@@ -54,6 +57,8 @@ type GalleryAlbum = {
 type GalleryPhoto = {
   id: string
   name: string
+  title?: LocalizedText
+  date?: Date
   thumbnailUrl: string
   largeUrl: string
   width?: number
@@ -221,8 +226,12 @@ const themeStorageKey = 'scholka-aureolka-theme'
 const eventSlugSearchParam = 'event'
 const galleryAlbumSearchParam = 'album'
 const galleryPhotoSearchParam = 'photo'
+const galleryAchievementsFolderId = '1regQdvW8Ebx5sGzXQ-4Goffde-ieW1cs'
+const galleryAchievementsAlbumSlug = 'achievements'
 const calendarNoticePrefixPattern = /^\s*\[notice]\s*:?\s*/i
 const galleryCoverPrefixPattern = /^\s*\[cover]/i
+const galleryImageFileExtensionPattern =
+  /\.(?:avif|bmp|gif|heic|heif|jpe?g|png|tiff?|webp)$/i
 const galleryImageRetryDelays = [450, 1400]
 const galleryImageLogoSpinnerMinimumMs = 450
 const homeScheduleCards = scheduleCards.slice(0, 2)
@@ -659,25 +668,54 @@ function splitLocalizedTitle(value: string) {
   ] as const
 }
 
-function parseGalleryAlbumFolderName(folderName: string) {
-  const trimmedFolderName = folderName.trim()
-  const parsedDatePrefix = parseGalleryFolderDatePrefix(trimmedFolderName)
-  const titleValue = parsedDatePrefix?.titleValue.trim() || trimmedFolderName
-  const [plTitleValue, enTitleValue] = splitLocalizedTitle(titleValue)
-  const plTitle = plTitleValue.trim() || trimmedFolderName
+function createLocalizedGalleryTitle(value: string, fallback: string): LocalizedText {
+  const [plTitleValue, enTitleValue] = splitLocalizedTitle(value)
+  const plTitle = plTitleValue.trim() || fallback
   const enTitle = enTitleValue?.trim() || plTitle
+
+  return { pl: plTitle, en: enTitle }
+}
+
+function parseGalleryDatedLocalizedName(value: string, fallback: string) {
+  const trimmedValue = value.trim()
+  const parsedDatePrefix = parseGalleryFolderDatePrefix(trimmedValue)
+  const titleValue = parsedDatePrefix?.titleValue.trim() || trimmedValue || fallback
   const year = parsedDatePrefix?.year ?? 0
   const month = parsedDatePrefix?.month ?? 0
   const day = parsedDatePrefix?.day ?? 0
   const date = year && month && day ? new Date(year, month - 1, day) : undefined
 
   return {
-    title: { pl: plTitle, en: enTitle },
+    title: createLocalizedGalleryTitle(titleValue, fallback),
     date,
   }
 }
 
+function parseGalleryAlbumFolderName(folderName: string) {
+  const trimmedFolderName = folderName.trim()
+
+  return parseGalleryDatedLocalizedName(trimmedFolderName, trimmedFolderName)
+}
+
+function stripGalleryImageFileExtension(fileName: string) {
+  return fileName.replace(galleryImageFileExtensionPattern, '').trim()
+}
+
+function stripGalleryPhotoMarkers(fileName: string) {
+  return fileName.replace(galleryCoverPrefixPattern, '').trim()
+}
+
+function parseGalleryPhotoFileName(fileName: string) {
+  const displayName = stripGalleryImageFileExtension(stripGalleryPhotoMarkers(fileName.trim()))
+
+  return parseGalleryDatedLocalizedName(displayName, displayName || fileName)
+}
+
 function formatGalleryAlbumDate(album: GalleryAlbum, language: Language) {
+  if (album.kind === 'achievements') {
+    return translate(galleryText.achievementsAlbumEyebrow, language)
+  }
+
   if (!album.date) {
     return album.folderName
   }
@@ -689,9 +727,21 @@ function formatGalleryAlbumDate(album: GalleryAlbum, language: Language) {
   }).format(album.date)
 }
 
+function shouldUsePolishFewPlural(count: number) {
+  const absoluteCount = Math.abs(count)
+  const lastDigit = absoluteCount % 10
+  const lastTwoDigits = absoluteCount % 100
+
+  return lastDigit >= 2 && lastDigit <= 4 && (lastTwoDigits < 12 || lastTwoDigits > 14)
+}
+
 function formatGalleryPhotoCount(count: number, language: Language) {
   if (count === 1) {
     return translate(galleryText.photoCountSingular, language)
+  }
+
+  if (language === 'pl' && shouldUsePolishFewPlural(count)) {
+    return translate(galleryText.photoCountFew, language).replace('{count}', String(count))
   }
 
   return translate(galleryText.photoCountPlural, language).replace('{count}', String(count))
@@ -701,6 +751,28 @@ function formatGalleryPhotoPosition(current: number, total: number, language: La
   return translate(galleryText.photoPosition, language)
     .replace('{current}', String(current))
     .replace('{total}', String(total))
+}
+
+function formatGalleryTimelinePhotoDate(photo: GalleryPhoto, language: Language) {
+  if (!photo.date) {
+    return translate(galleryText.achievementsUndatedGroup, language)
+  }
+
+  return new Intl.DateTimeFormat(languageLocale[language], {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(photo.date)
+}
+
+function getGalleryPhotoDisplayTitle(photo: GalleryPhoto, language: Language) {
+  if (photo.title) {
+    return translate(photo.title, language)
+  }
+
+  const fallbackTitle = stripGalleryImageFileExtension(stripGalleryPhotoMarkers(photo.name))
+
+  return formatLocalizedText(fallbackTitle || photo.name, language)
 }
 
 function getGalleryPhotoAlt(album: GalleryAlbum, language: Language) {
@@ -881,6 +953,7 @@ function getGalleryPhotoFromDriveFile(file: GoogleDriveFile): GalleryPhoto | nul
 
   const thumbnailUrl = resizeGoogleThumbnail(file.thumbnailLink, 720)
   const largeUrl = resizeGoogleThumbnail(file.thumbnailLink, 1800)
+  const parsedFileName = parseGalleryPhotoFileName(file.name)
 
   if (!thumbnailUrl || !largeUrl) {
     return null
@@ -889,11 +962,40 @@ function getGalleryPhotoFromDriveFile(file: GoogleDriveFile): GalleryPhoto | nul
   return {
     id: file.id,
     name: file.name,
+    title: parsedFileName.title,
+    date: parsedFileName.date,
     thumbnailUrl,
     largeUrl,
     width: file.imageMediaMetadata?.width,
     height: file.imageMediaMetadata?.height,
   }
+}
+
+function compareGalleryPhotosByTimeline(leftPhoto: GalleryPhoto, rightPhoto: GalleryPhoto) {
+  const leftTime = leftPhoto.date?.getTime()
+  const rightTime = rightPhoto.date?.getTime()
+
+  if (typeof leftTime === 'number' && typeof rightTime === 'number' && leftTime !== rightTime) {
+    return rightTime - leftTime
+  }
+
+  if (typeof leftTime === 'number' && typeof rightTime !== 'number') {
+    return -1
+  }
+
+  if (typeof leftTime !== 'number' && typeof rightTime === 'number') {
+    return 1
+  }
+
+  return leftPhoto.name.localeCompare(rightPhoto.name, 'pl-PL', { numeric: true })
+}
+
+function sortGalleryPhotosForAlbum(album: GalleryAlbum, photos: GalleryPhoto[]) {
+  if (album.kind !== 'achievements') {
+    return photos
+  }
+
+  return [...photos].sort(compareGalleryPhotosByTimeline)
 }
 
 async function fetchGoogleDriveAlbumCover(
@@ -958,8 +1060,10 @@ async function fetchGoogleDriveGalleryAlbums(config: GoogleDriveGalleryConfig) {
         return null
       }
 
+      const kind: GalleryAlbumKind =
+        folder.id === galleryAchievementsFolderId ? 'achievements' : 'standard'
       const parsedFolderName = parseGalleryAlbumFolderName(folder.name)
-      const slug = createSlug(folder.name)
+      const slug = kind === 'achievements' ? galleryAchievementsAlbumSlug : createSlug(folder.name)
 
       if (!slug) {
         return null
@@ -967,11 +1071,18 @@ async function fetchGoogleDriveGalleryAlbums(config: GoogleDriveGalleryConfig) {
 
       return {
         id: folder.id,
+        kind,
         folderName: folder.name,
         slug,
-        title: parsedFolderName.title,
-        date: parsedFolderName.date,
-        coverPhoto: await fetchGoogleDriveAlbumCover(config, folder.id),
+        title:
+          kind === 'achievements'
+            ? galleryText.achievementsAlbumTitle
+            : parsedFolderName.title,
+        date: kind === 'achievements' ? undefined : parsedFolderName.date,
+        coverPhoto:
+          kind === 'achievements'
+            ? undefined
+            : await fetchGoogleDriveAlbumCover(config, folder.id),
       }
     }),
   )
@@ -979,6 +1090,10 @@ async function fetchGoogleDriveGalleryAlbums(config: GoogleDriveGalleryConfig) {
   return albums
     .filter((album): album is GalleryAlbum => Boolean(album))
     .sort((leftAlbum, rightAlbum) => {
+      if (leftAlbum.kind !== rightAlbum.kind) {
+        return leftAlbum.kind === 'achievements' ? -1 : 1
+      }
+
       const leftDate = leftAlbum.date?.getTime() ?? 0
       const rightDate = rightAlbum.date?.getTime() ?? 0
 
@@ -1004,9 +1119,11 @@ async function fetchGoogleDriveAlbumPhotos(
     pageSize: 1000,
   })
 
-  return files
+  const photos = files
     .map(getGalleryPhotoFromDriveFile)
     .filter((photo): photo is GalleryPhoto => Boolean(photo))
+
+  return sortGalleryPhotosForAlbum(album, photos)
 }
 
 function getGalleryPhotoAspectStyle(photo: GalleryPhoto): CSSProperties | undefined {
@@ -1954,6 +2071,7 @@ export {
   formatEventTime,
   formatGalleryAlbumDate,
   formatGalleryPhotoCount,
+  formatGalleryTimelinePhotoDate,
   formatGalleryPhotoPosition,
   formatLocalizedHtml,
   getAbsoluteScheduleEventHref,
@@ -1964,6 +2082,7 @@ export {
   getGalleryAlbumSlugFromLocation,
   getGalleryPhotoAlt,
   getGalleryPhotoAspectStyle,
+  getGalleryPhotoDisplayTitle,
   getGalleryPhotoHref,
   getGalleryPhotoIdFromLocation,
   getGoogleCalendarConfig,
@@ -1995,6 +2114,7 @@ export type {
   CalendarRichBlock,
   CalendarState,
   GalleryAlbum,
+  GalleryAlbumKind,
   GalleryLoadStatus,
   GalleryPhoto,
   GalleryPhotosState,

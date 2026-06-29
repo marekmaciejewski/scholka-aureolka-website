@@ -10,6 +10,7 @@ import {
   formatGalleryAlbumDate,
   formatGalleryPhotoCount,
   formatGalleryPhotoPosition,
+  formatGalleryTimelinePhotoDate,
   formatLocalizedHtml,
   getEventCardStyle,
   getEventDomId,
@@ -18,6 +19,7 @@ import {
   getGalleryAlbumSlugFromLocation,
   getGalleryPhotoAlt,
   getGalleryPhotoAspectStyle,
+  getGalleryPhotoDisplayTitle,
   getGalleryPhotoHref,
   getGalleryPhotoIdFromLocation,
   getGoogleCalendarConfig,
@@ -76,6 +78,7 @@ function createAlbum(overrides: Partial<GalleryAlbum> = {}): GalleryAlbum {
     date: new Date(2026, 2, 26),
     folderName: '2026-03-26 - Warsztaty -- Workshop',
     id: 'album-1',
+    kind: 'standard',
     slug: 'warsztaty-workshop',
     title: { pl: 'Warsztaty', en: 'Workshop' },
     ...overrides,
@@ -459,6 +462,13 @@ describe('gallery helpers', () => {
     )
     expect(formatGalleryPhotoCount(1, 'en')).toBe('1 photo')
     expect(formatGalleryPhotoCount(3, 'en')).toBe('3 photos')
+    expect(formatGalleryPhotoCount(1, 'pl')).toBe('1 zdjęcie')
+    expect(formatGalleryPhotoCount(2, 'pl')).toBe('2 zdjęcia')
+    expect(formatGalleryPhotoCount(4, 'pl')).toBe('4 zdjęcia')
+    expect(formatGalleryPhotoCount(5, 'pl')).toBe('5 zdjęć')
+    expect(formatGalleryPhotoCount(12, 'pl')).toBe('12 zdjęć')
+    expect(formatGalleryPhotoCount(22, 'pl')).toBe('22 zdjęcia')
+    expect(formatGalleryPhotoCount(25, 'pl')).toBe('25 zdjęć')
     expect(formatGalleryPhotoPosition(1, 3, 'en')).toBe('1 of 3')
     expect(getGalleryPhotoAlt(album, 'en')).toBe('Photo from album Workshop')
   })
@@ -546,6 +556,75 @@ describe('gallery helpers', () => {
     expect(photos).toHaveLength(1)
     expect(photos[0].largeUrl).toBe('https://drive/photo=w1800')
     expect(refreshedThumbnail).toBe('https://drive/photo=w1800')
+  })
+
+  test('promotes the achievements album and parses dated timeline photos', async () => {
+    const achievementsFolderId = '1regQdvW8Ebx5sGzXQ-4Goffde-ieW1cs'
+    const config: GoogleDriveGalleryConfig = { apiKey: 'api-key', folderId: 'root-folder' }
+    mockJsonFetch([
+      {
+        files: [
+          { id: 'regular-album', name: '2026-06-01 - Regular Album' },
+          { id: achievementsFolderId, name: 'Drive folder title can change' },
+        ],
+      },
+      {
+        files: [
+          {
+            id: 'regular-cover',
+            imageMediaMetadata: { height: 768, width: 1024 },
+            name: '[cover] regular.jpg',
+            thumbnailLink: 'https://drive/regular=s220',
+          },
+        ],
+      },
+      {
+        files: [
+          {
+            id: 'undated-diploma',
+            imageMediaMetadata: { height: 900, width: 1200 },
+            name: 'Dyplom bez daty.jpg',
+            thumbnailLink: 'https://drive/undated=s220',
+          },
+          {
+            id: 'old-diploma',
+            imageMediaMetadata: { height: 900, width: 1200 },
+            name: '2025-11-23 - Konkurs piosenki religijnej -- Religious song contest.jpg',
+            thumbnailLink: 'https://drive/old=s220',
+          },
+          {
+            id: 'new-diploma',
+            imageMediaMetadata: { height: 900, width: 1200 },
+            name: '2026-05-18 - Cecyliada, wyróżnienie -- Cecyliada, distinction.jpg',
+            thumbnailLink: 'https://drive/new=s220',
+          },
+        ],
+      },
+    ])
+
+    const albums = await fetchGoogleDriveGalleryAlbums(config)
+    const photos = await fetchGoogleDriveAlbumPhotos(config, albums[0])
+
+    expect(albums[0]).toMatchObject({
+      date: undefined,
+      id: achievementsFolderId,
+      kind: 'achievements',
+      slug: 'achievements',
+      title: { pl: 'Osiągnięcia', en: 'Achievements' },
+      coverPhoto: undefined,
+    })
+    expect(albums.map((album) => album.slug)).toEqual([
+      'achievements',
+      '2026-06-01-regular-album',
+    ])
+    expect(formatGalleryAlbumDate(albums[0], 'en')).toBe('Contests and festivals')
+    expect(photos.map((photo) => getGalleryPhotoDisplayTitle(photo, 'en'))).toEqual([
+      'Cecyliada, distinction',
+      'Religious song contest',
+      'Dyplom bez daty',
+    ])
+    expect(formatGalleryTimelinePhotoDate(photos[0], 'en')).toBe('May 18, 2026')
+    expect(formatGalleryTimelinePhotoDate(photos[2], 'en')).toBe('Undated')
   })
 
   test('uses Google Drive pagination and falls back to the first album photo as cover', async () => {

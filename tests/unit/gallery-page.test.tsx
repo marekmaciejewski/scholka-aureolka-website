@@ -21,7 +21,12 @@ vi.mock('../../src/core', async (importOriginal) => {
   }
 })
 
-import { AlbumGrid, GalleryLightbox, PhotoGrid } from '../../src/components/Gallery'
+import {
+  AlbumGrid,
+  GalleryAlbumHeader,
+  GalleryLightbox,
+  PhotoGrid,
+} from '../../src/components/Gallery'
 import {
   galleryImageLogoSpinnerMinimumMs,
   galleryImageRetryDelays,
@@ -140,6 +145,7 @@ function createAlbum(overrides: Partial<GalleryAlbum> = {}): GalleryAlbum {
     date: new Date(2026, 2, 26),
     folderName: '2026-03-26 - Workshop',
     id: 'album-1',
+    kind: 'standard',
     slug: 'workshop',
     title: { pl: 'Warsztaty', en: 'Workshop' },
     ...overrides,
@@ -357,6 +363,102 @@ describe('gallery page data states', () => {
 })
 
 describe('gallery image behavior', () => {
+  test('renders the achievements album tile with a fixed symbol instead of a cover photo', () => {
+    const { container } = render(
+      <AlbumGrid
+        albums={[
+          createAlbum({
+            date: undefined,
+            kind: 'achievements',
+            slug: 'achievements',
+            title: { pl: 'Osiągnięcia', en: 'Achievements' },
+          }),
+        ]}
+        apiKey="gallery-api-key"
+        language="en"
+        onAlbumSelect={vi.fn()}
+      />,
+    )
+
+    expect(container.querySelector('.achievement-album-symbol')).not.toBeNull()
+    expect(container.querySelector('.achievement-certificate')).not.toBeNull()
+    expect(container.querySelector('.achievement-rosette')).not.toBeNull()
+    expect(container.querySelector('.achievement-laurel')).toBeNull()
+    expect(container.querySelector('.album-cover .gallery-image')).toBeNull()
+    expect(container.textContent).toContain('Achievements')
+    expect(container.textContent).toContain('Contests and festivals')
+    expect(container.textContent).not.toContain('Diplomas, contests, and memorable moments')
+  })
+
+  test('renders the achievements album header with the same eyebrow as the card', () => {
+    const { container } = render(
+      <GalleryAlbumHeader
+        album={createAlbum({
+          date: undefined,
+          kind: 'achievements',
+          slug: 'achievements',
+          title: { pl: 'Osiągnięcia', en: 'Achievements' },
+        })}
+        language="en"
+        photoCount={4}
+        onBack={vi.fn()}
+      />,
+    )
+
+    expect(container.textContent).toContain('Contests and festivals')
+    expect(container.textContent).toContain('Achievements')
+    expect(container.textContent).toContain('4 photos')
+    expect(container.textContent).not.toContain('Hall of fame')
+    expect(container.textContent).not.toContain('Diplomas, contests, and memorable moments')
+  })
+
+  test('renders achievements photos as a dated timeline', () => {
+    const onPhotoSelect = vi.fn()
+    const { container } = render(
+      <PhotoGrid
+        album={createAlbum({
+          date: undefined,
+          kind: 'achievements',
+          slug: 'achievements',
+          title: { pl: 'Osiągnięcia', en: 'Achievements' },
+        })}
+        language="en"
+        photos={[
+          createPhoto({
+            date: new Date(2026, 4, 18),
+            id: 'new-diploma',
+            name: '2026-05-18 - Cecyliada, wyróżnienie -- Cecyliada, distinction.jpg',
+            title: { pl: 'Cecyliada, wyróżnienie', en: 'Cecyliada, distinction' },
+          }),
+          createPhoto({
+            date: new Date(2025, 10, 22),
+            id: 'gold-diploma',
+            name: '2025-11-22 - Cecyliada, Złoty Dyplom -- Cecyliada, Golden Diploma.jpg',
+            title: { pl: 'Cecyliada, Złoty Dyplom', en: 'Cecyliada, Golden Diploma' },
+          }),
+          createPhoto({
+            date: new Date(2025, 10, 22),
+            id: 'cecilia-figurine',
+            name: '2025-11-22 - Pamiątka z Cecyliady -- A souvenir from Cecyliada.jpg',
+            title: { pl: 'Pamiątka z Cecyliady', en: 'A souvenir from Cecyliada' },
+          }),
+        ]}
+        onPhotoSelect={onPhotoSelect}
+      />,
+    )
+
+    expect(container.querySelector('.achievements-timeline')).not.toBeNull()
+    expect(container.querySelector('.photo-grid')).toBeNull()
+    expect(container.textContent).toContain('May 18, 2026')
+    expect(container.textContent).toContain('Cecyliada, distinction')
+    expect(container.querySelectorAll('.achievement-grid')).toHaveLength(2)
+    expect(container.querySelectorAll('.achievement-grid-scrollable')).toHaveLength(1)
+
+    click(container.querySelector('.achievement-card'))
+
+    expect(onPhotoSelect).toHaveBeenCalledWith('new-diploma')
+  })
+
   test('retries a refreshed image URL and marks the image as loaded', async () => {
     vi.useFakeTimers()
     coreMocks.fetchGoogleDriveThumbnailUrl.mockResolvedValue(
