@@ -164,6 +164,11 @@ type EventCardStyle = CSSProperties & {
   '--event-accent'?: string
 }
 
+type EventRelativeTime = {
+  label: string
+  progressPercent: number
+}
+
 type CalendarRichParagraphBlock = {
   kind: 'paragraph'
   html: string
@@ -563,6 +568,129 @@ function formatEventDate(date: Date, language: Language) {
     day: 'numeric',
     month: 'long',
   }).format(date)
+}
+
+const millisecondsPerDay = 24 * 60 * 60 * 1000
+const defaultEventRelativeProgressWindowDays = 7
+
+function getLocalDayValue(date: Date) {
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+function parseEventRelativeProgressWindowDays(value: string | undefined) {
+  const progressWindowDays = Number(value?.trim())
+
+  return Number.isFinite(progressWindowDays) && progressWindowDays > 0
+    ? progressWindowDays
+    : defaultEventRelativeProgressWindowDays
+}
+
+function getEventRelativeProgressWindowDays() {
+  return parseEventRelativeProgressWindowDays(
+    import.meta.env.VITE_EVENT_PROGRESS_WINDOW_DAYS,
+  )
+}
+
+function getEventRelativeProgressWindowMs() {
+  return getEventRelativeProgressWindowDays() * millisecondsPerDay
+}
+
+function translateCountedText(text: LocalizedText, language: Language, count: number) {
+  return translate(text, language).replace('{count}', String(count))
+}
+
+function formatEventRelativeTime(
+  date: Date,
+  language: Language,
+  referenceDate = new Date(),
+) {
+  return getEventRelativeTime(date, language, referenceDate)?.label ?? null
+}
+
+function getEventRelativeProgressPercent(date: Date, referenceDate: Date) {
+  const millisecondsUntilEvent = date.getTime() - referenceDate.getTime()
+  const progressWindowMs = getEventRelativeProgressWindowMs()
+
+  if (millisecondsUntilEvent >= progressWindowMs) {
+    return 0
+  }
+
+  if (millisecondsUntilEvent <= 0) {
+    return 100
+  }
+
+  return Math.round(
+    ((progressWindowMs - millisecondsUntilEvent) / progressWindowMs) * 100,
+  )
+}
+
+function getEventRelativeTime(
+  date: Date,
+  language: Language,
+  referenceDate = new Date(),
+): EventRelativeTime | null {
+  const daysUntilEvent = Math.round(
+    (getLocalDayValue(date) - getLocalDayValue(referenceDate)) / millisecondsPerDay,
+  )
+
+  if (daysUntilEvent < 0) {
+    return null
+  }
+
+  if (daysUntilEvent === 0) {
+    return {
+      label: translate(scheduleText.relativeToday, language),
+      progressPercent: getEventRelativeProgressPercent(date, referenceDate),
+    }
+  }
+
+  if (daysUntilEvent === 1) {
+    return {
+      label: translate(scheduleText.relativeTomorrow, language),
+      progressPercent: getEventRelativeProgressPercent(date, referenceDate),
+    }
+  }
+
+  if (daysUntilEvent < 7) {
+    return {
+      label: translateCountedText(scheduleText.relativeInDays, language, daysUntilEvent),
+      progressPercent: getEventRelativeProgressPercent(date, referenceDate),
+    }
+  }
+
+  if (daysUntilEvent < 14) {
+    return {
+      label: translate(scheduleText.relativeInWeek, language),
+      progressPercent: getEventRelativeProgressPercent(date, referenceDate),
+    }
+  }
+
+  if (daysUntilEvent < 45) {
+    return {
+      label: translateCountedText(
+        scheduleText.relativeInWeeks,
+        language,
+        Math.max(2, Math.round(daysUntilEvent / 7)),
+      ),
+      progressPercent: getEventRelativeProgressPercent(date, referenceDate),
+    }
+  }
+
+  if (daysUntilEvent < 75) {
+    return {
+      label: translate(scheduleText.relativeInMonth, language),
+      progressPercent: getEventRelativeProgressPercent(date, referenceDate),
+    }
+  }
+
+  return {
+    label: translateCountedText(
+      scheduleText.relativeInMonths,
+      language,
+      Math.max(2, Math.round(daysUntilEvent / 30)),
+    ),
+    progressPercent: getEventRelativeProgressPercent(date, referenceDate),
+  }
 }
 
 function formatEventTime(date: Date, language: Language) {
@@ -2068,6 +2196,7 @@ export {
   fetchGoogleDriveGalleryAlbums,
   fetchGoogleDriveThumbnailUrl,
   formatEventDate,
+  formatEventRelativeTime,
   formatEventTime,
   formatGalleryAlbumDate,
   formatGalleryPhotoCount,
@@ -2077,6 +2206,8 @@ export {
   getAbsoluteScheduleEventHref,
   getEventCardStyle,
   getEventDomId,
+  getEventRelativeProgressWindowDays,
+  getEventRelativeTime,
   getEventSlugFromLocation,
   getGalleryAlbumHref,
   getGalleryAlbumSlugFromLocation,
@@ -2121,5 +2252,6 @@ export type {
   GalleryState,
   GoogleCalendarConfig,
   GoogleDriveGalleryConfig,
+  EventRelativeTime,
   UpcomingEvent,
 }

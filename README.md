@@ -46,11 +46,14 @@ Local Google config belongs in `.env.local`:
 VITE_GOOGLE_API_KEY=your-restricted-browser-api-key
 VITE_GOOGLE_CALENDAR_ID=your-public-calendar-id@group.calendar.google.com
 VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID=your-public-gallery-folder-id
+VITE_EVENT_PROGRESS_WINDOW_DAYS=7
 ```
 
 The API key is public in the built frontend, so restrict it by HTTP referrer to `https://scholka.urszula-gdynia.pl/*` and local development origins such as `http://localhost:5173/*`.
 
 Calendar events are loaded for the next 3 months. Event titles starting with `[notice]` become home-page notices and are hidden from the schedule list. Add `slug: custom-event-slug` in an event description to create a stable shareable schedule URL such as `/schedule/?event=custom-event-slug`.
+
+Event time chips fill as progress bars before the event. `VITE_EVENT_PROGRESS_WINDOW_DAYS` controls how many days before the event the fill starts; invalid or missing values fall back to 7.
 
 Gallery albums come from Google Drive subfolders named:
 
@@ -71,6 +74,7 @@ Required GitHub settings:
 - Pages source: GitHub Actions
 - Secret: `VITE_GOOGLE_API_KEY`
 - Variables: `VITE_GOOGLE_CALENDAR_ID`, `VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID`
+- Optional variable: `VITE_EVENT_PROGRESS_WINDOW_DAYS` defaults to `7`
 
 The current custom-domain deployment uses Vite `base: '/'`. Change that only if the site moves back to a repository path such as `/scholka-aureolka-website/`.
 

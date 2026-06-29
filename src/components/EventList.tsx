@@ -1,6 +1,7 @@
 import {
   useEffect,
   useRef,
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
 } from 'react'
@@ -16,6 +17,7 @@ import {
   formatLocalizedHtml,
   getEventCardStyle,
   getEventDomId,
+  getEventRelativeTime,
   isExpandableScheduleEvent,
   translate,
   type CalendarEventAttachment,
@@ -249,6 +251,12 @@ function shouldIgnoreEventCardToggle(target: EventTarget | null) {
   return target instanceof Element && Boolean(target.closest('a, button'))
 }
 
+function getEventTimeChipStyle(progressPercent: number) {
+  return {
+    '--event-time-progress': `${progressPercent}%`,
+  } as CSSProperties
+}
+
 function EventTitleActions({
   canCopyEventLink,
   event,
@@ -349,6 +357,7 @@ function EventCard({
   const detailsId = getEventDetailsId(event)
   const canCopyEventLink = canExpandEvent && Boolean(event.slug)
   const eventHref = getEventHref?.(event)
+  const relativeTime = getEventRelativeTime(event.date, language)
   const eventCardClassName = getEventCardClassName({
     canExpandEvent,
     eventHref,
@@ -402,6 +411,14 @@ function EventCard({
               ? translate(scheduleText.allDay, language)
               : formatEventTime(event.date, language)}
           </span>
+          {relativeTime && (
+            <span
+              className="event-time-chip"
+              style={getEventTimeChipStyle(relativeTime.progressPercent)}
+            >
+              {relativeTime.label}
+            </span>
+          )}
         </div>
         <div className="event-body">
           <div className="event-title-row">

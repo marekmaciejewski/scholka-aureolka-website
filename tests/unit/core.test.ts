@@ -6,6 +6,7 @@ import {
   fetchGoogleDriveGalleryAlbums,
   fetchGoogleDriveThumbnailUrl,
   formatEventDate,
+  formatEventRelativeTime,
   formatEventTime,
   formatGalleryAlbumDate,
   formatGalleryPhotoCount,
@@ -14,6 +15,8 @@ import {
   formatLocalizedHtml,
   getEventCardStyle,
   getEventDomId,
+  getEventRelativeProgressWindowDays,
+  getEventRelativeTime,
   getEventSlugFromLocation,
   getGalleryAlbumHref,
   getGalleryAlbumSlugFromLocation,
@@ -245,6 +248,61 @@ describe('schedule helpers', () => {
     expect(formatEventDate(date, 'en')).toContain('June')
     expect(formatEventTime(date, 'en')).toMatch(/6:30|06:30/)
     expect(formatEventDate(date, 'pl')).toMatch(/czerwca|cze/)
+  })
+
+  test('formats event relative time chips by language', () => {
+    const referenceDate = new Date(2026, 5, 25, 8, 0)
+
+    expect(formatEventRelativeTime(new Date(2026, 5, 25, 18, 30), 'pl', referenceDate)).toBe(
+      'dzi\u015b',
+    )
+    expect(formatEventRelativeTime(new Date(2026, 5, 26, 18, 30), 'en', referenceDate)).toBe(
+      'tomorrow',
+    )
+    expect(formatEventRelativeTime(new Date(2026, 5, 29, 18, 30), 'pl', referenceDate)).toBe(
+      'za 4 dni',
+    )
+    expect(formatEventRelativeTime(new Date(2026, 6, 9, 18, 30), 'en', referenceDate)).toBe(
+      'in 2 weeks',
+    )
+    expect(formatEventRelativeTime(new Date(2026, 8, 17, 18, 30), 'pl', referenceDate)).toBe(
+      'za 3 mies.',
+    )
+    expect(formatEventRelativeTime(new Date(2026, 5, 24, 18, 30), 'en', referenceDate)).toBeNull()
+  })
+
+  test('calculates event relative time progress over the final week', () => {
+    const referenceDate = new Date(2026, 5, 25, 8, 0)
+    vi.stubEnv('VITE_EVENT_PROGRESS_WINDOW_DAYS', '')
+
+    expect(
+      getEventRelativeTime(new Date(2026, 6, 2, 8, 0), 'pl', referenceDate)?.progressPercent,
+    ).toBe(0)
+    expect(
+      getEventRelativeTime(new Date(2026, 5, 28, 8, 0), 'pl', referenceDate)?.progressPercent,
+    ).toBe(57)
+    expect(
+      getEventRelativeTime(new Date(2026, 5, 25, 20, 0), 'pl', referenceDate)?.progressPercent,
+    ).toBe(93)
+    expect(
+      getEventRelativeTime(new Date(2026, 5, 25, 8, 0), 'pl', referenceDate)?.progressPercent,
+    ).toBe(100)
+  })
+
+  test('uses a configured event progress window with safe fallback', () => {
+    const referenceDate = new Date(2026, 5, 25, 8, 0)
+
+    vi.stubEnv('VITE_EVENT_PROGRESS_WINDOW_DAYS', '14')
+    expect(getEventRelativeProgressWindowDays()).toBe(14)
+    expect(
+      getEventRelativeTime(new Date(2026, 6, 2, 8, 0), 'pl', referenceDate)?.progressPercent,
+    ).toBe(50)
+
+    vi.stubEnv('VITE_EVENT_PROGRESS_WINDOW_DAYS', '0')
+    expect(getEventRelativeProgressWindowDays()).toBe(7)
+
+    vi.stubEnv('VITE_EVENT_PROGRESS_WINDOW_DAYS', 'soon')
+    expect(getEventRelativeProgressWindowDays()).toBe(7)
   })
 
   test('detects expandable events and derives home links', () => {

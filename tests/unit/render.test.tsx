@@ -115,6 +115,7 @@ afterEach(() => {
   document.body.innerHTML = ''
   window.history.replaceState({}, '', '/')
   window.localStorage.clear()
+  vi.useRealTimers()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
@@ -155,6 +156,10 @@ describe('layout components', () => {
 
 describe('event rendering components', () => {
   test('renders expandable events, attachments, copy controls, and notices', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 5, 24, 10, 0))
+    vi.stubEnv('VITE_EVENT_PROGRESS_WINDOW_DAYS', '')
+
     const onExpandedEventChange = vi.fn()
     const onEventLinkCopy = vi.fn()
     const event = createEvent({
@@ -180,6 +185,12 @@ describe('event rendering components', () => {
     )
 
     expect(container.textContent).toContain('Notice')
+    expect(container.querySelector('.event-time-chip')?.textContent).toBe('tomorrow')
+    expect(
+      (container.querySelector('.event-time-chip') as HTMLElement | null)?.style.getPropertyValue(
+        '--event-time-progress',
+      ),
+    ).toBe('81%')
     expect(container.querySelector('.event-details')).toBeNull()
     expect(container.querySelector('.event-expand-button')).toBeNull()
 

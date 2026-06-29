@@ -73,6 +73,10 @@ Gallery config:
 - `VITE_GOOGLE_API_KEY`
 - `VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID`
 
+Event progress config:
+
+- `VITE_EVENT_PROGRESS_WINDOW_DAYS` - optional, defaults to 7
+
 The app fetches calendar events for the next 3 months. `[notice]` calendar events become home-page notices and are excluded from the schedule list. Gallery albums come from Drive subfolders.
 
 Do not commit private credentials. Restrict the browser API key by HTTP referrer for production and local development.
