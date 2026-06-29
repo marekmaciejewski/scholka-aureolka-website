@@ -2,59 +2,56 @@
 
 ## Project
 
-Build a public website for the children's Polish Christian choir "Scholka Aureolka".
+Maintain the live website for the children's Polish Christian choir "Scholka Aureolka".
 
-The site should feel warm, clear, parish-friendly, and practical for parents. It should avoid a marketing landing-page style and instead make the main user flows easy to scan: when rehearsals happen, where to find updates, how to view photos, and how to contact the organizer in person.
+Production site:
+
+- `https://scholka.urszula-gdynia.pl/`
+
+This is a parent-oriented UI: a practical coordination hub for schedules, notices, photos, first steps, and in-person contact. Do not steer the design toward a promotional recruitment site.
 
 ## Stack
 
 - React
 - TypeScript
 - Vite
-- Static output hosted on GitHub Pages
+- Static multi-page output hosted on GitHub Pages
+- Google Calendar for schedule and notices
+- Google Drive for gallery albums
+- SonarQube Cloud, Vitest, Playwright, ESLint
 
-The current production deployment is a GitHub Pages custom-domain site at:
-
-- `https://scholka.urszula-gdynia.pl/`
-
-For this deployment, Vite's production base path must be `/`. Do not use `/scholka-aureolka-website/` while the site is served from the custom domain root.
-
-Revisit the production base path only if the site moves back to a GitHub Pages project URL such as `https://marekmaciejewski.github.io/scholka-aureolka-website/`. In that case, the production base path should become `/scholka-aureolka-website/`.
+The current deployment uses a custom domain at the site root, so Vite's production base path must remain `/`. Do not use `/scholka-aureolka-website/` unless the site moves back to a GitHub Pages repository URL.
 
 ## Site Model
 
-Use a static multi-page site, not SPA-style client routing.
+Use Vite's static multi-page app pattern. Current public pages:
 
-Planned sections:
+- `/` - Start
+- `/schedule/` - Ogarniajzer / Schedule
+- `/gallery/` - Gallery
+- `/contact/` - Contact
 
-- Start
-- Gallery
-- Calendar
-- Organization
-- Contact
+Each page has an HTML entry point and mounts the shared React app. React Router is not currently installed; keep direct links and refresh behavior simple on GitHub Pages.
 
-Future sections may include:
+Likely future sections:
 
-- News
+- Achievements
 - Songs
-- For parents
-- FAQ
+- Frequency
 
-Shared navigation, footer, language switching, theme switching, and layout components should be reused across pages.
+The exact scope of "frequency" is not yet defined. Ask before implementing that section.
 
 ## Language
 
-Polish is the primary language.
+Polish is the primary language. English translation must remain complete across public UI and content.
 
-English translation must be complete across the public site. Avoid leaving mixed-language UI unless it is a proper name or external title.
+Avoid hard-coding Polish-only text inside reusable components. Prefer structured content and typed translation records.
 
-## Theme
+## Theme and Assets
 
-Support light and dark themes.
+Support light and dark themes with CSS custom properties and `data-theme` on the document root.
 
-Use CSS custom properties for theme tokens and switch themes with a stable attribute such as `data-theme` on the document root.
-
-Palette derived from the logo assets:
+Logo-derived palette:
 
 - Purple: `#3C2F75`
 - Violet: `#C22CC6`
@@ -62,44 +59,47 @@ Palette derived from the logo assets:
 - Gold: `#FFB400`
 - Dark gold: `#996C00`
 
-Do not let the site become a one-color purple theme. Use gold, neutral backgrounds, white space, and restrained contrast to keep the design readable.
+Logo variants live in `public/`. Use the theme/background-appropriate variant and keep the home page logo prominent.
 
-## Assets
+## Google Integration
 
-Logo variants are stored in `public/`.
+Calendar config:
 
-Use the appropriate logo variant for each context:
+- `VITE_GOOGLE_API_KEY`
+- `VITE_GOOGLE_CALENDAR_ID`
 
-- Light theme
-- Dark theme
-- Purple-background sections
+Gallery config:
 
-Keep the logo visible on the home page as a first-viewport signal.
+- `VITE_GOOGLE_API_KEY`
+- `VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID`
 
-## Calendar
+The app fetches calendar events for the next 3 months. `[notice]` calendar events become home-page notices and are excluded from the schedule list. Gallery albums come from Drive subfolders.
 
-The calendar should be dynamic and based on a public Google Calendar.
+Do not commit private credentials. Restrict the browser API key by HTTP referrer for production and local development.
 
-Display upcoming events up to 3 months forward. A custom rendered calendar/list is preferred over a plain Google Calendar iframe so it can match the site theme and support both languages.
-
-Do not commit private credentials. If a browser API key is used, it must be restricted to the production GitHub Pages domain and local development origins as needed.
-
-## Contact
+## Contact and Privacy
 
 Do not add contact forms, phone numbers, or email addresses.
 
-The contact page should say that the named organizer can be contacted in person during scheduled choir meetings and after relevant scheduled gatherings.
+Contact should remain in-person only, naming the responsible people and pointing visitors to scheduled choir meetings or parish links.
 
-## Content
+Parents have signed photo consents, so gallery support is allowed. Still keep child-related public content minimal and parent-approved.
 
-Placeholder or lorem ipsum content is acceptable until final copy is provided.
+## Development Checks
 
-The parish page confirms useful schedule facts:
+Local dev server:
 
-- Children's Mass: Sunday at 12:00 outside holiday periods
-- Rehearsals: Thursday at 18:30 and Sunday at 11:00
+- `http://localhost:5173/`
 
-Parents have signed photo consents, so gallery support is allowed.
+Useful commands:
+
+- `npm run build`
+- `npm run lint`
+- `npm test`
+- `npm run test:coverage`
+- `npm run test:e2e`
+
+Playwright starts/reuses the Vite dev server through `playwright.config.ts`. Install Chromium locally with `npx playwright install chromium` before running e2e tests for the first time.
 
 ## Local Development Assumptions
 
@@ -116,10 +116,20 @@ When a task requires browser verification:
 - If `http://localhost:5173/` is not reachable, ask the user whether to start the dev server or wait until they start it.
 - Do not silently fall back to unrelated browser or search tooling for local UI verification.
 
-## Implementation Notes
+## SonarQube MCP
 
-- Keep components small and content-driven.
-- Prefer structured data files for navigation, translations, calendar labels, gallery albums, and page copy.
-- Avoid hard-coding Polish-only strings inside reusable components.
-- Make pages responsive from the start.
-- Keep GitHub Pages deployment simple: build static assets and publish the `dist/` output.
+When SonarQube MCP tools are available, use them for code-quality context instead of guessing from badges.
+
+Resolve the project key from `sonar-project.properties`:
+
+```text
+marekmaciejewski_scholka-aureolka-website
+```
+
+Use `branch: "master"` for the long-lived branch unless the user explicitly asks for a pull request or another branch. Do not pass a git branch name as `pullRequest`; SonarQube PR keys are different.
+
+A useful first check is `get_project_quality_gate_status` with the project key and `branch: "master"`. On 2026-06-29, that MCP check returned `OK`; treat that as a point-in-time signal and recheck when quality status matters.
+
+## Documentation
+
+Keep `README.md` concise and operational. Put agent-facing implementation guidance here in `AGENTS.md`.

@@ -187,17 +187,13 @@ describe('routing and page helpers', () => {
     stubPreferredColorScheme(false)
     vi.stubEnv('VITE_GOOGLE_API_KEY', 'api-key')
     vi.stubEnv('VITE_GOOGLE_CALENDAR_ID', 'main-calendar')
-    vi.stubEnv('VITE_GOOGLE_BIRTHDAY_CALENDAR_ID', 'birthday-calendar')
     vi.stubEnv('VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID', 'gallery-folder')
 
     expect(getInitialLanguage()).toBe('en')
     expect(getInitialTheme()).toBe('dark')
     expect(getGoogleCalendarConfig()).toEqual({
       apiKey: 'api-key',
-      calendars: [
-        { calendarId: 'main-calendar', source: 'google-calendar' },
-        { calendarId: 'birthday-calendar', source: 'birthday-calendar' },
-      ],
+      calendars: [{ calendarId: 'main-calendar', source: 'google-calendar' }],
     })
     expect(getGoogleDriveGalleryConfig()).toEqual({
       apiKey: 'api-key',
@@ -206,7 +202,6 @@ describe('routing and page helpers', () => {
 
     vi.stubEnv('VITE_GOOGLE_API_KEY', '')
     vi.stubEnv('VITE_GOOGLE_CALENDAR_ID', '')
-    vi.stubEnv('VITE_GOOGLE_BIRTHDAY_CALENDAR_ID', '')
     vi.stubEnv('VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID', '')
     stubStorage()
     stubPreferredColorScheme(true)
@@ -289,13 +284,10 @@ describe('schedule helpers', () => {
     ])
   })
 
-  test('maps configured Google Calendar events, notices, birthdays, colors, and attachments', async () => {
+  test('maps configured Google Calendar events, notices, colors, and attachments', async () => {
     const config: GoogleCalendarConfig = {
       apiKey: 'api-key',
-      calendars: [
-        { calendarId: 'main-calendar', source: 'google-calendar' },
-        { calendarId: 'birthday-calendar', source: 'birthday-calendar' },
-      ],
+      calendars: [{ calendarId: 'main-calendar', source: 'google-calendar' }],
     }
     const fetchMock = mockJsonFetch([
       {
@@ -330,7 +322,7 @@ describe('schedule helpers', () => {
             description: 'Bring water',
             id: 'notice-1',
             start: { date: '2026-06-26' },
-            summary: '[notice] Grill',
+            summary: '[notice] !Grill!',
           },
           {
             id: 'cancelled-1',
@@ -340,21 +332,12 @@ describe('schedule helpers', () => {
           },
         ],
       },
-      {
-        items: [
-          {
-            id: 'birthday-1',
-            start: { date: '2026-06-28' },
-            summary: 'Ania',
-          },
-        ],
-      },
     ])
 
     const events = await fetchConfiguredCalendarEvents(config, 'en')
 
-    expect(fetchMock).toHaveBeenCalledTimes(3)
-    expect(events.map((event) => event.title)).toEqual(['Rehearsal - grill', 'Grill', 'Birthday'])
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(events.map((event) => event.title)).toEqual(['Rehearsal - grill', '!Grill!'])
     expect(events[0]).toMatchObject({
       attachments: [
         {
@@ -369,7 +352,7 @@ describe('schedule helpers', () => {
       slug: 'proba-grill',
     })
     expect(events[1].isNotice).toBe(true)
-    expect(events[2].eventHighlight?.kind).toBe('birthday')
+    expect(events[1].eventHighlight).toBeUndefined()
   })
 
   test('maps rich calendar descriptions, all-day events, fallback titles, and invalid items', async () => {
@@ -436,7 +419,7 @@ describe('schedule helpers', () => {
       eventColor: { background: '#abcdef', foreground: undefined },
       isAllDay: true,
       slug: 'rich-html-event',
-      title: 'Important choir',
+      title: 'Important choir!',
     })
     expect(richEvent?.attachments?.[0]).toMatchObject({
       iconUrl: undefined,

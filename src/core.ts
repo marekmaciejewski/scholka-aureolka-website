@@ -14,7 +14,7 @@ import {
   type ThemeName,
 } from './siteContent'
 
-type EventSource = 'google-calendar' | 'birthday-calendar'
+type EventSource = 'google-calendar'
 
 type UpcomingEvent = {
   id: string
@@ -474,7 +474,6 @@ function getGoogleApiKey() {
 
 function getGoogleCalendarConfig(): GoogleCalendarConfig | null {
   const calendarId = import.meta.env.VITE_GOOGLE_CALENDAR_ID?.trim()
-  const birthdayCalendarId = import.meta.env.VITE_GOOGLE_BIRTHDAY_CALENDAR_ID?.trim()
   const apiKey = getGoogleApiKey()
   const calendars: GoogleCalendarConfig['calendars'] = []
 
@@ -482,13 +481,6 @@ function getGoogleCalendarConfig(): GoogleCalendarConfig | null {
     calendars.push({
       calendarId,
       source: 'google-calendar',
-    })
-  }
-
-  if (birthdayCalendarId) {
-    calendars.push({
-      calendarId: birthdayCalendarId,
-      source: 'birthday-calendar',
     })
   }
 
@@ -1686,11 +1678,8 @@ function includesEventKeyword(value: string, keywords: string[]) {
   return keywords.some((keyword) => normalizedValue.includes(keyword))
 }
 
-function getCalendarEventHighlight(title: string, source: EventSource): EventHighlight | undefined {
-  if (
-    source === 'birthday-calendar' ||
-    includesEventKeyword(title, ['urodziny', 'birthday'])
-  ) {
+function getCalendarEventHighlight(title: string): EventHighlight | undefined {
+  if (includesEventKeyword(title, ['urodziny', 'birthday'])) {
     return {
       kind: 'birthday',
       accent: birthdayEventAccent,
@@ -1717,7 +1706,7 @@ function getDisplayCalendarEventTitle(
   }
 
   if (eventHighlight?.kind === 'important') {
-    return collapseWhitespaceRuns(title.replaceAll('!', '')).trim() || title
+    return collapseWhitespaceRuns(title.replace('!', '')).trim() || title
   }
 
   return title.trim() || title
@@ -1794,11 +1783,8 @@ function mapGoogleCalendarEvent(
   const isNotice = isNoticeCalendarTitle(rawTitle)
   const displayTitle = isNotice ? getNoticeCalendarTitle(rawTitle, language) : rawTitle
   const eventHighlight: EventHighlight | undefined = isNotice
-    ? {
-        kind: 'important',
-        accent: importantEventAccent,
-      }
-    : getCalendarEventHighlight(displayTitle, source)
+    ? undefined
+    : getCalendarEventHighlight(displayTitle)
   const title = formatLocalizedText(
     getDisplayCalendarEventTitle(displayTitle, eventHighlight, language),
     language,

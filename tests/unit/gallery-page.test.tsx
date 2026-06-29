@@ -123,6 +123,17 @@ function setNaturalWidth(image: HTMLImageElement, naturalWidth: number) {
   })
 }
 
+function setNaturalSize(image: HTMLImageElement, naturalWidth: number, naturalHeight: number) {
+  Object.defineProperty(image, 'naturalWidth', {
+    configurable: true,
+    value: naturalWidth,
+  })
+  Object.defineProperty(image, 'naturalHeight', {
+    configurable: true,
+    value: naturalHeight,
+  })
+}
+
 function createAlbum(overrides: Partial<GalleryAlbum> = {}): GalleryAlbum {
   return {
     coverPhoto: createPhoto({ id: 'cover-photo' }),
@@ -409,6 +420,33 @@ describe('gallery image behavior', () => {
     dispatchImageEvent(getGalleryImage(container), 'error')
 
     expect(getGalleryImageFrame(container).className).toContain('is-failed')
+  })
+
+  test('corrects lightbox aspect ratio from the loaded image dimensions', async () => {
+    const photo = createPhoto({
+      height: 1952,
+      id: 'portrait-with-landscape-metadata',
+      width: 3264,
+    })
+    const { container } = render(
+      <GalleryLightbox
+        album={createAlbum()}
+        language="en"
+        photoId={photo.id}
+        photos={[photo]}
+        onClose={vi.fn()}
+        onPhotoSelect={vi.fn()}
+      />,
+    )
+    const frame = getGalleryImageFrame(container) as HTMLElement
+
+    expect(frame.style.aspectRatio).toBe('3264 / 1952')
+
+    const image = getGalleryImage(container)
+    setNaturalSize(image, 1800, 3010)
+    dispatchImageEvent(image, 'load')
+
+    expect(frame.style.aspectRatio).toBe('1800 / 3010')
   })
 
   test('handles previous lightbox navigation and stale photo ids', () => {

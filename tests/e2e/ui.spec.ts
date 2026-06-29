@@ -204,11 +204,11 @@ test('schedule page handles configured and unconfigured calendar states', async 
   } else {
     await expect(eventCards.first()).toBeVisible()
 
-    const expandableButtons = page.locator('.event-expand-button')
-    const expandableCount = await expandableButtons.count()
+    const expandableCards = page.locator('.event-card-clickable')
+    const expandableCount = await expandableCards.count()
 
     if (expandableCount > 0) {
-      await expandableButtons.first().click()
+      await expandableCards.first().click()
       await expect(page.locator('.event-details')).toBeVisible()
       await expectNoHorizontalOverflow(page)
     }

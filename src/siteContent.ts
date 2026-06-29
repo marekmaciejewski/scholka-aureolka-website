@@ -271,7 +271,8 @@ export const scheduleCards: ScheduleCard[] = [
   },
 ]
 
-const consentPdfHref = '/Zgoda.pdf'
+const consentPdfHref =
+  'https://drive.google.com/file/d/11izIapK8vuZSe473TVJgBc7GSkx2u-8A/view?usp=drive_link'
 const safeguardingStandardsUrl = 'https://www.urszula-gdynia.pl/maloletni.html'
 
 export const firstStepsModal: {

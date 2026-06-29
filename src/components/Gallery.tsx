@@ -75,6 +75,7 @@ function GalleryImage({
   style?: CSSProperties
 }>) {
   const [attempt, setAttempt] = useState({ retryCount: 0, src })
+  const [naturalAspectRatio, setNaturalAspectRatio] = useState<string | undefined>()
   const [status, setStatus] = useState<GalleryImageStatus>('loading')
   const retryTimeoutRef = useRef<ReturnType<typeof globalThis.setTimeout> | undefined>(undefined)
   const loadCompleteTimeoutRef = useRef<ReturnType<typeof globalThis.setTimeout> | undefined>(
@@ -90,6 +91,9 @@ function GalleryImage({
   ]
     .filter(Boolean)
     .join(' ')
+  const imageFrameStyle: CSSProperties | undefined = naturalAspectRatio
+    ? { ...style, aspectRatio: naturalAspectRatio }
+    : style
 
   useEffect(
     () => {
@@ -187,6 +191,12 @@ function GalleryImage({
       return
     }
 
+    if (event.currentTarget.naturalHeight > 0) {
+      setNaturalAspectRatio(
+        `${event.currentTarget.naturalWidth} / ${event.currentTarget.naturalHeight}`,
+      )
+    }
+
     if (retryTimeoutRef.current) {
       globalThis.clearTimeout(retryTimeoutRef.current)
       retryTimeoutRef.current = undefined
@@ -196,7 +206,7 @@ function GalleryImage({
   }
 
   return (
-    <span className={imageClassName} style={style}>
+    <span className={imageClassName} style={imageFrameStyle}>
       <span className="gallery-image-spinner" aria-hidden="true">
         <GalleryImageLoadingLogo />
       </span>
@@ -342,6 +352,8 @@ function PhotoGrid({
   return (
     <div className="photo-grid">
       {photos.map((photo, index) => {
+        const photoAspectStyle = getGalleryPhotoAspectStyle(photo)
+
         function handlePhotoClick(event: ReactMouseEvent<HTMLAnchorElement>) {
           event.preventDefault()
           onPhotoSelect(photo.id)
@@ -353,6 +365,7 @@ function PhotoGrid({
             key={photo.id}
             href={getGalleryPhotoHref(album.slug, photo.id)}
             aria-label={`${translate(galleryText.openPhoto, language)} ${index + 1}`}
+            style={photoAspectStyle}
             onClick={handlePhotoClick}
           >
             <GalleryImage

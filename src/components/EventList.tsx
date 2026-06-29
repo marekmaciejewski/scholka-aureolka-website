@@ -1,6 +1,7 @@
 import {
   useEffect,
   useRef,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
 } from 'react'
 import {
@@ -49,16 +50,13 @@ type EventCardProps = EventListOptions &
 
 type EventTitleActionsProps = Readonly<{
   canCopyEventLink: boolean
-  canExpandEvent: boolean
   event: UpcomingEvent
   isBirthdayEvent: boolean
   isCopied: boolean
   isExpanded: boolean
   language: Language
-  detailsId: string
   shouldShowDetailSymbol: boolean
   onCopyEventLink: (mouseEvent: ReactMouseEvent<HTMLButtonElement>) => void
-  onToggleEvent: () => void
 }>
 
 function CopyLinkIcon({ isCopied }: Readonly<{ isCopied: boolean }>) {
@@ -217,6 +215,7 @@ function getEventDetailsId(event: UpcomingEvent) {
 }
 
 function getEventCardClassName({
+  canExpandEvent,
   eventHref,
   isBirthdayEvent,
   isExpanded,
@@ -224,6 +223,7 @@ function getEventCardClassName({
   isLinked,
   shouldShowDetailSymbol,
 }: Readonly<{
+  canExpandEvent: boolean
   eventHref: string | undefined
   isBirthdayEvent: boolean
   isExpanded: boolean
@@ -234,6 +234,7 @@ function getEventCardClassName({
   return [
     'event-card',
     eventHref ? 'event-card-link' : '',
+    canExpandEvent ? 'event-card-clickable' : '',
     isBirthdayEvent ? 'event-card--birthday' : '',
     isImportantEvent ? 'event-card--important' : '',
     shouldShowDetailSymbol ? 'has-details' : '',
@@ -244,28 +245,25 @@ function getEventCardClassName({
     .join(' ')
 }
 
+function shouldIgnoreEventCardToggle(target: EventTarget | null) {
+  return target instanceof Element && Boolean(target.closest('a, button'))
+}
+
 function EventTitleActions({
   canCopyEventLink,
-  canExpandEvent,
   event,
   isBirthdayEvent,
   isCopied,
   isExpanded,
   language,
-  detailsId,
   shouldShowDetailSymbol,
   onCopyEventLink,
-  onToggleEvent,
 }: EventTitleActionsProps) {
   const copyButtonClassName = isCopied
     ? 'event-action-button event-copy-link-button is-copied'
     : 'event-action-button event-copy-link-button'
   const copyEventLinkText = translate(
     isCopied ? scheduleText.eventLinkCopied : scheduleText.copyEventLink,
-    language,
-  )
-  const expandEventText = translate(
-    isExpanded ? scheduleText.collapseEvent : scheduleText.expandEvent,
     language,
   )
 
@@ -290,23 +288,8 @@ function EventTitleActions({
           <CopyLinkIcon isCopied={isCopied} />
         </button>
       )}
-      {canExpandEvent && (
-        <button
-          type="button"
-          className="event-action-button event-expand-button"
-          aria-expanded={isExpanded}
-          aria-controls={detailsId}
-          aria-label={`${expandEventText}: ${event.title}`}
-          onClick={onToggleEvent}
-        >
-          {isExpanded ? '-' : '+'}
-        </button>
-      )}
-      {shouldShowDetailSymbol && !canExpandEvent && (
-        <span
-          className="event-expand-status-icon"
-          aria-label={translate(scheduleText.eventInfoLabel, language)}
-        >
+      {shouldShowDetailSymbol && (
+        <span className="event-expand-status-icon" aria-hidden="true">
           {isExpanded ? '-' : '+'}
         </span>
       )}
@@ -367,6 +350,7 @@ function EventCard({
   const canCopyEventLink = canExpandEvent && Boolean(event.slug)
   const eventHref = getEventHref?.(event)
   const eventCardClassName = getEventCardClassName({
+    canExpandEvent,
     eventHref,
     isBirthdayEvent,
     isExpanded,
@@ -378,6 +362,25 @@ function EventCard({
   function toggleEvent() {
     if (canExpandEvent && onExpandedEventChange) {
       onExpandedEventChange(isExpanded ? null : event.id)
+    }
+  }
+
+  function handleCardClick(mouseEvent: ReactMouseEvent<HTMLElement>) {
+    if (!canExpandEvent || shouldIgnoreEventCardToggle(mouseEvent.target)) {
+      return
+    }
+
+    toggleEvent()
+  }
+
+  function handleCardKeyDown(keyboardEvent: ReactKeyboardEvent<HTMLElement>) {
+    if (!canExpandEvent || keyboardEvent.target !== keyboardEvent.currentTarget) {
+      return
+    }
+
+    if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') {
+      keyboardEvent.preventDefault()
+      toggleEvent()
     }
   }
 
@@ -405,16 +408,13 @@ function EventCard({
             <h3>{event.title}</h3>
             <EventTitleActions
               canCopyEventLink={canCopyEventLink}
-              canExpandEvent={canExpandEvent}
               event={event}
               isBirthdayEvent={isBirthdayEvent}
               isCopied={copiedEventId === event.id}
               isExpanded={isExpanded}
               language={language}
-              detailsId={detailsId}
               shouldShowDetailSymbol={shouldShowDetailSymbol}
               onCopyEventLink={handleCopyEventLink}
-              onToggleEvent={toggleEvent}
             />
           </div>
           {event.location && <p className="muted">{event.location}</p>}
@@ -454,7 +454,21 @@ function EventCard({
     <article
       className={eventCardClassName}
       id={getEventDomId(event)}
+      role={canExpandEvent ? 'button' : undefined}
+      tabIndex={canExpandEvent ? 0 : undefined}
+      aria-expanded={canExpandEvent ? isExpanded : undefined}
+      aria-controls={canExpandEvent ? detailsId : undefined}
+      aria-label={
+        canExpandEvent
+          ? `${translate(
+              isExpanded ? scheduleText.collapseEvent : scheduleText.expandEvent,
+              language,
+            )}: ${event.title}`
+          : undefined
+      }
       style={getEventCardStyle(event)}
+      onClick={handleCardClick}
+      onKeyDown={handleCardKeyDown}
     >
       {eventCardContent}
     </article>

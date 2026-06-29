@@ -181,8 +181,9 @@ describe('event rendering components', () => {
 
     expect(container.textContent).toContain('Notice')
     expect(container.querySelector('.event-details')).toBeNull()
+    expect(container.querySelector('.event-expand-button')).toBeNull()
 
-    click(container.querySelector('.event-expand-button'))
+    click(container.querySelector('.event-card-clickable'))
     expect(onExpandedEventChange).toHaveBeenCalledWith('event-1')
 
     rerender(
@@ -302,7 +303,7 @@ describe('page components', () => {
     )
 
     expect(container.textContent).toContain('June 2026')
-    click(container.querySelector('.event-expand-button'))
+    click(container.querySelector('.event-card-clickable'))
     expect(container.querySelector('.event-details')?.textContent).toContain('Bring water')
 
     await act(async () => {

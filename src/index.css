@@ -900,7 +900,8 @@ main {
 }
 
 .event-card.has-details,
-.event-card.event-card-link {
+.event-card.event-card-link,
+.event-card.event-card-clickable {
   transition:
     border-color 160ms ease,
     background 160ms ease,
@@ -908,21 +909,25 @@ main {
     transform 160ms ease;
 }
 
-.event-card.event-card-link {
+.event-card.event-card-link,
+.event-card.event-card-clickable {
   cursor: pointer;
   color: inherit;
   text-decoration: none;
 }
 
 .event-card.event-card-link:hover,
-.event-card.event-card-link:focus-visible {
+.event-card.event-card-link:focus-visible,
+.event-card.event-card-clickable:hover,
+.event-card.event-card-clickable:focus-visible {
   border-left-color: var(--event-accent);
   background: color-mix(in srgb, var(--event-accent) 10%, var(--color-surface));
   outline: 0;
   transform: translateY(-1px);
 }
 
-.event-card.event-card-link:focus-visible {
+.event-card.event-card-link:focus-visible,
+.event-card.event-card-clickable:focus-visible {
   box-shadow:
     var(--shadow-soft),
     0 0 0 3px color-mix(in srgb, var(--event-accent) 48%, transparent);
@@ -948,11 +953,14 @@ main {
 }
 
 .event-card--important.event-card-link:hover,
-.event-card--important.event-card-link:focus-visible {
+.event-card--important.event-card-link:focus-visible,
+.event-card--important.event-card-clickable:hover,
+.event-card--important.event-card-clickable:focus-visible {
   background: color-mix(in srgb, var(--color-important) 17%, var(--color-surface));
 }
 
-.event-card--important.event-card-link:focus-visible {
+.event-card--important.event-card-link:focus-visible,
+.event-card--important.event-card-clickable:focus-visible {
   box-shadow:
     var(--shadow-soft),
     0 0 0 3px color-mix(in srgb, var(--color-important) 34%, transparent);
@@ -1019,19 +1027,12 @@ main {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--event-accent) 36%, transparent);
 }
 
-.event-copy-link-button,
-.event-expand-button {
+.event-copy-link-button {
   display: grid;
   place-items: center;
   width: 1.9rem;
   height: 1.9rem;
   padding: 0;
-}
-
-.event-expand-button {
-  font-size: 1rem;
-  font-weight: 950;
-  line-height: 1;
 }
 
 .event-copy-link-button.is-copied {
@@ -1278,7 +1279,7 @@ main {
 .photo-tile img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .gallery-lightbox-backdrop {
@@ -1371,9 +1372,12 @@ main {
   transition: opacity 180ms ease;
 }
 
-.gallery-image-cover img,
-.gallery-image-thumbnail img {
+.gallery-image-cover img {
   object-fit: cover;
+}
+
+.gallery-image-thumbnail img {
+  object-fit: contain;
 }
 
 .gallery-image-lightbox {
@@ -1421,6 +1425,9 @@ main {
   place-items: center;
   width: 2.35rem;
   height: 2.35rem;
+  animation: gallery-image-spin 1.05s linear infinite;
+  transform-origin: center;
+  will-change: transform;
 }
 
 .gallery-image-cover .gallery-image-loading-logo {
@@ -1441,7 +1448,6 @@ main {
   filter: drop-shadow(0 4px 8px rgb(0 0 0 / 16%));
   opacity: 1;
   transition: none;
-  animation: gallery-image-spin 1.05s linear infinite;
 }
 
 .gallery-image .gallery-image-loading-logo-mark {
@@ -1492,8 +1498,8 @@ main {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .gallery-image-loading-logo-mark {
-    animation: none;
+  .gallery-image-loading-logo {
+    animation-duration: 1.8s;
   }
 }
 
@@ -1947,8 +1953,7 @@ main {
     order: 1;
   }
 
-  .event-copy-link-button,
-  .event-expand-button {
+  .event-copy-link-button {
     order: 2;
   }
 
