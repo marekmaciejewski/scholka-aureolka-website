@@ -366,7 +366,7 @@ function FrequencyFiltersPanel({
 
     onFiltersChange({
       ...filters,
-      activeWindowMonths: Math.max(1, Math.round(numericValue)),
+      activeWindowMonths: Math.min(12, Math.max(1, Math.round(numericValue))),
     })
   }
 
@@ -541,26 +541,32 @@ function FrequencyFiltersPanel({
 
       <div className="frequency-filter-field frequency-filter-compact">
         <label htmlFor="frequency-age-start">{translate(frequencyText.ageFromLabel, language)}</label>
-        <input
+        <select
           id="frequency-age-start"
-          min={defaultFilters.minAge}
-          max={defaultFilters.maxAge}
-          type="number"
-          value={filters.minAge}
+          value={String(filters.minAge)}
           onChange={(event) => updateAgeBoundary('minAge', event.currentTarget.value)}
-        />
+        >
+          {ageOptions.map((age) => (
+            <option key={age} value={age}>
+              {formatAgeOption(age, language)}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="frequency-filter-field frequency-filter-compact">
         <label htmlFor="frequency-age-end">{translate(frequencyText.ageToLabel, language)}</label>
-        <input
+        <select
           id="frequency-age-end"
-          min={defaultFilters.minAge}
-          max={defaultFilters.maxAge}
-          type="number"
-          value={filters.maxAge}
+          value={String(filters.maxAge)}
           onChange={(event) => updateAgeBoundary('maxAge', event.currentTarget.value)}
-        />
+        >
+          {ageOptions.map((age) => (
+            <option key={age} value={age}>
+              {formatAgeOption(age, language)}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="frequency-filter-field">
@@ -584,17 +590,17 @@ function FrequencyFiltersPanel({
             </span>
           </button>
         </div>
-        <div className="frequency-input-with-unit">
-          <input
-            id="frequency-active-window"
-            min={1}
-            max={12}
-            type="number"
-            value={filters.activeWindowMonths}
-            onChange={(event) => updateActiveWindow(event.currentTarget.value)}
-          />
-          <span aria-hidden="true">{formatMonthUnit(filters.activeWindowMonths, language)}</span>
-        </div>
+        <select
+          id="frequency-active-window"
+          value={String(filters.activeWindowMonths)}
+          onChange={(event) => updateActiveWindow(event.currentTarget.value)}
+        >
+          {Array.from({ length: 12 }, (_, index) => index + 1).map((monthCount) => (
+            <option key={monthCount} value={monthCount}>
+              {formatMonthOption(monthCount, language)}
+            </option>
+          ))}
+        </select>
       </div>
     </section>
   )
@@ -622,6 +628,10 @@ function formatMonthUnit(value: number, language: Language) {
   }
 
   return value === 1 ? 'month' : 'months'
+}
+
+function formatMonthOption(value: number, language: Language) {
+  return `${value} ${formatMonthUnit(value, language)}`
 }
 
 function PeriodRangeSelect({

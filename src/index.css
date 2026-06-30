@@ -2031,21 +2031,6 @@ main {
   background: var(--color-surface-muted);
 }
 
-.frequency-input-with-unit {
-  display: grid;
-  grid-template-columns: minmax(4rem, 1fr) auto;
-  gap: 0.45rem;
-  align-items: center;
-  min-width: 0;
-}
-
-.frequency-input-with-unit span {
-  color: var(--color-muted);
-  font-size: 0.84rem;
-  font-weight: 850;
-  white-space: nowrap;
-}
-
 .frequency-filter-compact {
   min-width: 7.5rem;
 }

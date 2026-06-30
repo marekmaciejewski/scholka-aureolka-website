@@ -159,6 +159,7 @@ function mockFrequencyFetch() {
             ['1', '01.01.2026', '01.01.2019'],
             ['2', '01.01.2026', '01.01.2018'],
             ['3', '01.01.2026', '01.01.2017'],
+            ['4', '01.01.2026', '01.01.2016'],
           ],
         },
         {
@@ -168,6 +169,7 @@ function mockFrequencyFetch() {
             ['1', '1'],
             ['2', ''],
             ['3', ''],
+            ['4', ''],
           ],
         },
         {
@@ -177,6 +179,7 @@ function mockFrequencyFetch() {
             ['1', '1'],
             ['2', '1'],
             ['3', ''],
+            ['4', ''],
           ],
         },
         {
@@ -186,6 +189,7 @@ function mockFrequencyFetch() {
             ['1', '1', '', ''],
             ['2', '', '1', ''],
             ['3', '', '', '1'],
+            ['4', '', '', '1'],
           ],
         },
       ],
@@ -425,7 +429,7 @@ describe('page components', () => {
     const fetchMock = mockFrequencyFetch()
     const { container, rerender } = render(<FrequencyPage language="pl" />)
 
-    const activeWindowInput = await findElement<HTMLInputElement>(
+    const activeWindowInput = await findElement<HTMLSelectElement>(
       container,
       '#frequency-active-window',
     )
@@ -433,16 +437,24 @@ describe('page components', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(activeWindowInput.value).toBe('2')
+    expect(activeWindowInput.tagName).toBe('SELECT')
+    expect(activeWindowInput).toHaveLength(12)
+    expect(activeWindowInput.selectedOptions[0]?.textContent).toBe('2 mies.')
     expect(activeWindowField?.textContent).toContain('Próg nieaktywności')
     expect(activeWindowField?.querySelector('.frequency-help')?.getAttribute('aria-label')).toBe(
       'Jak długo przed ostatnim spotkaniem może wypadać ostatnia obecność aktywnego uczestnika.',
     )
-    expect(activeWindowField?.querySelector('.frequency-input-with-unit span')?.textContent).toBe(
-      'mies.',
-    )
     expect(container.querySelectorAll('.frequency-scroll-frame')).toHaveLength(2)
     expect(container.querySelectorAll('.frequency-scroll-cue-left')).toHaveLength(2)
     expect(container.querySelectorAll('.frequency-scroll-cue-right')).toHaveLength(2)
+
+    setFormValue(activeWindowInput, '8')
+    expect(activeWindowInput.value).toBe('8')
+    expect(activeWindowInput.selectedOptions[0]?.textContent).toBe('8 mies.')
+
+    setFormValue(activeWindowInput, '11')
+    expect(activeWindowInput.value).toBe('11')
+    expect(activeWindowInput.selectedOptions[0]?.textContent).toBe('11 mies.')
 
     const periodPreset = container.querySelector<HTMLSelectElement>('#frequency-period')
     const schoolYearStart = container.querySelector<HTMLSelectElement>(
@@ -491,8 +503,8 @@ describe('page components', () => {
     expect(periodPreset.value).toBe('custom')
 
     const agePreset = container.querySelector<HTMLSelectElement>('#frequency-age-preset')
-    const ageStart = container.querySelector<HTMLInputElement>('#frequency-age-start')
-    const ageEnd = container.querySelector<HTMLInputElement>('#frequency-age-end')
+    const ageStart = container.querySelector<HTMLSelectElement>('#frequency-age-start')
+    const ageEnd = container.querySelector<HTMLSelectElement>('#frequency-age-end')
 
     if (!agePreset || !ageStart || !ageEnd) {
       throw new Error('Age filters were not rendered')
@@ -503,10 +515,10 @@ describe('page components', () => {
     expect(ageStart.value).toBe('8')
     expect(ageEnd.value).toBe('8')
 
-    setFormValue(ageEnd, '9')
+    setFormValue(ageEnd, '10')
     expect(agePreset.value).toBe('custom')
     expect(ageStart.value).toBe('8')
-    expect(ageEnd.value).toBe('9')
+    expect(ageEnd.value).toBe('10')
 
     setFormValue(ageEnd, '7')
     expect(agePreset.value).toBe('age-7')
@@ -518,14 +530,10 @@ describe('page components', () => {
     expect(activeWindowField?.querySelector('.frequency-help')?.getAttribute('aria-label')).toBe(
       'How long before the latest meeting a member can last attend and still count as active.',
     )
-    expect(activeWindowField?.querySelector('.frequency-input-with-unit span')?.textContent).toBe(
-      'months',
-    )
+    expect(activeWindowInput.selectedOptions[0]?.textContent).toBe('11 months')
 
     setFormValue(activeWindowInput, '1')
-    expect(activeWindowField?.querySelector('.frequency-input-with-unit span')?.textContent).toBe(
-      'month',
-    )
+    expect(activeWindowInput.selectedOptions[0]?.textContent).toBe('1 month')
   })
 
   test('renders schedule states and copies expandable event links', async () => {
