@@ -2,7 +2,6 @@ import {
   useEffect,
   useRef,
   type CSSProperties,
-  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
 } from 'react'
 import {
@@ -248,10 +247,6 @@ function getEventCardClassName({
     .join(' ')
 }
 
-function shouldIgnoreEventCardToggle(target: EventTarget | null) {
-  return target instanceof Element && Boolean(target.closest('a, button'))
-}
-
 function getEventTimeChipStyle(progressPercent: number) {
   return {
     '--event-time-progress': `${progressPercent}%`,
@@ -361,29 +356,19 @@ function EventCard({
     isLinked: linkedEventId === event.id,
     shouldShowDetailSymbol,
   })
+  let eventToggleLabel: string | undefined
+
+  if (canExpandEvent) {
+    const eventToggleText = translate(
+      isExpanded ? scheduleText.collapseEvent : scheduleText.expandEvent,
+      language,
+    )
+    eventToggleLabel = `${eventToggleText}: ${event.title}`
+  }
 
   function toggleEvent() {
     if (canExpandEvent && onExpandedEventChange) {
       onExpandedEventChange(isExpanded ? null : event.id)
-    }
-  }
-
-  function handleCardClick(mouseEvent: ReactMouseEvent<HTMLElement>) {
-    if (!canExpandEvent || shouldIgnoreEventCardToggle(mouseEvent.target)) {
-      return
-    }
-
-    toggleEvent()
-  }
-
-  function handleCardKeyDown(keyboardEvent: ReactKeyboardEvent<HTMLElement>) {
-    if (!canExpandEvent || keyboardEvent.target !== keyboardEvent.currentTarget) {
-      return
-    }
-
-    if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') {
-      keyboardEvent.preventDefault()
-      toggleEvent()
     }
   }
 
@@ -398,6 +383,16 @@ function EventCard({
   const eventCardContent = (
     <>
       <div className="event-card-summary">
+        {canExpandEvent && (
+          <button
+            type="button"
+            className="event-card-toggle"
+            aria-expanded={isExpanded}
+            aria-controls={detailsId}
+            aria-label={eventToggleLabel}
+            onClick={toggleEvent}
+          />
+        )}
         <div className="event-date">
           <strong>{formatEventDate(event.date, language)}</strong>
           <span>
@@ -465,21 +460,7 @@ function EventCard({
     <article
       className={eventCardClassName}
       id={getEventDomId(event)}
-      role={canExpandEvent ? 'button' : undefined}
-      tabIndex={canExpandEvent ? 0 : undefined}
-      aria-expanded={canExpandEvent ? isExpanded : undefined}
-      aria-controls={canExpandEvent ? detailsId : undefined}
-      aria-label={
-        canExpandEvent
-          ? `${translate(
-              isExpanded ? scheduleText.collapseEvent : scheduleText.expandEvent,
-              language,
-            )}: ${event.title}`
-          : undefined
-      }
       style={getEventCardStyle(event)}
-      onClick={handleCardClick}
-      onKeyDown={handleCardKeyDown}
     >
       {eventCardContent}
     </article>

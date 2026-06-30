@@ -290,6 +290,33 @@ function AlbumGrid({
           onAlbumSelect(album.slug)
         }
 
+        let albumCover
+
+        if (album.kind === 'achievements') {
+          albumCover = <AchievementsAlbumSymbol />
+        } else if (coverPhoto) {
+          albumCover = (
+            <GalleryImage
+              key={`${coverPhoto.id}-${coverPhoto.thumbnailUrl}`}
+              src={coverPhoto.thumbnailUrl}
+              refreshSrc={
+                apiKey ? () => fetchGoogleDriveThumbnailUrl(apiKey, coverPhoto.id, 720) : undefined
+              }
+              alt=""
+              loading="lazy"
+              variant="cover"
+            />
+          )
+        } else {
+          albumCover = (
+            <img
+              className="album-cover-placeholder"
+              src={withBasePath(getLogoForTheme('light', 'purple'))}
+              alt=""
+            />
+          )
+        }
+
         return (
           <a
             className={albumClassName}
@@ -298,30 +325,7 @@ function AlbumGrid({
             aria-label={openAlbumLabel}
             onClick={handleAlbumClick}
           >
-            <div className="album-cover">
-              {album.kind === 'achievements' ? (
-                <AchievementsAlbumSymbol />
-              ) : coverPhoto ? (
-                <GalleryImage
-                  key={`${coverPhoto.id}-${coverPhoto.thumbnailUrl}`}
-                  src={coverPhoto.thumbnailUrl}
-                  refreshSrc={
-                    apiKey
-                      ? () => fetchGoogleDriveThumbnailUrl(apiKey, coverPhoto.id, 720)
-                      : undefined
-                  }
-                  alt=""
-                  loading="lazy"
-                  variant="cover"
-                />
-              ) : (
-                <img
-                  className="album-cover-placeholder"
-                  src={withBasePath(getLogoForTheme('light', 'purple'))}
-                  alt=""
-                />
-              )}
-            </div>
+            <div className="album-cover">{albumCover}</div>
             <div className="album-body">
               <p className="eyebrow">{formatGalleryAlbumDate(album, language)}</p>
               <h3>{albumTitle}</h3>

@@ -430,19 +430,23 @@ function parseFrequencySheetValues(
     })
   })
 
-  return {
-    events: events.sort((first, second) => {
-      const dateComparison = compareLocalDays(first.date, second.date)
+  const sortedEvents = [...events].sort((first, second) => {
+    const dateComparison = compareLocalDays(first.date, second.date)
 
-      return dateComparison === 0 ? first.sequenceOnDate - second.sequenceOnDate : dateComparison
-    }),
-    ignoredMemberIds: parsedMembers.ignoredMemberIds.sort((first, second) => first - second),
-    members: Array.from(parsedMembers.members.values())
-      .map((member) => ({
-        ...member,
-        lastPresenceDate: lastPresenceByMemberId.get(member.id) ?? null,
-      }))
-      .sort((first, second) => first.id - second.id),
+    return dateComparison === 0 ? first.sequenceOnDate - second.sequenceOnDate : dateComparison
+  })
+  const ignoredMemberIds = [...parsedMembers.ignoredMemberIds].sort((first, second) => first - second)
+  const members = Array.from(parsedMembers.members.values())
+    .map((member) => ({
+      ...member,
+      lastPresenceDate: lastPresenceByMemberId.get(member.id) ?? null,
+    }))
+    .sort((first, second) => first.id - second.id)
+
+  return {
+    events: sortedEvents,
+    ignoredMemberIds,
+    members,
     warnings,
   }
 }
@@ -474,7 +478,7 @@ function getDatasetDateRange(dataset: FrequencyDataset) {
   }
 
   return {
-    end: dates[dates.length - 1],
+    end: dates.at(-1) ?? dates[0],
     start: dates[0],
   }
 }

@@ -893,10 +893,37 @@ main {
 }
 
 .event-card-summary {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(8.5rem, 0.48fr) minmax(0, 1fr);
   gap: 1rem;
   align-items: start;
+}
+
+.event-card-toggle {
+  position: absolute;
+  z-index: 1;
+  inset: -1rem;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.event-card-toggle:focus-visible {
+  outline: 0;
+}
+
+.event-card-clickable .event-date,
+.event-card-clickable .event-body {
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.event-card-clickable .event-action-button {
+  pointer-events: auto;
 }
 
 .event-card.has-details,
@@ -919,7 +946,8 @@ main {
 .event-card.event-card-link:hover,
 .event-card.event-card-link:focus-visible,
 .event-card.event-card-clickable:hover,
-.event-card.event-card-clickable:focus-visible {
+.event-card.event-card-clickable:focus-visible,
+.event-card.event-card-clickable:has(.event-card-toggle:focus-visible) {
   border-left-color: var(--event-accent);
   background: color-mix(in srgb, var(--event-accent) 10%, var(--color-surface));
   outline: 0;
@@ -927,7 +955,8 @@ main {
 }
 
 .event-card.event-card-link:focus-visible,
-.event-card.event-card-clickable:focus-visible {
+.event-card.event-card-clickable:focus-visible,
+.event-card.event-card-clickable:has(.event-card-toggle:focus-visible) {
   box-shadow:
     var(--shadow-soft),
     0 0 0 3px color-mix(in srgb, var(--event-accent) 48%, transparent);
@@ -955,12 +984,14 @@ main {
 .event-card--important.event-card-link:hover,
 .event-card--important.event-card-link:focus-visible,
 .event-card--important.event-card-clickable:hover,
-.event-card--important.event-card-clickable:focus-visible {
+.event-card--important.event-card-clickable:focus-visible,
+.event-card--important.event-card-clickable:has(.event-card-toggle:focus-visible) {
   background: color-mix(in srgb, var(--color-important) 17%, var(--color-surface));
 }
 
 .event-card--important.event-card-link:focus-visible,
-.event-card--important.event-card-clickable:focus-visible {
+.event-card--important.event-card-clickable:focus-visible,
+.event-card--important.event-card-clickable:has(.event-card-toggle:focus-visible) {
   box-shadow:
     var(--shadow-soft),
     0 0 0 3px color-mix(in srgb, var(--color-important) 34%, transparent);
@@ -996,6 +1027,7 @@ main {
   gap: 0.38rem;
   align-items: flex-start;
   min-width: 0;
+  pointer-events: none;
 }
 
 .event-birthday-cake,
@@ -1948,8 +1980,10 @@ main {
   height: 1rem;
   border: 1px solid color-mix(in srgb, var(--color-muted) 52%, var(--color-border));
   border-radius: 999px;
+  padding: 0;
   color: var(--color-muted);
   background: var(--color-surface);
+  font-family: inherit;
   font-size: 0.68rem;
   font-weight: 900;
   line-height: 1;

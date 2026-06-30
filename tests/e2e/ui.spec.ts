@@ -209,7 +209,7 @@ test('schedule page handles configured and unconfigured calendar states', async 
     const expandableCount = await expandableCards.count()
 
     if (expandableCount > 0) {
-      await expandableCards.first().click()
+      await expandableCards.first().locator('.event-card-toggle').click()
       await expect(page.locator('.event-details')).toBeVisible()
       await expectNoHorizontalOverflow(page)
     }

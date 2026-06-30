@@ -258,7 +258,7 @@ function FrequencyFiltersPanel({
 
     const fallbackKey = getKey(fallbackPeriod.start)
 
-    return options.find((option) => option.key === fallbackKey) ?? options[options.length - 1]
+    return options.find((option) => option.key === fallbackKey) ?? options.at(-1) ?? fallbackPeriod
   }
 
   function updatePreset(periodPreset: FrequencyPeriodPreset) {
@@ -268,12 +268,13 @@ function FrequencyFiltersPanel({
     }
 
     const fallbackPeriod = getPeriodForPreset(periodPreset, dataset, referenceDate)
-    const period =
-      periodPreset === 'school-year'
-        ? getDefaultOptionPeriod(schoolYearOptions, fallbackPeriod, getSchoolYearKey)
-        : periodPreset === 'calendar-year'
-          ? getDefaultOptionPeriod(calendarYearOptions, fallbackPeriod, getCalendarYearKey)
-          : fallbackPeriod
+    let period = fallbackPeriod
+
+    if (periodPreset === 'school-year') {
+      period = getDefaultOptionPeriod(schoolYearOptions, fallbackPeriod, getSchoolYearKey)
+    } else if (periodPreset === 'calendar-year') {
+      period = getDefaultOptionPeriod(calendarYearOptions, fallbackPeriod, getCalendarYearKey)
+    }
 
     onFiltersChange({
       ...filters,
@@ -301,12 +302,10 @@ function FrequencyFiltersPanel({
 
     if (boundary === 'periodStart') {
       startIndex = selectedIndex
-    } else {
-      if (endIndex < startIndex) {
-        startIndex = endIndex
-      } else if (endIndex > startIndex) {
-        nextPeriodPreset = 'custom'
-      }
+    } else if (endIndex < startIndex) {
+      startIndex = endIndex
+    } else if (endIndex > startIndex) {
+      nextPeriodPreset = 'custom'
     }
 
     onFiltersChange({
@@ -569,16 +568,21 @@ function FrequencyFiltersPanel({
           <label htmlFor="frequency-active-window">
             {translate(frequencyText.activeWindowLabel, language)}
           </label>
-          <span
+          <button
+            type="button"
             aria-label={translate(frequencyText.activeWindowHelp, language)}
+            aria-describedby="frequency-active-window-help"
             className="frequency-help"
-            tabIndex={0}
           >
-            i
-            <span className="frequency-help-tooltip" role="tooltip">
+            <span aria-hidden="true">i</span>
+            <span
+              className="frequency-help-tooltip"
+              id="frequency-active-window-help"
+              role="tooltip"
+            >
               {translate(frequencyText.activeWindowHelp, language)}
             </span>
-          </span>
+          </button>
         </div>
         <div className="frequency-input-with-unit">
           <input
@@ -693,7 +697,7 @@ function AttendanceTimeline({
       : Math.max(3, Math.min(8, barStep * 0.72))
   const [hoverPoint, setHoverPoint] = useState<TimelineHoverPoint | null>(null)
   const firstPointTime = points[0]?.date.getTime() ?? 0
-  const lastPointTime = points[points.length - 1]?.date.getTime() ?? firstPointTime
+  const lastPointTime = points.at(-1)?.date.getTime() ?? firstPointTime
   const timeRange = lastPointTime - firstPointTime
   const pointDateKeys = points.map((point) => point.date.toDateString())
   const duplicateCounts = pointDateKeys.reduce((counts, key) => {
@@ -851,9 +855,7 @@ function BarListChart({
   return (
     <section className="frequency-panel">
       <h2>{translate(title, language)}</h2>
-      {!hasValues ? (
-        <p className="frequency-empty">{translate(emptyText ?? frequencyText.noData, language)}</p>
-      ) : (
+      {hasValues ? (
         <div className="frequency-bars">
           {values.map((value) => {
             const barValue = maxValue <= 0 ? 0 : (value.value / maxValue) * 100
@@ -872,6 +874,8 @@ function BarListChart({
             )
           })}
         </div>
+      ) : (
+        <p className="frequency-empty">{translate(emptyText ?? frequencyText.noData, language)}</p>
       )}
     </section>
   )
