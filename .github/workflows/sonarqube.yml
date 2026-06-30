@@ -25,6 +25,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Ensure full Git history for SonarQube
+        run: |
+          if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+            git fetch --unshallow
+          fi
+
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
