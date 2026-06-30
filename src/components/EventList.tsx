@@ -35,6 +35,7 @@ type EventListOptions = Readonly<{
   expandedEventId?: string | null
   linkedEventId?: string | null
   copiedEventId?: string | null
+  showLocation?: boolean
   getEventHref?: (event: UpcomingEvent) => string
   onExpandedEventChange?: (eventId: string | null) => void
   onEventLinkCopy?: (event: UpcomingEvent) => void
@@ -316,14 +317,6 @@ function EventDetails({
 }>) {
   return (
     <div className="event-details" id={detailsId}>
-      {event.location && (
-        <dl className="event-detail-list">
-          <div>
-            <dt>{translate(scheduleText.whereLabel, language)}</dt>
-            <dd>{event.location}</dd>
-          </div>
-        </dl>
-      )}
       <CalendarRichContent
         blocks={event.noteBlocks}
         language={language}
@@ -343,6 +336,7 @@ function EventCard({
   expandedEventId = null,
   linkedEventId = null,
   copiedEventId = null,
+  showLocation = true,
   getEventHref,
   onExpandedEventChange,
   onEventLinkCopy,
@@ -434,7 +428,7 @@ function EventCard({
               onCopyEventLink={handleCopyEventLink}
             />
           </div>
-          {event.location && <p className="muted">{event.location}</p>}
+          {showLocation && event.location && <p className="muted">{event.location}</p>}
           {!compact && !expandable && !eventHref && (
             <>
               <CalendarRichContent
@@ -501,6 +495,7 @@ function EventList({
   expandedEventId = null,
   linkedEventId = null,
   copiedEventId = null,
+  showLocation = true,
   getEventHref,
   onExpandedEventChange,
   onEventLinkCopy,
@@ -518,6 +513,7 @@ function EventList({
           expandedEventId={expandedEventId}
           linkedEventId={linkedEventId}
           copiedEventId={copiedEventId}
+          showLocation={showLocation}
           getEventHref={getEventHref}
           onExpandedEventChange={onExpandedEventChange}
           onEventLinkCopy={onEventLinkCopy}

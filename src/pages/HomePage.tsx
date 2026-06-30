@@ -197,6 +197,7 @@ function HomePage({
             language={language}
             compact
             getEventHref={getHomeEventHref}
+            showLocation={false}
             showDetailSymbols
           />
         </div>

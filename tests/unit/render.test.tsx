@@ -209,6 +209,8 @@ describe('event rendering components', () => {
     )
 
     expect(container.querySelector('.event-details')?.textContent).toContain('Bring water')
+    expect(container.querySelector('.event-card-summary')?.textContent).toContain('Choir room')
+    expect(container.querySelector('.event-details')?.textContent).not.toContain('Choir room')
     expect(container.querySelector('.event-attachments')?.textContent).toContain('Plan')
 
     click(container.querySelector('.event-copy-link-button'))
@@ -294,6 +296,9 @@ describe('page components', () => {
     expect(container.textContent).toContain('Scholka Aureolka')
     expect(container.textContent).toContain('Contact')
     expect(container.textContent).toContain('Google Drive gallery is not connected yet.')
+    expect(container.querySelector('.home-upcoming-section')?.textContent).not.toContain(
+      'Choir room',
+    )
     expect(container.querySelector('form')).toBeNull()
 
     click(container.querySelector('.hero-actions button'))
@@ -314,6 +319,7 @@ describe('page components', () => {
     )
 
     expect(container.textContent).toContain('June 2026')
+    expect(container.querySelector('.event-card-summary')?.textContent).toContain('Choir room')
     click(container.querySelector('.event-card-clickable'))
     expect(container.querySelector('.event-details')?.textContent).toContain('Bring water')
 
