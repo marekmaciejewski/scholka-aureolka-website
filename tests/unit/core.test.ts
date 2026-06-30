@@ -6,22 +6,28 @@ import {
   fetchGoogleDriveGalleryAlbums,
   fetchGoogleDriveThumbnailUrl,
   formatEventDate,
+  formatEventRelativeTime,
   formatEventTime,
   formatGalleryAlbumDate,
   formatGalleryPhotoCount,
   formatGalleryPhotoPosition,
+  formatGalleryTimelinePhotoDate,
   formatLocalizedHtml,
   getEventCardStyle,
   getEventDomId,
+  getEventRelativeProgressWindowDays,
+  getEventRelativeTime,
   getEventSlugFromLocation,
   getGalleryAlbumHref,
   getGalleryAlbumSlugFromLocation,
   getGalleryPhotoAlt,
   getGalleryPhotoAspectStyle,
+  getGalleryPhotoDisplayTitle,
   getGalleryPhotoHref,
   getGalleryPhotoIdFromLocation,
   getGoogleCalendarConfig,
   getGoogleDriveGalleryConfig,
+  getGoogleFrequencyConfig,
   getHomeEventHref,
   getInitialLanguage,
   getInitialTheme,
@@ -76,6 +82,7 @@ function createAlbum(overrides: Partial<GalleryAlbum> = {}): GalleryAlbum {
     date: new Date(2026, 2, 26),
     folderName: '2026-03-26 - Warsztaty -- Workshop',
     id: 'album-1',
+    kind: 'standard',
     slug: 'warsztaty-workshop',
     title: { pl: 'Warsztaty', en: 'Workshop' },
     ...overrides,
@@ -130,9 +137,11 @@ describe('routing and page helpers', () => {
     expect(getPageFromPath('/')).toBe('home')
     expect(getPageFromPath('/schedule/')).toBe('schedule')
     expect(getPageFromPath('/gallery')).toBe('gallery')
+    expect(getPageFromPath('/frequency/')).toBe('frequency')
     expect(getPageFromPath('/missing/')).toBe('home')
     expect(getPageDocumentTitle('home', 'en')).toBe('Scholka Aureolka')
     expect(getPageDocumentTitle('gallery', 'en')).toBe('Gallery | Scholka Aureolka')
+    expect(getPageDocumentTitle('frequency', 'en')).toBe('Attendance | Scholka Aureolka')
   })
 
   test('reads and writes schedule and gallery query-state URLs', () => {
@@ -187,27 +196,28 @@ describe('routing and page helpers', () => {
     stubPreferredColorScheme(false)
     vi.stubEnv('VITE_GOOGLE_API_KEY', 'api-key')
     vi.stubEnv('VITE_GOOGLE_CALENDAR_ID', 'main-calendar')
-    vi.stubEnv('VITE_GOOGLE_BIRTHDAY_CALENDAR_ID', 'birthday-calendar')
     vi.stubEnv('VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID', 'gallery-folder')
+    vi.stubEnv('VITE_GOOGLE_FREQUENCY_SHEET_ID', 'frequency-sheet')
 
     expect(getInitialLanguage()).toBe('en')
     expect(getInitialTheme()).toBe('dark')
     expect(getGoogleCalendarConfig()).toEqual({
       apiKey: 'api-key',
-      calendars: [
-        { calendarId: 'main-calendar', source: 'google-calendar' },
-        { calendarId: 'birthday-calendar', source: 'birthday-calendar' },
-      ],
+      calendars: [{ calendarId: 'main-calendar', source: 'google-calendar' }],
     })
     expect(getGoogleDriveGalleryConfig()).toEqual({
       apiKey: 'api-key',
       folderId: 'gallery-folder',
     })
+    expect(getGoogleFrequencyConfig()).toEqual({
+      apiKey: 'api-key',
+      spreadsheetId: 'frequency-sheet',
+    })
 
     vi.stubEnv('VITE_GOOGLE_API_KEY', '')
     vi.stubEnv('VITE_GOOGLE_CALENDAR_ID', '')
-    vi.stubEnv('VITE_GOOGLE_BIRTHDAY_CALENDAR_ID', '')
     vi.stubEnv('VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID', '')
+    vi.stubEnv('VITE_GOOGLE_FREQUENCY_SHEET_ID', '')
     stubStorage()
     stubPreferredColorScheme(true)
 
@@ -215,6 +225,7 @@ describe('routing and page helpers', () => {
     expect(getInitialTheme()).toBe('dark')
     expect(getGoogleCalendarConfig()).toBeNull()
     expect(getGoogleDriveGalleryConfig()).toBeNull()
+    expect(getGoogleFrequencyConfig()).toBeNull()
   })
 })
 
@@ -247,6 +258,61 @@ describe('schedule helpers', () => {
     expect(formatEventDate(date, 'en')).toContain('June')
     expect(formatEventTime(date, 'en')).toMatch(/6:30|06:30/)
     expect(formatEventDate(date, 'pl')).toMatch(/czerwca|cze/)
+  })
+
+  test('formats event relative time chips by language', () => {
+    const referenceDate = new Date(2026, 5, 25, 8, 0)
+
+    expect(formatEventRelativeTime(new Date(2026, 5, 25, 18, 30), 'pl', referenceDate)).toBe(
+      'dzi\u015b',
+    )
+    expect(formatEventRelativeTime(new Date(2026, 5, 26, 18, 30), 'en', referenceDate)).toBe(
+      'tomorrow',
+    )
+    expect(formatEventRelativeTime(new Date(2026, 5, 29, 18, 30), 'pl', referenceDate)).toBe(
+      'za 4 dni',
+    )
+    expect(formatEventRelativeTime(new Date(2026, 6, 9, 18, 30), 'en', referenceDate)).toBe(
+      'in 2 weeks',
+    )
+    expect(formatEventRelativeTime(new Date(2026, 8, 17, 18, 30), 'pl', referenceDate)).toBe(
+      'za 3 mies.',
+    )
+    expect(formatEventRelativeTime(new Date(2026, 5, 24, 18, 30), 'en', referenceDate)).toBeNull()
+  })
+
+  test('calculates event relative time progress over the final week', () => {
+    const referenceDate = new Date(2026, 5, 25, 8, 0)
+    vi.stubEnv('VITE_EVENT_PROGRESS_WINDOW_DAYS', '')
+
+    expect(
+      getEventRelativeTime(new Date(2026, 6, 2, 8, 0), 'pl', referenceDate)?.progressPercent,
+    ).toBe(0)
+    expect(
+      getEventRelativeTime(new Date(2026, 5, 28, 8, 0), 'pl', referenceDate)?.progressPercent,
+    ).toBe(57)
+    expect(
+      getEventRelativeTime(new Date(2026, 5, 25, 20, 0), 'pl', referenceDate)?.progressPercent,
+    ).toBe(93)
+    expect(
+      getEventRelativeTime(new Date(2026, 5, 25, 8, 0), 'pl', referenceDate)?.progressPercent,
+    ).toBe(100)
+  })
+
+  test('uses a configured event progress window with safe fallback', () => {
+    const referenceDate = new Date(2026, 5, 25, 8, 0)
+
+    vi.stubEnv('VITE_EVENT_PROGRESS_WINDOW_DAYS', '14')
+    expect(getEventRelativeProgressWindowDays()).toBe(14)
+    expect(
+      getEventRelativeTime(new Date(2026, 6, 2, 8, 0), 'pl', referenceDate)?.progressPercent,
+    ).toBe(50)
+
+    vi.stubEnv('VITE_EVENT_PROGRESS_WINDOW_DAYS', '0')
+    expect(getEventRelativeProgressWindowDays()).toBe(7)
+
+    vi.stubEnv('VITE_EVENT_PROGRESS_WINDOW_DAYS', 'soon')
+    expect(getEventRelativeProgressWindowDays()).toBe(7)
   })
 
   test('detects expandable events and derives home links', () => {
@@ -289,13 +355,10 @@ describe('schedule helpers', () => {
     ])
   })
 
-  test('maps configured Google Calendar events, notices, birthdays, colors, and attachments', async () => {
+  test('maps configured Google Calendar events, notices, colors, and attachments', async () => {
     const config: GoogleCalendarConfig = {
       apiKey: 'api-key',
-      calendars: [
-        { calendarId: 'main-calendar', source: 'google-calendar' },
-        { calendarId: 'birthday-calendar', source: 'birthday-calendar' },
-      ],
+      calendars: [{ calendarId: 'main-calendar', source: 'google-calendar' }],
     }
     const fetchMock = mockJsonFetch([
       {
@@ -330,7 +393,7 @@ describe('schedule helpers', () => {
             description: 'Bring water',
             id: 'notice-1',
             start: { date: '2026-06-26' },
-            summary: '[notice] Grill',
+            summary: '[notice] !Grill!',
           },
           {
             id: 'cancelled-1',
@@ -340,21 +403,12 @@ describe('schedule helpers', () => {
           },
         ],
       },
-      {
-        items: [
-          {
-            id: 'birthday-1',
-            start: { date: '2026-06-28' },
-            summary: 'Ania',
-          },
-        ],
-      },
     ])
 
     const events = await fetchConfiguredCalendarEvents(config, 'en')
 
-    expect(fetchMock).toHaveBeenCalledTimes(3)
-    expect(events.map((event) => event.title)).toEqual(['Rehearsal - grill', 'Grill', 'Birthday'])
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(events.map((event) => event.title)).toEqual(['Rehearsal - grill', '!Grill!'])
     expect(events[0]).toMatchObject({
       attachments: [
         {
@@ -369,7 +423,7 @@ describe('schedule helpers', () => {
       slug: 'proba-grill',
     })
     expect(events[1].isNotice).toBe(true)
-    expect(events[2].eventHighlight?.kind).toBe('birthday')
+    expect(events[1].eventHighlight).toBeUndefined()
   })
 
   test('maps rich calendar descriptions, all-day events, fallback titles, and invalid items', async () => {
@@ -436,7 +490,7 @@ describe('schedule helpers', () => {
       eventColor: { background: '#abcdef', foreground: undefined },
       isAllDay: true,
       slug: 'rich-html-event',
-      title: 'Important choir',
+      title: 'Important choir!',
     })
     expect(richEvent?.attachments?.[0]).toMatchObject({
       iconUrl: undefined,
@@ -476,6 +530,13 @@ describe('gallery helpers', () => {
     )
     expect(formatGalleryPhotoCount(1, 'en')).toBe('1 photo')
     expect(formatGalleryPhotoCount(3, 'en')).toBe('3 photos')
+    expect(formatGalleryPhotoCount(1, 'pl')).toBe('1 zdjęcie')
+    expect(formatGalleryPhotoCount(2, 'pl')).toBe('2 zdjęcia')
+    expect(formatGalleryPhotoCount(4, 'pl')).toBe('4 zdjęcia')
+    expect(formatGalleryPhotoCount(5, 'pl')).toBe('5 zdjęć')
+    expect(formatGalleryPhotoCount(12, 'pl')).toBe('12 zdjęć')
+    expect(formatGalleryPhotoCount(22, 'pl')).toBe('22 zdjęcia')
+    expect(formatGalleryPhotoCount(25, 'pl')).toBe('25 zdjęć')
     expect(formatGalleryPhotoPosition(1, 3, 'en')).toBe('1 of 3')
     expect(getGalleryPhotoAlt(album, 'en')).toBe('Photo from album Workshop')
   })
@@ -563,6 +624,75 @@ describe('gallery helpers', () => {
     expect(photos).toHaveLength(1)
     expect(photos[0].largeUrl).toBe('https://drive/photo=w1800')
     expect(refreshedThumbnail).toBe('https://drive/photo=w1800')
+  })
+
+  test('promotes the achievements album and parses dated timeline photos', async () => {
+    const achievementsFolderId = '1regQdvW8Ebx5sGzXQ-4Goffde-ieW1cs'
+    const config: GoogleDriveGalleryConfig = { apiKey: 'api-key', folderId: 'root-folder' }
+    mockJsonFetch([
+      {
+        files: [
+          { id: 'regular-album', name: '2026-06-01 - Regular Album' },
+          { id: achievementsFolderId, name: 'Drive folder title can change' },
+        ],
+      },
+      {
+        files: [
+          {
+            id: 'regular-cover',
+            imageMediaMetadata: { height: 768, width: 1024 },
+            name: '[cover] regular.jpg',
+            thumbnailLink: 'https://drive/regular=s220',
+          },
+        ],
+      },
+      {
+        files: [
+          {
+            id: 'undated-diploma',
+            imageMediaMetadata: { height: 900, width: 1200 },
+            name: 'Dyplom bez daty.jpg',
+            thumbnailLink: 'https://drive/undated=s220',
+          },
+          {
+            id: 'old-diploma',
+            imageMediaMetadata: { height: 900, width: 1200 },
+            name: '2025-11-23 - Konkurs piosenki religijnej -- Religious song contest.jpg',
+            thumbnailLink: 'https://drive/old=s220',
+          },
+          {
+            id: 'new-diploma',
+            imageMediaMetadata: { height: 900, width: 1200 },
+            name: '2026-05-18 - Cecyliada, wyróżnienie -- Cecyliada, distinction.jpg',
+            thumbnailLink: 'https://drive/new=s220',
+          },
+        ],
+      },
+    ])
+
+    const albums = await fetchGoogleDriveGalleryAlbums(config)
+    const photos = await fetchGoogleDriveAlbumPhotos(config, albums[0])
+
+    expect(albums[0]).toMatchObject({
+      date: undefined,
+      id: achievementsFolderId,
+      kind: 'achievements',
+      slug: 'achievements',
+      title: { pl: 'Osiągnięcia', en: 'Achievements' },
+      coverPhoto: undefined,
+    })
+    expect(albums.map((album) => album.slug)).toEqual([
+      'achievements',
+      '2026-06-01-regular-album',
+    ])
+    expect(formatGalleryAlbumDate(albums[0], 'en')).toBe('Contests and festivals')
+    expect(photos.map((photo) => getGalleryPhotoDisplayTitle(photo, 'en'))).toEqual([
+      'Cecyliada, distinction',
+      'Religious song contest',
+      'Dyplom bez daty',
+    ])
+    expect(formatGalleryTimelinePhotoDate(photos[0], 'en')).toBe('May 18, 2026')
+    expect(formatGalleryTimelinePhotoDate(photos[2], 'en')).toBe('Undated')
   })
 
   test('uses Google Drive pagination and falls back to the first album photo as cover', async () => {

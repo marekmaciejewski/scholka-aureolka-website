@@ -7,6 +7,7 @@ const corePages = [
   { path: '/', heading: 'Scholka Aureolka', title: 'Scholka Aureolka' },
   { path: '/gallery/', heading: 'Gallery', title: 'Gallery | Scholka Aureolka' },
   { path: '/schedule/', heading: 'Schedule', title: 'Schedule | Scholka Aureolka' },
+  { path: '/frequency/', heading: 'Attendance', title: 'Attendance | Scholka Aureolka' },
   { path: '/contact/', heading: 'Contact', title: 'Contact | Scholka Aureolka' },
 ] as const
 
@@ -204,11 +205,11 @@ test('schedule page handles configured and unconfigured calendar states', async 
   } else {
     await expect(eventCards.first()).toBeVisible()
 
-    const expandableButtons = page.locator('.event-expand-button')
-    const expandableCount = await expandableButtons.count()
+    const expandableCards = page.locator('.event-card-clickable')
+    const expandableCount = await expandableCards.count()
 
     if (expandableCount > 0) {
-      await expandableButtons.first().click()
+      await expandableCards.first().locator('.event-card-toggle').click()
       await expect(page.locator('.event-details')).toBeVisible()
       await expectNoHorizontalOverflow(page)
     }

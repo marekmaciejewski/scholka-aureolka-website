@@ -12,6 +12,7 @@ import {
 } from '../../src/components/Gallery'
 import { Footer, Header, PageHeading } from '../../src/components/Layout'
 import { ContactPage } from '../../src/pages/ContactPage'
+import { FrequencyPage } from '../../src/pages/FrequencyPage'
 import { GalleryPage } from '../../src/pages/GalleryPage'
 import { HomePage } from '../../src/pages/HomePage'
 import { SchedulePage } from '../../src/pages/SchedulePage'
@@ -60,6 +61,41 @@ function click(element: Element | null) {
   })
 }
 
+async function flushAsyncWork(iterations = 1) {
+  for (let index = 0; index < iterations; index += 1) {
+    await act(async () => {
+      await Promise.resolve()
+    })
+  }
+}
+
+async function findElement<T extends Element>(container: Element, selector: string) {
+  for (let index = 0; index < 20; index += 1) {
+    const element = container.querySelector<T>(selector)
+
+    if (element) {
+      return element
+    }
+
+    await flushAsyncWork()
+  }
+
+  throw new Error(`Element not found: ${selector}`)
+}
+
+function setFormValue(element: HTMLInputElement | HTMLSelectElement, value: string) {
+  const prototype = element instanceof HTMLSelectElement
+    ? HTMLSelectElement.prototype
+    : HTMLInputElement.prototype
+  const valueSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set
+  const eventName = element instanceof HTMLSelectElement ? 'change' : 'input'
+
+  act(() => {
+    valueSetter?.call(element, value)
+    element.dispatchEvent(new Event(eventName, { bubbles: true, cancelable: true }))
+  })
+}
+
 function keydown(key: string) {
   act(() => {
     globalThis.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key }))
@@ -104,6 +140,75 @@ function createPhoto(overrides: Partial<GalleryPhoto> = {}): GalleryPhoto {
   }
 }
 
+function mockFrequencyFetch() {
+  const responses = [
+    {
+      sheets: [
+        { properties: { index: 0, title: 'Dane' } },
+        { properties: { index: 1, title: '2024' } },
+        { properties: { index: 2, title: '2025' } },
+        { properties: { index: 3, title: '2026' } },
+      ],
+    },
+    {
+      valueRanges: [
+        {
+          range: 'Dane!A1:C10',
+          values: [
+            ['id', 'data dołączenia', 'data urodzenia'],
+            ['1', '01.01.2026', '01.01.2019'],
+            ['2', '01.01.2026', '01.01.2018'],
+            ['3', '01.01.2026', '01.01.2017'],
+          ],
+        },
+        {
+          range: "'2024'!A1:B10",
+          values: [
+            ['id', '15.09.2024'],
+            ['1', '1'],
+            ['2', ''],
+            ['3', ''],
+          ],
+        },
+        {
+          range: "'2025'!A1:B10",
+          values: [
+            ['id', '04.09.2025'],
+            ['1', '1'],
+            ['2', '1'],
+            ['3', ''],
+          ],
+        },
+        {
+          range: "'2026'!A1:D10",
+          values: [
+            ['id', '02.04.2026', '26.04.2026', '26.06.2026'],
+            ['1', '1', '', ''],
+            ['2', '', '1', ''],
+            ['3', '', '', '1'],
+          ],
+        },
+      ],
+    },
+  ]
+  const fetchMock = vi.fn(async (input: string | URL) => {
+    const response = responses.shift()
+
+    if (!response) {
+      throw new Error(`Unexpected fetch: ${String(input)}`)
+    }
+
+    return {
+      json: async () => response,
+      ok: true,
+    }
+  })
+
+  vi.stubGlobal('fetch', fetchMock)
+
+  return fetchMock
+}
+
 afterEach(() => {
   renderedTrees.splice(0).forEach(({ container, root }) => {
     act(() => {
@@ -115,7 +220,9 @@ afterEach(() => {
   document.body.innerHTML = ''
   window.history.replaceState({}, '', '/')
   window.localStorage.clear()
+  vi.useRealTimers()
   vi.restoreAllMocks()
+  vi.unstubAllEnvs()
   vi.unstubAllGlobals()
 })
 
@@ -155,6 +262,10 @@ describe('layout components', () => {
 
 describe('event rendering components', () => {
   test('renders expandable events, attachments, copy controls, and notices', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 5, 24, 10, 0))
+    vi.stubEnv('VITE_EVENT_PROGRESS_WINDOW_DAYS', '')
+
     const onExpandedEventChange = vi.fn()
     const onEventLinkCopy = vi.fn()
     const event = createEvent({
@@ -180,9 +291,16 @@ describe('event rendering components', () => {
     )
 
     expect(container.textContent).toContain('Notice')
+    expect(container.querySelector('.event-time-chip')?.textContent).toBe('tomorrow')
+    expect(
+      (container.querySelector('.event-time-chip') as HTMLElement | null)?.style.getPropertyValue(
+        '--event-time-progress',
+      ),
+    ).toBe('81%')
     expect(container.querySelector('.event-details')).toBeNull()
+    expect(container.querySelector('.event-expand-button')).toBeNull()
 
-    click(container.querySelector('.event-expand-button'))
+    click(container.querySelector('.event-card-toggle'))
     expect(onExpandedEventChange).toHaveBeenCalledWith('event-1')
 
     rerender(
@@ -197,6 +315,8 @@ describe('event rendering components', () => {
     )
 
     expect(container.querySelector('.event-details')?.textContent).toContain('Bring water')
+    expect(container.querySelector('.event-card-summary')?.textContent).toContain('Choir room')
+    expect(container.querySelector('.event-details')?.textContent).not.toContain('Choir room')
     expect(container.querySelector('.event-attachments')?.textContent).toContain('Plan')
 
     click(container.querySelector('.event-copy-link-button'))
@@ -275,13 +395,18 @@ describe('page components', () => {
           upcomingEvents={[createEvent()]}
         />
         <ContactPage language="en" />
+        <FrequencyPage language="en" />
         <GalleryPage language="en" />
       </>,
     )
 
     expect(container.textContent).toContain('Scholka Aureolka')
     expect(container.textContent).toContain('Contact')
+    expect(container.textContent).toContain('Attendance sheet is not connected yet.')
     expect(container.textContent).toContain('Google Drive gallery is not connected yet.')
+    expect(container.querySelector('.home-upcoming-section')?.textContent).not.toContain(
+      'Choir room',
+    )
     expect(container.querySelector('form')).toBeNull()
 
     click(container.querySelector('.hero-actions button'))
@@ -290,6 +415,117 @@ describe('page components', () => {
 
     click(container.querySelector('.modal-close'))
     expect(container.querySelector('.parent-info-modal')).toBeNull()
+  })
+
+  test('renders frequency threshold copy, units, age filter behavior, and scroll cues', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 5, 30))
+    vi.stubEnv('VITE_GOOGLE_API_KEY', 'api-key')
+    vi.stubEnv('VITE_GOOGLE_FREQUENCY_SHEET_ID', 'frequency-sheet')
+    const fetchMock = mockFrequencyFetch()
+    const { container, rerender } = render(<FrequencyPage language="pl" />)
+
+    const activeWindowInput = await findElement<HTMLInputElement>(
+      container,
+      '#frequency-active-window',
+    )
+    const activeWindowField = activeWindowInput.closest('.frequency-filter-field')
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(activeWindowInput.value).toBe('2')
+    expect(activeWindowField?.textContent).toContain('Próg nieaktywności')
+    expect(activeWindowField?.querySelector('.frequency-help')?.getAttribute('aria-label')).toBe(
+      'Jak długo przed ostatnim spotkaniem może wypadać ostatnia obecność aktywnego uczestnika.',
+    )
+    expect(activeWindowField?.querySelector('.frequency-input-with-unit span')?.textContent).toBe(
+      'mies.',
+    )
+    expect(container.querySelectorAll('.frequency-scroll-frame')).toHaveLength(2)
+    expect(container.querySelectorAll('.frequency-scroll-cue-left')).toHaveLength(2)
+    expect(container.querySelectorAll('.frequency-scroll-cue-right')).toHaveLength(2)
+
+    const periodPreset = container.querySelector<HTMLSelectElement>('#frequency-period')
+    const schoolYearStart = container.querySelector<HTMLSelectElement>(
+      '#frequency-school-year-start',
+    )
+    const schoolYearEnd = container.querySelector<HTMLSelectElement>('#frequency-school-year-end')
+
+    if (!periodPreset || !schoolYearStart || !schoolYearEnd) {
+      throw new Error('School year filters were not rendered')
+    }
+
+    expect(periodPreset.value).toBe('school-year')
+    expect(schoolYearStart.value).toBe('2025')
+    expect(schoolYearEnd.value).toBe('2025')
+
+    setFormValue(schoolYearStart, '2024')
+    expect(periodPreset.value).toBe('school-year')
+    expect(schoolYearStart.value).toBe('2024')
+    expect(schoolYearEnd.value).toBe('2024')
+
+    setFormValue(schoolYearEnd, '2025')
+    expect(periodPreset.value).toBe('custom')
+    expect(container.querySelector('#frequency-date-start')).not.toBeNull()
+    expect(container.querySelector('#frequency-date-end')).not.toBeNull()
+
+    setFormValue(periodPreset, 'calendar-year')
+    const calendarYearStart = container.querySelector<HTMLSelectElement>(
+      '#frequency-calendar-year-start',
+    )
+    const calendarYearEnd = container.querySelector<HTMLSelectElement>('#frequency-calendar-year-end')
+
+    if (!calendarYearStart || !calendarYearEnd) {
+      throw new Error('Calendar year filters were not rendered')
+    }
+
+    expect(periodPreset.value).toBe('calendar-year')
+    expect(calendarYearStart.value).toBe('2026')
+    expect(calendarYearEnd.value).toBe('2026')
+
+    setFormValue(calendarYearStart, '2025')
+    expect(periodPreset.value).toBe('calendar-year')
+    expect(calendarYearStart.value).toBe('2025')
+    expect(calendarYearEnd.value).toBe('2025')
+
+    setFormValue(calendarYearEnd, '2026')
+    expect(periodPreset.value).toBe('custom')
+
+    const agePreset = container.querySelector<HTMLSelectElement>('#frequency-age-preset')
+    const ageStart = container.querySelector<HTMLInputElement>('#frequency-age-start')
+    const ageEnd = container.querySelector<HTMLInputElement>('#frequency-age-end')
+
+    if (!agePreset || !ageStart || !ageEnd) {
+      throw new Error('Age filters were not rendered')
+    }
+
+    setFormValue(ageStart, '8')
+    expect(agePreset.value).toBe('age-8')
+    expect(ageStart.value).toBe('8')
+    expect(ageEnd.value).toBe('8')
+
+    setFormValue(ageEnd, '9')
+    expect(agePreset.value).toBe('custom')
+    expect(ageStart.value).toBe('8')
+    expect(ageEnd.value).toBe('9')
+
+    setFormValue(ageEnd, '7')
+    expect(agePreset.value).toBe('age-7')
+    expect(ageStart.value).toBe('7')
+    expect(ageEnd.value).toBe('7')
+
+    rerender(<FrequencyPage language="en" />)
+    expect(activeWindowField?.textContent).toContain('Inactivity threshold')
+    expect(activeWindowField?.querySelector('.frequency-help')?.getAttribute('aria-label')).toBe(
+      'How long before the latest meeting a member can last attend and still count as active.',
+    )
+    expect(activeWindowField?.querySelector('.frequency-input-with-unit span')?.textContent).toBe(
+      'months',
+    )
+
+    setFormValue(activeWindowInput, '1')
+    expect(activeWindowField?.querySelector('.frequency-input-with-unit span')?.textContent).toBe(
+      'month',
+    )
   })
 
   test('renders schedule states and copies expandable event links', async () => {
@@ -302,7 +538,8 @@ describe('page components', () => {
     )
 
     expect(container.textContent).toContain('June 2026')
-    click(container.querySelector('.event-expand-button'))
+    expect(container.querySelector('.event-card-summary')?.textContent).toContain('Choir room')
+    click(container.querySelector('.event-card-toggle'))
     expect(container.querySelector('.event-details')?.textContent).toContain('Bring water')
 
     await act(async () => {

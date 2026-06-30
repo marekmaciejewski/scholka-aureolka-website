@@ -14,7 +14,7 @@ import {
   type ThemeName,
 } from './siteContent'
 
-type EventSource = 'google-calendar' | 'birthday-calendar'
+type EventSource = 'google-calendar'
 
 type UpcomingEvent = {
   id: string
@@ -42,8 +42,11 @@ type CalendarState = {
 
 type GalleryLoadStatus = 'unconfigured' | 'loading' | 'ready' | 'error'
 
+type GalleryAlbumKind = 'achievements' | 'standard'
+
 type GalleryAlbum = {
   id: string
+  kind: GalleryAlbumKind
   folderName: string
   slug: string
   title: LocalizedText
@@ -54,6 +57,8 @@ type GalleryAlbum = {
 type GalleryPhoto = {
   id: string
   name: string
+  title?: LocalizedText
+  date?: Date
   thumbnailUrl: string
   largeUrl: string
   width?: number
@@ -159,6 +164,11 @@ type EventCardStyle = CSSProperties & {
   '--event-accent'?: string
 }
 
+type EventRelativeTime = {
+  label: string
+  progressPercent: number
+}
+
 type CalendarRichParagraphBlock = {
   kind: 'paragraph'
   html: string
@@ -216,13 +226,22 @@ type GoogleDriveGalleryConfig = {
   folderId: string
 }
 
+type GoogleFrequencyConfig = {
+  apiKey: string
+  spreadsheetId: string
+}
+
 const languageStorageKey = 'scholka-aureolka-language'
 const themeStorageKey = 'scholka-aureolka-theme'
 const eventSlugSearchParam = 'event'
 const galleryAlbumSearchParam = 'album'
 const galleryPhotoSearchParam = 'photo'
+const galleryAchievementsFolderId = '1regQdvW8Ebx5sGzXQ-4Goffde-ieW1cs'
+const galleryAchievementsAlbumSlug = 'achievements'
 const calendarNoticePrefixPattern = /^\s*\[notice]\s*:?\s*/i
 const galleryCoverPrefixPattern = /^\s*\[cover]/i
+const galleryImageFileExtensionPattern =
+  /\.(?:avif|bmp|gif|heic|heif|jpe?g|png|tiff?|webp)$/i
 const galleryImageRetryDelays = [450, 1400]
 const galleryImageLogoSpinnerMinimumMs = 450
 const homeScheduleCards = scheduleCards.slice(0, 2)
@@ -474,7 +493,6 @@ function getGoogleApiKey() {
 
 function getGoogleCalendarConfig(): GoogleCalendarConfig | null {
   const calendarId = import.meta.env.VITE_GOOGLE_CALENDAR_ID?.trim()
-  const birthdayCalendarId = import.meta.env.VITE_GOOGLE_BIRTHDAY_CALENDAR_ID?.trim()
   const apiKey = getGoogleApiKey()
   const calendars: GoogleCalendarConfig['calendars'] = []
 
@@ -482,13 +500,6 @@ function getGoogleCalendarConfig(): GoogleCalendarConfig | null {
     calendars.push({
       calendarId,
       source: 'google-calendar',
-    })
-  }
-
-  if (birthdayCalendarId) {
-    calendars.push({
-      calendarId: birthdayCalendarId,
-      source: 'birthday-calendar',
     })
   }
 
@@ -508,6 +519,17 @@ function getGoogleDriveGalleryConfig(): GoogleDriveGalleryConfig | null {
   }
 
   return { apiKey, folderId }
+}
+
+function getGoogleFrequencyConfig(): GoogleFrequencyConfig | null {
+  const spreadsheetId = import.meta.env.VITE_GOOGLE_FREQUENCY_SHEET_ID?.trim()
+  const apiKey = getGoogleApiKey()
+
+  if (!apiKey || !spreadsheetId) {
+    return null
+  }
+
+  return { apiKey, spreadsheetId }
 }
 
 function getInitialLanguage(): Language {
@@ -562,6 +584,129 @@ function formatEventDate(date: Date, language: Language) {
     day: 'numeric',
     month: 'long',
   }).format(date)
+}
+
+const millisecondsPerDay = 24 * 60 * 60 * 1000
+const defaultEventRelativeProgressWindowDays = 7
+
+function getLocalDayValue(date: Date) {
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+function parseEventRelativeProgressWindowDays(value: string | undefined) {
+  const progressWindowDays = Number(value?.trim())
+
+  return Number.isFinite(progressWindowDays) && progressWindowDays > 0
+    ? progressWindowDays
+    : defaultEventRelativeProgressWindowDays
+}
+
+function getEventRelativeProgressWindowDays() {
+  return parseEventRelativeProgressWindowDays(
+    import.meta.env.VITE_EVENT_PROGRESS_WINDOW_DAYS,
+  )
+}
+
+function getEventRelativeProgressWindowMs() {
+  return getEventRelativeProgressWindowDays() * millisecondsPerDay
+}
+
+function translateCountedText(text: LocalizedText, language: Language, count: number) {
+  return translate(text, language).replace('{count}', String(count))
+}
+
+function formatEventRelativeTime(
+  date: Date,
+  language: Language,
+  referenceDate = new Date(),
+) {
+  return getEventRelativeTime(date, language, referenceDate)?.label ?? null
+}
+
+function getEventRelativeProgressPercent(date: Date, referenceDate: Date) {
+  const millisecondsUntilEvent = date.getTime() - referenceDate.getTime()
+  const progressWindowMs = getEventRelativeProgressWindowMs()
+
+  if (millisecondsUntilEvent >= progressWindowMs) {
+    return 0
+  }
+
+  if (millisecondsUntilEvent <= 0) {
+    return 100
+  }
+
+  return Math.round(
+    ((progressWindowMs - millisecondsUntilEvent) / progressWindowMs) * 100,
+  )
+}
+
+function getEventRelativeTime(
+  date: Date,
+  language: Language,
+  referenceDate = new Date(),
+): EventRelativeTime | null {
+  const daysUntilEvent = Math.round(
+    (getLocalDayValue(date) - getLocalDayValue(referenceDate)) / millisecondsPerDay,
+  )
+
+  if (daysUntilEvent < 0) {
+    return null
+  }
+
+  if (daysUntilEvent === 0) {
+    return {
+      label: translate(scheduleText.relativeToday, language),
+      progressPercent: getEventRelativeProgressPercent(date, referenceDate),
+    }
+  }
+
+  if (daysUntilEvent === 1) {
+    return {
+      label: translate(scheduleText.relativeTomorrow, language),
+      progressPercent: getEventRelativeProgressPercent(date, referenceDate),
+    }
+  }
+
+  if (daysUntilEvent < 7) {
+    return {
+      label: translateCountedText(scheduleText.relativeInDays, language, daysUntilEvent),
+      progressPercent: getEventRelativeProgressPercent(date, referenceDate),
+    }
+  }
+
+  if (daysUntilEvent < 14) {
+    return {
+      label: translate(scheduleText.relativeInWeek, language),
+      progressPercent: getEventRelativeProgressPercent(date, referenceDate),
+    }
+  }
+
+  if (daysUntilEvent < 45) {
+    return {
+      label: translateCountedText(
+        scheduleText.relativeInWeeks,
+        language,
+        Math.max(2, Math.round(daysUntilEvent / 7)),
+      ),
+      progressPercent: getEventRelativeProgressPercent(date, referenceDate),
+    }
+  }
+
+  if (daysUntilEvent < 75) {
+    return {
+      label: translate(scheduleText.relativeInMonth, language),
+      progressPercent: getEventRelativeProgressPercent(date, referenceDate),
+    }
+  }
+
+  return {
+    label: translateCountedText(
+      scheduleText.relativeInMonths,
+      language,
+      Math.max(2, Math.round(daysUntilEvent / 30)),
+    ),
+    progressPercent: getEventRelativeProgressPercent(date, referenceDate),
+  }
 }
 
 function formatEventTime(date: Date, language: Language) {
@@ -667,25 +812,54 @@ function splitLocalizedTitle(value: string) {
   ] as const
 }
 
-function parseGalleryAlbumFolderName(folderName: string) {
-  const trimmedFolderName = folderName.trim()
-  const parsedDatePrefix = parseGalleryFolderDatePrefix(trimmedFolderName)
-  const titleValue = parsedDatePrefix?.titleValue.trim() || trimmedFolderName
-  const [plTitleValue, enTitleValue] = splitLocalizedTitle(titleValue)
-  const plTitle = plTitleValue.trim() || trimmedFolderName
+function createLocalizedGalleryTitle(value: string, fallback: string): LocalizedText {
+  const [plTitleValue, enTitleValue] = splitLocalizedTitle(value)
+  const plTitle = plTitleValue.trim() || fallback
   const enTitle = enTitleValue?.trim() || plTitle
+
+  return { pl: plTitle, en: enTitle }
+}
+
+function parseGalleryDatedLocalizedName(value: string, fallback: string) {
+  const trimmedValue = value.trim()
+  const parsedDatePrefix = parseGalleryFolderDatePrefix(trimmedValue)
+  const titleValue = parsedDatePrefix?.titleValue.trim() || trimmedValue || fallback
   const year = parsedDatePrefix?.year ?? 0
   const month = parsedDatePrefix?.month ?? 0
   const day = parsedDatePrefix?.day ?? 0
   const date = year && month && day ? new Date(year, month - 1, day) : undefined
 
   return {
-    title: { pl: plTitle, en: enTitle },
+    title: createLocalizedGalleryTitle(titleValue, fallback),
     date,
   }
 }
 
+function parseGalleryAlbumFolderName(folderName: string) {
+  const trimmedFolderName = folderName.trim()
+
+  return parseGalleryDatedLocalizedName(trimmedFolderName, trimmedFolderName)
+}
+
+function stripGalleryImageFileExtension(fileName: string) {
+  return fileName.replace(galleryImageFileExtensionPattern, '').trim()
+}
+
+function stripGalleryPhotoMarkers(fileName: string) {
+  return fileName.replace(galleryCoverPrefixPattern, '').trim()
+}
+
+function parseGalleryPhotoFileName(fileName: string) {
+  const displayName = stripGalleryImageFileExtension(stripGalleryPhotoMarkers(fileName.trim()))
+
+  return parseGalleryDatedLocalizedName(displayName, displayName || fileName)
+}
+
 function formatGalleryAlbumDate(album: GalleryAlbum, language: Language) {
+  if (album.kind === 'achievements') {
+    return translate(galleryText.achievementsAlbumEyebrow, language)
+  }
+
   if (!album.date) {
     return album.folderName
   }
@@ -697,9 +871,21 @@ function formatGalleryAlbumDate(album: GalleryAlbum, language: Language) {
   }).format(album.date)
 }
 
+function shouldUsePolishFewPlural(count: number) {
+  const absoluteCount = Math.abs(count)
+  const lastDigit = absoluteCount % 10
+  const lastTwoDigits = absoluteCount % 100
+
+  return lastDigit >= 2 && lastDigit <= 4 && (lastTwoDigits < 12 || lastTwoDigits > 14)
+}
+
 function formatGalleryPhotoCount(count: number, language: Language) {
   if (count === 1) {
     return translate(galleryText.photoCountSingular, language)
+  }
+
+  if (language === 'pl' && shouldUsePolishFewPlural(count)) {
+    return translate(galleryText.photoCountFew, language).replace('{count}', String(count))
   }
 
   return translate(galleryText.photoCountPlural, language).replace('{count}', String(count))
@@ -709,6 +895,28 @@ function formatGalleryPhotoPosition(current: number, total: number, language: La
   return translate(galleryText.photoPosition, language)
     .replace('{current}', String(current))
     .replace('{total}', String(total))
+}
+
+function formatGalleryTimelinePhotoDate(photo: GalleryPhoto, language: Language) {
+  if (!photo.date) {
+    return translate(galleryText.achievementsUndatedGroup, language)
+  }
+
+  return new Intl.DateTimeFormat(languageLocale[language], {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(photo.date)
+}
+
+function getGalleryPhotoDisplayTitle(photo: GalleryPhoto, language: Language) {
+  if (photo.title) {
+    return translate(photo.title, language)
+  }
+
+  const fallbackTitle = stripGalleryImageFileExtension(stripGalleryPhotoMarkers(photo.name))
+
+  return formatLocalizedText(fallbackTitle || photo.name, language)
 }
 
 function getGalleryPhotoAlt(album: GalleryAlbum, language: Language) {
@@ -889,6 +1097,7 @@ function getGalleryPhotoFromDriveFile(file: GoogleDriveFile): GalleryPhoto | nul
 
   const thumbnailUrl = resizeGoogleThumbnail(file.thumbnailLink, 720)
   const largeUrl = resizeGoogleThumbnail(file.thumbnailLink, 1800)
+  const parsedFileName = parseGalleryPhotoFileName(file.name)
 
   if (!thumbnailUrl || !largeUrl) {
     return null
@@ -897,11 +1106,40 @@ function getGalleryPhotoFromDriveFile(file: GoogleDriveFile): GalleryPhoto | nul
   return {
     id: file.id,
     name: file.name,
+    title: parsedFileName.title,
+    date: parsedFileName.date,
     thumbnailUrl,
     largeUrl,
     width: file.imageMediaMetadata?.width,
     height: file.imageMediaMetadata?.height,
   }
+}
+
+function compareGalleryPhotosByTimeline(leftPhoto: GalleryPhoto, rightPhoto: GalleryPhoto) {
+  const leftTime = leftPhoto.date?.getTime()
+  const rightTime = rightPhoto.date?.getTime()
+
+  if (typeof leftTime === 'number' && typeof rightTime === 'number' && leftTime !== rightTime) {
+    return rightTime - leftTime
+  }
+
+  if (typeof leftTime === 'number' && typeof rightTime !== 'number') {
+    return -1
+  }
+
+  if (typeof leftTime !== 'number' && typeof rightTime === 'number') {
+    return 1
+  }
+
+  return leftPhoto.name.localeCompare(rightPhoto.name, 'pl-PL', { numeric: true })
+}
+
+function sortGalleryPhotosForAlbum(album: GalleryAlbum, photos: GalleryPhoto[]) {
+  if (album.kind !== 'achievements') {
+    return photos
+  }
+
+  return [...photos].sort(compareGalleryPhotosByTimeline)
 }
 
 async function fetchGoogleDriveAlbumCover(
@@ -966,8 +1204,10 @@ async function fetchGoogleDriveGalleryAlbums(config: GoogleDriveGalleryConfig) {
         return null
       }
 
+      const kind: GalleryAlbumKind =
+        folder.id === galleryAchievementsFolderId ? 'achievements' : 'standard'
       const parsedFolderName = parseGalleryAlbumFolderName(folder.name)
-      const slug = createSlug(folder.name)
+      const slug = kind === 'achievements' ? galleryAchievementsAlbumSlug : createSlug(folder.name)
 
       if (!slug) {
         return null
@@ -975,11 +1215,18 @@ async function fetchGoogleDriveGalleryAlbums(config: GoogleDriveGalleryConfig) {
 
       return {
         id: folder.id,
+        kind,
         folderName: folder.name,
         slug,
-        title: parsedFolderName.title,
-        date: parsedFolderName.date,
-        coverPhoto: await fetchGoogleDriveAlbumCover(config, folder.id),
+        title:
+          kind === 'achievements'
+            ? galleryText.achievementsAlbumTitle
+            : parsedFolderName.title,
+        date: kind === 'achievements' ? undefined : parsedFolderName.date,
+        coverPhoto:
+          kind === 'achievements'
+            ? undefined
+            : await fetchGoogleDriveAlbumCover(config, folder.id),
       }
     }),
   )
@@ -987,6 +1234,10 @@ async function fetchGoogleDriveGalleryAlbums(config: GoogleDriveGalleryConfig) {
   return albums
     .filter((album): album is GalleryAlbum => Boolean(album))
     .sort((leftAlbum, rightAlbum) => {
+      if (leftAlbum.kind !== rightAlbum.kind) {
+        return leftAlbum.kind === 'achievements' ? -1 : 1
+      }
+
       const leftDate = leftAlbum.date?.getTime() ?? 0
       const rightDate = rightAlbum.date?.getTime() ?? 0
 
@@ -1012,9 +1263,11 @@ async function fetchGoogleDriveAlbumPhotos(
     pageSize: 1000,
   })
 
-  return files
+  const photos = files
     .map(getGalleryPhotoFromDriveFile)
     .filter((photo): photo is GalleryPhoto => Boolean(photo))
+
+  return sortGalleryPhotosForAlbum(album, photos)
 }
 
 function getGalleryPhotoAspectStyle(photo: GalleryPhoto): CSSProperties | undefined {
@@ -1686,11 +1939,8 @@ function includesEventKeyword(value: string, keywords: string[]) {
   return keywords.some((keyword) => normalizedValue.includes(keyword))
 }
 
-function getCalendarEventHighlight(title: string, source: EventSource): EventHighlight | undefined {
-  if (
-    source === 'birthday-calendar' ||
-    includesEventKeyword(title, ['urodziny', 'birthday'])
-  ) {
+function getCalendarEventHighlight(title: string): EventHighlight | undefined {
+  if (includesEventKeyword(title, ['urodziny', 'birthday'])) {
     return {
       kind: 'birthday',
       accent: birthdayEventAccent,
@@ -1717,7 +1967,7 @@ function getDisplayCalendarEventTitle(
   }
 
   if (eventHighlight?.kind === 'important') {
-    return collapseWhitespaceRuns(title.replaceAll('!', '')).trim() || title
+    return collapseWhitespaceRuns(title.replace('!', '')).trim() || title
   }
 
   return title.trim() || title
@@ -1794,11 +2044,8 @@ function mapGoogleCalendarEvent(
   const isNotice = isNoticeCalendarTitle(rawTitle)
   const displayTitle = isNotice ? getNoticeCalendarTitle(rawTitle, language) : rawTitle
   const eventHighlight: EventHighlight | undefined = isNotice
-    ? {
-        kind: 'important',
-        accent: importantEventAccent,
-      }
-    : getCalendarEventHighlight(displayTitle, source)
+    ? undefined
+    : getCalendarEventHighlight(displayTitle)
   const title = formatLocalizedText(
     getDisplayCalendarEventTitle(displayTitle, eventHighlight, language),
     language,
@@ -1965,23 +2212,29 @@ export {
   fetchGoogleDriveGalleryAlbums,
   fetchGoogleDriveThumbnailUrl,
   formatEventDate,
+  formatEventRelativeTime,
   formatEventTime,
   formatGalleryAlbumDate,
   formatGalleryPhotoCount,
+  formatGalleryTimelinePhotoDate,
   formatGalleryPhotoPosition,
   formatLocalizedHtml,
   getAbsoluteScheduleEventHref,
   getEventCardStyle,
   getEventDomId,
+  getEventRelativeProgressWindowDays,
+  getEventRelativeTime,
   getEventSlugFromLocation,
   getGalleryAlbumHref,
   getGalleryAlbumSlugFromLocation,
   getGalleryPhotoAlt,
   getGalleryPhotoAspectStyle,
+  getGalleryPhotoDisplayTitle,
   getGalleryPhotoHref,
   getGalleryPhotoIdFromLocation,
   getGoogleCalendarConfig,
   getGoogleDriveGalleryConfig,
+  getGoogleFrequencyConfig,
   getHomeEventHref,
   getInitialLanguage,
   getInitialTheme,
@@ -2009,11 +2262,14 @@ export type {
   CalendarRichBlock,
   CalendarState,
   GalleryAlbum,
+  GalleryAlbumKind,
   GalleryLoadStatus,
   GalleryPhoto,
   GalleryPhotosState,
   GalleryState,
   GoogleCalendarConfig,
   GoogleDriveGalleryConfig,
+  GoogleFrequencyConfig,
+  EventRelativeTime,
   UpcomingEvent,
 }

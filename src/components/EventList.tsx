@@ -1,6 +1,7 @@
 import {
   useEffect,
   useRef,
+  type CSSProperties,
   type MouseEvent as ReactMouseEvent,
 } from 'react'
 import {
@@ -15,6 +16,7 @@ import {
   formatLocalizedHtml,
   getEventCardStyle,
   getEventDomId,
+  getEventRelativeTime,
   isExpandableScheduleEvent,
   translate,
   type CalendarEventAttachment,
@@ -32,6 +34,7 @@ type EventListOptions = Readonly<{
   expandedEventId?: string | null
   linkedEventId?: string | null
   copiedEventId?: string | null
+  showLocation?: boolean
   getEventHref?: (event: UpcomingEvent) => string
   onExpandedEventChange?: (eventId: string | null) => void
   onEventLinkCopy?: (event: UpcomingEvent) => void
@@ -49,16 +52,13 @@ type EventCardProps = EventListOptions &
 
 type EventTitleActionsProps = Readonly<{
   canCopyEventLink: boolean
-  canExpandEvent: boolean
   event: UpcomingEvent
   isBirthdayEvent: boolean
   isCopied: boolean
   isExpanded: boolean
   language: Language
-  detailsId: string
   shouldShowDetailSymbol: boolean
   onCopyEventLink: (mouseEvent: ReactMouseEvent<HTMLButtonElement>) => void
-  onToggleEvent: () => void
 }>
 
 function CopyLinkIcon({ isCopied }: Readonly<{ isCopied: boolean }>) {
@@ -217,6 +217,7 @@ function getEventDetailsId(event: UpcomingEvent) {
 }
 
 function getEventCardClassName({
+  canExpandEvent,
   eventHref,
   isBirthdayEvent,
   isExpanded,
@@ -224,6 +225,7 @@ function getEventCardClassName({
   isLinked,
   shouldShowDetailSymbol,
 }: Readonly<{
+  canExpandEvent: boolean
   eventHref: string | undefined
   isBirthdayEvent: boolean
   isExpanded: boolean
@@ -234,6 +236,7 @@ function getEventCardClassName({
   return [
     'event-card',
     eventHref ? 'event-card-link' : '',
+    canExpandEvent ? 'event-card-clickable' : '',
     isBirthdayEvent ? 'event-card--birthday' : '',
     isImportantEvent ? 'event-card--important' : '',
     shouldShowDetailSymbol ? 'has-details' : '',
@@ -244,28 +247,27 @@ function getEventCardClassName({
     .join(' ')
 }
 
+function getEventTimeChipStyle(progressPercent: number) {
+  return {
+    '--event-time-progress': `${progressPercent}%`,
+  } as CSSProperties
+}
+
 function EventTitleActions({
   canCopyEventLink,
-  canExpandEvent,
   event,
   isBirthdayEvent,
   isCopied,
   isExpanded,
   language,
-  detailsId,
   shouldShowDetailSymbol,
   onCopyEventLink,
-  onToggleEvent,
 }: EventTitleActionsProps) {
   const copyButtonClassName = isCopied
     ? 'event-action-button event-copy-link-button is-copied'
     : 'event-action-button event-copy-link-button'
   const copyEventLinkText = translate(
     isCopied ? scheduleText.eventLinkCopied : scheduleText.copyEventLink,
-    language,
-  )
-  const expandEventText = translate(
-    isExpanded ? scheduleText.collapseEvent : scheduleText.expandEvent,
     language,
   )
 
@@ -290,23 +292,8 @@ function EventTitleActions({
           <CopyLinkIcon isCopied={isCopied} />
         </button>
       )}
-      {canExpandEvent && (
-        <button
-          type="button"
-          className="event-action-button event-expand-button"
-          aria-expanded={isExpanded}
-          aria-controls={detailsId}
-          aria-label={`${expandEventText}: ${event.title}`}
-          onClick={onToggleEvent}
-        >
-          {isExpanded ? '-' : '+'}
-        </button>
-      )}
-      {shouldShowDetailSymbol && !canExpandEvent && (
-        <span
-          className="event-expand-status-icon"
-          aria-label={translate(scheduleText.eventInfoLabel, language)}
-        >
+      {shouldShowDetailSymbol && (
+        <span className="event-expand-status-icon" aria-hidden="true">
           {isExpanded ? '-' : '+'}
         </span>
       )}
@@ -325,14 +312,6 @@ function EventDetails({
 }>) {
   return (
     <div className="event-details" id={detailsId}>
-      {event.location && (
-        <dl className="event-detail-list">
-          <div>
-            <dt>{translate(scheduleText.whereLabel, language)}</dt>
-            <dd>{event.location}</dd>
-          </div>
-        </dl>
-      )}
       <CalendarRichContent
         blocks={event.noteBlocks}
         language={language}
@@ -352,6 +331,7 @@ function EventCard({
   expandedEventId = null,
   linkedEventId = null,
   copiedEventId = null,
+  showLocation = true,
   getEventHref,
   onExpandedEventChange,
   onEventLinkCopy,
@@ -366,7 +346,9 @@ function EventCard({
   const detailsId = getEventDetailsId(event)
   const canCopyEventLink = canExpandEvent && Boolean(event.slug)
   const eventHref = getEventHref?.(event)
+  const relativeTime = getEventRelativeTime(event.date, language)
   const eventCardClassName = getEventCardClassName({
+    canExpandEvent,
     eventHref,
     isBirthdayEvent,
     isExpanded,
@@ -374,6 +356,15 @@ function EventCard({
     isLinked: linkedEventId === event.id,
     shouldShowDetailSymbol,
   })
+  let eventToggleLabel: string | undefined
+
+  if (canExpandEvent) {
+    const eventToggleText = translate(
+      isExpanded ? scheduleText.collapseEvent : scheduleText.expandEvent,
+      language,
+    )
+    eventToggleLabel = `${eventToggleText}: ${event.title}`
+  }
 
   function toggleEvent() {
     if (canExpandEvent && onExpandedEventChange) {
@@ -392,6 +383,16 @@ function EventCard({
   const eventCardContent = (
     <>
       <div className="event-card-summary">
+        {canExpandEvent && (
+          <button
+            type="button"
+            className="event-card-toggle"
+            aria-expanded={isExpanded}
+            aria-controls={detailsId}
+            aria-label={eventToggleLabel}
+            onClick={toggleEvent}
+          />
+        )}
         <div className="event-date">
           <strong>{formatEventDate(event.date, language)}</strong>
           <span>
@@ -399,25 +400,30 @@ function EventCard({
               ? translate(scheduleText.allDay, language)
               : formatEventTime(event.date, language)}
           </span>
+          {relativeTime && (
+            <span
+              className="event-time-chip"
+              style={getEventTimeChipStyle(relativeTime.progressPercent)}
+            >
+              {relativeTime.label}
+            </span>
+          )}
         </div>
         <div className="event-body">
           <div className="event-title-row">
             <h3>{event.title}</h3>
             <EventTitleActions
               canCopyEventLink={canCopyEventLink}
-              canExpandEvent={canExpandEvent}
               event={event}
               isBirthdayEvent={isBirthdayEvent}
               isCopied={copiedEventId === event.id}
               isExpanded={isExpanded}
               language={language}
-              detailsId={detailsId}
               shouldShowDetailSymbol={shouldShowDetailSymbol}
               onCopyEventLink={handleCopyEventLink}
-              onToggleEvent={toggleEvent}
             />
           </div>
-          {event.location && <p className="muted">{event.location}</p>}
+          {showLocation && event.location && <p className="muted">{event.location}</p>}
           {!compact && !expandable && !eventHref && (
             <>
               <CalendarRichContent
@@ -470,6 +476,7 @@ function EventList({
   expandedEventId = null,
   linkedEventId = null,
   copiedEventId = null,
+  showLocation = true,
   getEventHref,
   onExpandedEventChange,
   onEventLinkCopy,
@@ -487,6 +494,7 @@ function EventList({
           expandedEventId={expandedEventId}
           linkedEventId={linkedEventId}
           copiedEventId={copiedEventId}
+          showLocation={showLocation}
           getEventHref={getEventHref}
           onExpandedEventChange={onExpandedEventChange}
           onEventLinkCopy={onEventLinkCopy}
