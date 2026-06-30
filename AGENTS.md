@@ -29,6 +29,7 @@ Use Vite's static multi-page app pattern. Current public pages:
 - `/` - Start
 - `/schedule/` - Ogarniajzer / Schedule
 - `/gallery/` - Gallery
+- `/frequency/` - Frequency / Attendance statistics
 - `/contact/` - Contact
 
 Each page has an HTML entry point and mounts the shared React app. React Router is not currently installed; keep direct links and refresh behavior simple on GitHub Pages.
@@ -37,9 +38,6 @@ Likely future sections:
 
 - Achievements
 - Songs
-- Frequency
-
-The exact scope of "frequency" is not yet defined. Ask before implementing that section.
 
 ## Language
 
@@ -80,6 +78,20 @@ Event progress config:
 The app fetches calendar events for the next 3 months. `[notice]` calendar events become home-page notices and are excluded from the schedule list. Gallery albums come from Drive subfolders.
 
 Do not commit private credentials. Restrict the browser API key by HTTP referrer for production and local development.
+
+## Frequency Calculations
+
+Frequency data comes from the configured Google Sheet and is shown only as aggregate statistics.
+
+Rules to preserve:
+
+- Ignore members with missing birth dates completely.
+- A member missing from an attendance tab is treated as absent for that whole year.
+- Duplicate date columns are separate events, even when the date is the same.
+- The first Thursday event on a date is a rehearsal, the first Sunday event on a date is a Mass, and later same-day events are `other`; non-default events still count in all-event statistics.
+- Age is calculated against the current/reference date.
+- "Recently active" is an inactivity buffer based on the latest event in the whole sheet up to the current/reference date, not on the selected period end. A member is active when their last presence is on or after `latest global event - activeWindowMonths`; the boundary is inclusive.
+- Frequency percentages are calculated over eligible events after the member join date. Active members use the selected period's last event as their end boundary; inactive members use their last presence, narrowed to the selected period when needed.
 
 ## Contact and Privacy
 

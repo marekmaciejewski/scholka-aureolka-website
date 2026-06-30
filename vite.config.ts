@@ -14,6 +14,7 @@ export default defineConfig({
         main: pagePath('./index.html'),
         gallery: pagePath('./gallery/index.html'),
         schedule: pagePath('./schedule/index.html'),
+        frequency: pagePath('./frequency/index.html'),
         contact: pagePath('./contact/index.html'),
       },
     },

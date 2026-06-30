@@ -46,6 +46,7 @@ Local Google config belongs in `.env.local`:
 VITE_GOOGLE_API_KEY=your-restricted-browser-api-key
 VITE_GOOGLE_CALENDAR_ID=your-public-calendar-id@group.calendar.google.com
 VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID=your-public-gallery-folder-id
+VITE_GOOGLE_FREQUENCY_SHEET_ID=your-public-frequency-spreadsheet-id
 VITE_EVENT_PROGRESS_WINDOW_DAYS=7
 ```
 
@@ -73,7 +74,7 @@ Required GitHub settings:
 
 - Pages source: GitHub Actions
 - Secret: `VITE_GOOGLE_API_KEY`
-- Variables: `VITE_GOOGLE_CALENDAR_ID`, `VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID`
+- Variables: `VITE_GOOGLE_CALENDAR_ID`, `VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID`, `VITE_GOOGLE_FREQUENCY_SHEET_ID`
 - Optional variable: `VITE_EVENT_PROGRESS_WINDOW_DAYS` defaults to `7`
 
 The current custom-domain deployment uses Vite `base: '/'`. Change that only if the site moves back to a repository path such as `/scholka-aureolka-website/`.

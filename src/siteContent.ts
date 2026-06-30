@@ -2,7 +2,7 @@ export type Language = 'pl' | 'en'
 
 export type ThemeName = 'light' | 'dark'
 
-export type PageKey = 'home' | 'schedule' | 'gallery' | 'contact'
+export type PageKey = 'home' | 'schedule' | 'gallery' | 'frequency' | 'contact'
 
 export type LocalizedText = Record<Language, string>
 
@@ -65,6 +65,7 @@ export const navigationItems: NavigationItem[] = [
   { key: 'home', href: '/', label: { pl: 'Start', en: 'Home' } },
   { key: 'schedule', href: '/schedule/', label: { pl: 'Ogarniajzer', en: 'Schedule' } },
   { key: 'gallery', href: '/gallery/', label: { pl: 'Galeria', en: 'Gallery' } },
+  { key: 'frequency', href: '/frequency/', label: { pl: 'Frekwencja', en: 'Attendance' } },
   { key: 'contact', href: '/contact/', label: { pl: 'Kontakt', en: 'Contact' } },
 ]
 
@@ -187,6 +188,65 @@ export const galleryText = {
   albumPhotoAlt: { pl: 'Zdjęcie z albumu {album}', en: 'Photo from album {album}' },
 }
 
+export const frequencyText = {
+  loading: {
+    pl: 'Pobieramy aktualne dane frekwencji.',
+    en: 'Loading current attendance data.',
+  },
+  notConfiguredNotice: {
+    pl: 'Arkusz frekwencji nie jest jeszcze podłączony.',
+    en: 'Attendance sheet is not connected yet.',
+  },
+  errorNotice: {
+    pl: 'Nie udało się pobrać danych frekwencji. Spróbuj odświeżyć stronę później.',
+    en: 'Attendance data could not be loaded. Try refreshing the page later.',
+  },
+  emptyState: {
+    pl: 'Brak wydarzeń dla wybranych filtrów.',
+    en: 'No events match the selected filters.',
+  },
+  filtersLabel: { pl: 'Filtry frekwencji', en: 'Attendance filters' },
+  periodLabel: { pl: 'Okres', en: 'Period' },
+  periodSchoolYear: { pl: 'Rok szkolny', en: 'School year' },
+  periodCalendarYear: { pl: 'Rok kalendarzowy', en: 'Calendar year' },
+  periodCurrentMonth: { pl: 'Bieżący miesiąc', en: 'Current month' },
+  periodAll: { pl: 'Cały zakres', en: 'All data' },
+  periodCustom: { pl: 'Własny zakres', en: 'Custom range' },
+  dateFromLabel: { pl: 'Od', en: 'From' },
+  dateToLabel: { pl: 'Do', en: 'To' },
+  ageFromLabel: { pl: 'Wiek od', en: 'Age from' },
+  ageToLabel: { pl: 'Wiek do', en: 'Age to' },
+  agePresetLabel: { pl: 'Wiek', en: 'Age preset' },
+  agePresetAll: { pl: 'Wszystkie', en: 'All ages' },
+  agePresetCustom: { pl: 'Własny zakres', en: 'Custom range' },
+  eventTypeLabel: { pl: 'Typ spotkania', en: 'Meeting type' },
+  eventTypeAll: { pl: 'Wszystkie', en: 'All' },
+  eventTypeRehearsal: { pl: 'Próby czwartkowe', en: 'Thursday rehearsals' },
+  eventTypeMass: { pl: 'Msze niedzielne', en: 'Sunday Masses' },
+  eventTypeOther: { pl: 'Inne wydarzenia', en: 'Other events' },
+  activeWindowLabel: { pl: 'Próg nieaktywności', en: 'Inactivity threshold' },
+  activeWindowHelp: {
+    pl: 'Jak długo przed ostatnim spotkaniem może wypadać ostatnia obecność aktywnego uczestnika.',
+    en: 'How long before the latest meeting a member can last attend and still count as active.',
+  },
+  averageAttendance: { pl: 'Średnio', en: 'Average' },
+  averageFrequency: { pl: 'Średnia frekwencja', en: 'Average frequency' },
+  eventsCount: { pl: 'Spotkania', en: 'Events' },
+  activeMembers: { pl: 'Aktywni', en: 'Active' },
+  medianFrequency: { pl: 'Mediana frekwencji', en: 'Median frequency' },
+  attendanceOverTime: { pl: 'Obecność w czasie', en: 'Attendance over time' },
+  timelineModeLabel: { pl: 'Rozstawienie słupków', en: 'Bar spacing' },
+  timelineModeEven: { pl: 'Równo', en: 'Even' },
+  timelineModeProportional: { pl: 'Oś czasu', en: 'Timeline' },
+  frequencyDistribution: { pl: 'Rozkład frekwencji', en: 'Frequency distribution' },
+  attendanceByAge: { pl: 'Frekwencja według wieku', en: 'Attendance by age' },
+  monthlyTable: { pl: 'Miesiące', en: 'Months' },
+  monthColumn: { pl: 'Miesiąc', en: 'Month' },
+  averageColumn: { pl: 'Średnio', en: 'Average' },
+  percentageColumn: { pl: 'Procent', en: 'Percentage' },
+  noData: { pl: 'Brak danych', en: 'No data' },
+}
+
 export const calendarEventHighlightText = {
   birthday: { pl: 'Urodziny', en: 'Birthday' },
   important: { pl: 'Wa\u017cne', en: 'Important' },
@@ -229,6 +289,14 @@ export const pageIntro: Record<
   gallery: {
     eyebrow: { pl: 'Zdjęcia z życia scholi', en: 'Photos from choir life' },
     title: { pl: 'Galeria', en: 'Gallery' },
+  },
+  frequency: {
+    eyebrow: { pl: 'Statystyki', en: 'Statistics' },
+    title: { pl: 'Frekwencja', en: 'Attendance' },
+    lead: {
+      pl: 'Zbiorczy podgląd obecności według wieku, typu spotkania i wybranego okresu.',
+      en: 'Aggregate attendance view by age, meeting type, and selected period.',
+    },
   },
   schedule: {
     eyebrow: {

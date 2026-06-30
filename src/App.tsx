@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { commonText, type Language, type PageKey, type ThemeName } from './siteContent'
 import { Footer, Header } from './components/Layout'
 import { ContactPage } from './pages/ContactPage'
+import { FrequencyPage } from './pages/FrequencyPage'
 import { GalleryPage } from './pages/GalleryPage'
 import { HomePage } from './pages/HomePage'
 import { SchedulePage } from './pages/SchedulePage'
@@ -39,6 +40,7 @@ const pageRenderers: Record<PageKey, (context: PageRenderContext) => ReactNode> 
     />
   ),
   gallery: ({ language }) => <GalleryPage language={language} />,
+  frequency: ({ language }) => <FrequencyPage language={language} />,
   schedule: ({ language, scheduleEvents, calendarStatus }) => (
     <SchedulePage
       language={language}

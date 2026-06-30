@@ -7,6 +7,7 @@ const corePages = [
   { path: '/', heading: 'Scholka Aureolka', title: 'Scholka Aureolka' },
   { path: '/gallery/', heading: 'Gallery', title: 'Gallery | Scholka Aureolka' },
   { path: '/schedule/', heading: 'Schedule', title: 'Schedule | Scholka Aureolka' },
+  { path: '/frequency/', heading: 'Attendance', title: 'Attendance | Scholka Aureolka' },
   { path: '/contact/', heading: 'Contact', title: 'Contact | Scholka Aureolka' },
 ] as const
 

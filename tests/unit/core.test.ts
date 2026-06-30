@@ -27,6 +27,7 @@ import {
   getGalleryPhotoIdFromLocation,
   getGoogleCalendarConfig,
   getGoogleDriveGalleryConfig,
+  getGoogleFrequencyConfig,
   getHomeEventHref,
   getInitialLanguage,
   getInitialTheme,
@@ -136,9 +137,11 @@ describe('routing and page helpers', () => {
     expect(getPageFromPath('/')).toBe('home')
     expect(getPageFromPath('/schedule/')).toBe('schedule')
     expect(getPageFromPath('/gallery')).toBe('gallery')
+    expect(getPageFromPath('/frequency/')).toBe('frequency')
     expect(getPageFromPath('/missing/')).toBe('home')
     expect(getPageDocumentTitle('home', 'en')).toBe('Scholka Aureolka')
     expect(getPageDocumentTitle('gallery', 'en')).toBe('Gallery | Scholka Aureolka')
+    expect(getPageDocumentTitle('frequency', 'en')).toBe('Attendance | Scholka Aureolka')
   })
 
   test('reads and writes schedule and gallery query-state URLs', () => {
@@ -194,6 +197,7 @@ describe('routing and page helpers', () => {
     vi.stubEnv('VITE_GOOGLE_API_KEY', 'api-key')
     vi.stubEnv('VITE_GOOGLE_CALENDAR_ID', 'main-calendar')
     vi.stubEnv('VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID', 'gallery-folder')
+    vi.stubEnv('VITE_GOOGLE_FREQUENCY_SHEET_ID', 'frequency-sheet')
 
     expect(getInitialLanguage()).toBe('en')
     expect(getInitialTheme()).toBe('dark')
@@ -205,10 +209,15 @@ describe('routing and page helpers', () => {
       apiKey: 'api-key',
       folderId: 'gallery-folder',
     })
+    expect(getGoogleFrequencyConfig()).toEqual({
+      apiKey: 'api-key',
+      spreadsheetId: 'frequency-sheet',
+    })
 
     vi.stubEnv('VITE_GOOGLE_API_KEY', '')
     vi.stubEnv('VITE_GOOGLE_CALENDAR_ID', '')
     vi.stubEnv('VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID', '')
+    vi.stubEnv('VITE_GOOGLE_FREQUENCY_SHEET_ID', '')
     stubStorage()
     stubPreferredColorScheme(true)
 
@@ -216,6 +225,7 @@ describe('routing and page helpers', () => {
     expect(getInitialTheme()).toBe('dark')
     expect(getGoogleCalendarConfig()).toBeNull()
     expect(getGoogleDriveGalleryConfig()).toBeNull()
+    expect(getGoogleFrequencyConfig()).toBeNull()
   })
 })
 

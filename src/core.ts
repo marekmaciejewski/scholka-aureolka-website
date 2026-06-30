@@ -226,6 +226,11 @@ type GoogleDriveGalleryConfig = {
   folderId: string
 }
 
+type GoogleFrequencyConfig = {
+  apiKey: string
+  spreadsheetId: string
+}
+
 const languageStorageKey = 'scholka-aureolka-language'
 const themeStorageKey = 'scholka-aureolka-theme'
 const eventSlugSearchParam = 'event'
@@ -514,6 +519,17 @@ function getGoogleDriveGalleryConfig(): GoogleDriveGalleryConfig | null {
   }
 
   return { apiKey, folderId }
+}
+
+function getGoogleFrequencyConfig(): GoogleFrequencyConfig | null {
+  const spreadsheetId = import.meta.env.VITE_GOOGLE_FREQUENCY_SHEET_ID?.trim()
+  const apiKey = getGoogleApiKey()
+
+  if (!apiKey || !spreadsheetId) {
+    return null
+  }
+
+  return { apiKey, spreadsheetId }
 }
 
 function getInitialLanguage(): Language {
@@ -2218,6 +2234,7 @@ export {
   getGalleryPhotoIdFromLocation,
   getGoogleCalendarConfig,
   getGoogleDriveGalleryConfig,
+  getGoogleFrequencyConfig,
   getHomeEventHref,
   getInitialLanguage,
   getInitialTheme,
@@ -2252,6 +2269,7 @@ export type {
   GalleryState,
   GoogleCalendarConfig,
   GoogleDriveGalleryConfig,
+  GoogleFrequencyConfig,
   EventRelativeTime,
   UpcomingEvent,
 }
