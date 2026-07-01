@@ -23,6 +23,22 @@ type HorizontalOverflowReport = {
   }>
 }
 
+type EventActionLayoutMetrics = {
+  actionBottom: number
+  actionLeft: number
+  actionPosition: string
+  actionRight: number
+  actionTop: number
+  cardBottom: number
+  cardLeft: number
+  cardRight: number
+  cardTop: number
+  titleBottom: number
+  titleLeft: number
+  titleRight: number
+  titleTop: number
+}
+
 function trackUnexpectedPageErrors(page: Page) {
   const errors: string[] = []
 
@@ -118,6 +134,108 @@ async function expectOverlayInsideViewport(page: Page, selector: string) {
   expect(metrics.right).toBeLessThanOrEqual(metrics.viewportWidth + 1)
   expect(metrics.height).toBeGreaterThan(0)
   expect(metrics.width).toBeGreaterThan(0)
+}
+
+async function injectEventActionFixture(page: Page, variant: 'compact-home' | 'schedule') {
+  await page.goto('/')
+  await expect(page.getByRole('heading', { level: 1, name: 'Scholka Aureolka' })).toBeVisible()
+  await page.evaluate((fixtureVariant) => {
+    const main = document.querySelector('#main-content')
+
+    if (!main) {
+      throw new Error('Main content was not rendered')
+    }
+
+    const outerClass =
+      fixtureVariant === 'compact-home'
+        ? 'content-width home-upcoming-inner'
+        : 'content-width narrow month-list'
+    const listClass = fixtureVariant === 'compact-home' ? 'event-list compact' : 'event-list'
+    const cardClass =
+      fixtureVariant === 'compact-home'
+        ? 'event-card event-card-link event-card--important has-details'
+        : 'event-card event-card-clickable event-card--important has-details'
+    const copyButton =
+      fixtureVariant === 'schedule'
+        ? '<button class="event-action-button event-copy-link-button" type="button" aria-label="Copy link"><svg class="event-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 13.5 13.5 10.5" /></svg></button>'
+        : ''
+
+    main.innerHTML = `
+      <section class="content-section">
+        <div class="${outerClass}">
+          <div class="${listClass}">
+            <article class="${cardClass}">
+              <div class="event-card-summary">
+                <button class="event-card-toggle" type="button" aria-label="Expand event"></button>
+                <div class="event-date">
+                  <strong>Thursday, July 2</strong>
+                  <span>17:00</span>
+                  <span class="event-time-chip">tomorrow</span>
+                </div>
+                <div class="event-body">
+                  <div class="event-title-row">
+                    <h3>PRZYWIDZ</h3>
+                    <div class="event-title-actions">
+                      ${copyButton}
+                      <span class="event-expand-status-icon" aria-hidden="true">+</span>
+                    </div>
+                  </div>
+                  <p class="muted">Zielona Brama wesela, stadnina, pierogarnia, Gdańska 26</p>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+    `
+  }, variant)
+}
+
+async function getEventActionLayoutMetrics(page: Page) {
+  return page.locator('.event-card').evaluate((card): EventActionLayoutMetrics => {
+    const actions = card.querySelector<HTMLElement>('.event-title-actions')
+    const title = card.querySelector<HTMLElement>('.event-title-row h3')
+
+    if (!actions || !title) {
+      throw new Error('Event card action fixture was not rendered')
+    }
+
+    const actionRect = actions.getBoundingClientRect()
+    const cardRect = card.getBoundingClientRect()
+    const titleRect = title.getBoundingClientRect()
+
+    return {
+      actionBottom: actionRect.bottom,
+      actionLeft: actionRect.left,
+      actionPosition: getComputedStyle(actions).position,
+      actionRight: actionRect.right,
+      actionTop: actionRect.top,
+      cardBottom: cardRect.bottom,
+      cardLeft: cardRect.left,
+      cardRight: cardRect.right,
+      cardTop: cardRect.top,
+      titleBottom: titleRect.bottom,
+      titleLeft: titleRect.left,
+      titleRight: titleRect.right,
+      titleTop: titleRect.top,
+    }
+  })
+}
+
+function expectActionsInsideCard(metrics: EventActionLayoutMetrics) {
+  expect(metrics.actionTop).toBeGreaterThanOrEqual(metrics.cardTop)
+  expect(metrics.actionLeft).toBeGreaterThanOrEqual(metrics.cardLeft)
+  expect(metrics.actionRight).toBeLessThanOrEqual(metrics.cardRight)
+  expect(metrics.actionBottom).toBeLessThanOrEqual(metrics.cardBottom)
+}
+
+function expectActionsAnchoredToCardFrame(metrics: EventActionLayoutMetrics) {
+  expect(metrics.actionPosition).toBe('absolute')
+  expect(metrics.actionTop - metrics.cardTop).toBeGreaterThanOrEqual(13)
+  expect(metrics.actionTop - metrics.cardTop).toBeLessThanOrEqual(16)
+  expect(metrics.cardRight - metrics.actionRight).toBeGreaterThanOrEqual(15)
+  expect(metrics.cardRight - metrics.actionRight).toBeLessThanOrEqual(17)
+  expectActionsInsideCard(metrics)
 }
 
 test.beforeEach(async ({ page }) => {
@@ -216,6 +334,25 @@ test('schedule page handles configured and unconfigured calendar states', async 
   }
 
   expect(errors).toEqual([])
+})
+
+test('event action symbols stay anchored to event cards', async ({ page }) => {
+  const viewportWidth = page.viewportSize()?.width ?? 1280
+  const isMobile = viewportWidth <= 760
+
+  await injectEventActionFixture(page, 'compact-home')
+  expectActionsAnchoredToCardFrame(await getEventActionLayoutMetrics(page))
+
+  await injectEventActionFixture(page, 'schedule')
+  const scheduleMetrics = await getEventActionLayoutMetrics(page)
+
+  if (isMobile) {
+    expectActionsAnchoredToCardFrame(scheduleMetrics)
+  } else {
+    expect(scheduleMetrics.actionPosition).toBe('static')
+    expectActionsInsideCard(scheduleMetrics)
+    expect(scheduleMetrics.actionLeft).toBeGreaterThanOrEqual(scheduleMetrics.titleRight)
+  }
 })
 
 test('gallery album navigation and lightbox stay within the viewport', async ({ page }) => {
