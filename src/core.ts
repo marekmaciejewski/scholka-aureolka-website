@@ -1377,6 +1377,22 @@ function sanitizeCalendarUrl(value?: string | null) {
   return undefined
 }
 
+function shouldOpenCalendarLinkInSameWindow(safeUrl: string) {
+  try {
+    return new URL(safeUrl).origin === globalThis.location.origin
+  } catch {
+    return false
+  }
+}
+
+function getCalendarLinkAttributes(safeUrl: string) {
+  const newTabAttributes = shouldOpenCalendarLinkInSameWindow(safeUrl)
+    ? ''
+    : ' target="_blank" rel="noreferrer"'
+
+  return `href="${escapeHtml(safeUrl)}"${newTabAttributes}`
+}
+
 function renderCalendarLinkHtml(url: string, label = url) {
   const safeUrl = sanitizeCalendarUrl(url)
 
@@ -1384,7 +1400,7 @@ function renderCalendarLinkHtml(url: string, label = url) {
     return escapeHtml(label)
   }
 
-  return `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noreferrer">${escapeHtml(label)}</a>`
+  return `<a ${getCalendarLinkAttributes(safeUrl)}>${escapeHtml(label)}</a>`
 }
 
 function linkifyCalendarText(value: string) {
@@ -1555,7 +1571,8 @@ function tokenizeCalendarNode(node: Node): CalendarRichInlineToken[] {
   const children = tokenizeCalendarChildren(node)
 
   if (tagName === 'a') {
-    const href = sanitizeCalendarUrl(node.getAttribute('href'))
+    const originalHref = node.getAttribute('href')
+    const href = sanitizeCalendarUrl(originalHref)
 
     if (!href) {
       return children
@@ -1575,7 +1592,7 @@ function tokenizeCalendarNode(node: Node): CalendarRichInlineToken[] {
     return wrapCalendarInlineTokens(
       visibleChildren,
       'a',
-      ` href="${escapeHtml(href)}" target="_blank" rel="noreferrer"`,
+      ` ${getCalendarLinkAttributes(href)}`,
     )
   }
 

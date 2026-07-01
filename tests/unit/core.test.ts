@@ -76,6 +76,24 @@ function createEvent(overrides: Partial<UpcomingEvent> = {}): UpcomingEvent {
   }
 }
 
+function getCalendarBlocksHtml(blocks: UpcomingEvent['noteBlocks']) {
+  return (
+    blocks
+      ?.map((block) => {
+        if (block.kind === 'paragraph') {
+          return block.html
+        }
+
+        if (block.kind === 'ordered-list' || block.kind === 'unordered-list') {
+          return block.items.map((item) => item.html).join(' ')
+        }
+
+        return ''
+      })
+      .join(' ') ?? ''
+  )
+}
+
 function createAlbum(overrides: Partial<GalleryAlbum> = {}): GalleryAlbum {
   return {
     coverPhoto: undefined,
@@ -431,6 +449,10 @@ describe('schedule helpers', () => {
       apiKey: 'api-key',
       calendars: [{ calendarId: 'main-calendar', source: 'google-calendar' }],
     }
+    const localGalleryHref = `${globalThis.location.origin}/gallery/`
+    const localScheduleHref = `${globalThis.location.origin}/schedule/`
+    const localContactHref = `${globalThis.location.origin}/contact/`
+
     mockJsonFetch([
       {
         event: {
@@ -447,7 +469,7 @@ describe('schedule helpers', () => {
             colorId: '2',
             description: `
               <div>
-                <p>EN: <em>Sing</em> <a href="https://example.com/resource"></a><br><u>now</u></p>
+                <p>EN: <em>Sing</em> <a href="https://example.com/resource"></a> <a href="${localGalleryHref}">site album</a> <a href="/contact/">contact</a><br><u>now</u></p>
                 <ol><li>event-slug: rich-html-event</li><li>Bring <s>old</s> notes</li></ol>
                 <script>ignored</script><style>.ignored { color: red; }</style>
               </div>
@@ -466,7 +488,8 @@ describe('schedule helpers', () => {
             summary: 'Bad date',
           },
           {
-            description: 'Line one\n\nLine two https://example.com/info',
+            description:
+              `Line one ${localScheduleHref}\n\nLine two https://example.com/info`,
             iCalUID: 'fallback-uid',
             start: { dateTime: '2026-07-03T10:00:00+02:00' },
             summary: '   ',
@@ -498,6 +521,22 @@ describe('schedule helpers', () => {
       title: 'Attachment 1',
     })
     expect(richEvent?.noteBlocks?.some((block) => block.kind === 'ordered-list')).toBe(true)
+    const richCalendarHtml = getCalendarBlocksHtml(richEvent?.noteBlocks)
+    const plainTextCalendarHtml = getCalendarBlocksHtml(fallbackTitleEvent?.noteBlocks)
+
+    expect(richCalendarHtml).toContain(
+      '<a href="https://example.com/resource" target="_blank" rel="noreferrer">https://example.com/resource</a>',
+    )
+    expect(richCalendarHtml).toContain(`<a href="${localGalleryHref}">site album</a>`)
+    expect(richCalendarHtml).toContain(`<a href="${localContactHref}">contact</a>`)
+    expect(richCalendarHtml).not.toContain(`href="${localGalleryHref}" target=`)
+    expect(richCalendarHtml).not.toContain(`href="${localContactHref}" target=`)
+    expect(plainTextCalendarHtml).toContain(
+      `<a href="${localScheduleHref}">${localScheduleHref}</a>`,
+    )
+    expect(plainTextCalendarHtml).toContain(
+      '<a href="https://example.com/info" target="_blank" rel="noreferrer">https://example.com/info</a>',
+    )
     expect(fallbackTitleEvent?.title).toBe('Event')
     expect(fallbackTitleEvent?.slug).toContain('event')
     expect(fallbackTitleEvent?.noteBlocks?.some((block) => block.kind === 'spacer')).toBe(true)
