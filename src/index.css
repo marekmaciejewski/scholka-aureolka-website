@@ -893,7 +893,6 @@ main {
 }
 
 .event-card-summary {
-  position: relative;
   display: grid;
   grid-template-columns: minmax(8.5rem, 0.48fr) minmax(0, 1fr);
   gap: 1rem;
@@ -903,7 +902,7 @@ main {
 .event-card-toggle {
   position: absolute;
   z-index: 1;
-  inset: -1rem;
+  inset: 0;
   border: 0;
   padding: 0;
   color: inherit;
@@ -917,13 +916,17 @@ main {
 
 .event-card-clickable .event-date,
 .event-card-clickable .event-body {
-  position: relative;
   z-index: 2;
   pointer-events: none;
 }
 
 .event-card-clickable .event-action-button {
   pointer-events: auto;
+}
+
+.event-card-clickable .event-details {
+  position: relative;
+  z-index: 2;
 }
 
 .event-card.has-details,
@@ -2029,21 +2032,6 @@ main {
   padding: 0.45rem 0.6rem;
   color: var(--color-heading);
   background: var(--color-surface-muted);
-}
-
-.frequency-input-with-unit {
-  display: grid;
-  grid-template-columns: minmax(4rem, 1fr) auto;
-  gap: 0.45rem;
-  align-items: center;
-  min-width: 0;
-}
-
-.frequency-input-with-unit span {
-  color: var(--color-muted);
-  font-size: 0.84rem;
-  font-weight: 850;
-  white-space: nowrap;
 }
 
 .frequency-filter-compact {
