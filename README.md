@@ -62,7 +62,7 @@ Gallery albums come from Google Drive subfolders named:
 YYYY-MM-DD - Polish title -- English title
 ```
 
-Prefix an image filename with `[cover]` to use it as the album cover.
+Append `[cover]` before an image file extension to use it as the album cover, for example `001[cover].jpg`.
 
 ## Deployment
 

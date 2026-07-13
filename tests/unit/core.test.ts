@@ -619,7 +619,7 @@ describe('gallery helpers', () => {
           {
             id: 'cover-old',
             imageMediaMetadata: { height: 768, width: 1024 },
-            name: '[cover] old.jpg',
+            name: 'old[cover].jpg',
             thumbnailLink: 'https://drive/thumb=s220',
           },
         ],
@@ -629,7 +629,7 @@ describe('gallery helpers', () => {
           {
             id: 'cover-new',
             imageMediaMetadata: { height: 1200, width: 1600 },
-            name: '[cover] new.jpg',
+            name: 'new[cover].jpg',
             thumbnailLink: 'https://drive/thumb=s220',
           },
         ],
@@ -660,6 +660,9 @@ describe('gallery helpers', () => {
 
     expect(albums.map((album) => album.title.en)).toEqual(['Workshop', 'Cecyliada'])
     expect(albums[0].coverPhoto?.thumbnailUrl).toBe('https://drive/thumb=w720')
+    expect(
+      albums[0].coverPhoto ? getGalleryPhotoDisplayTitle(albums[0].coverPhoto, 'en') : undefined,
+    ).toBe('new')
     expect(photos).toHaveLength(1)
     expect(photos[0].largeUrl).toBe('https://drive/photo=w1800')
     expect(refreshedThumbnail).toBe('https://drive/photo=w1800')
@@ -680,7 +683,7 @@ describe('gallery helpers', () => {
           {
             id: 'regular-cover',
             imageMediaMetadata: { height: 768, width: 1024 },
-            name: '[cover] regular.jpg',
+            name: 'regular[cover].jpg',
             thumbnailLink: 'https://drive/regular=s220',
           },
         ],
