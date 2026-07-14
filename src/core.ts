@@ -231,6 +231,11 @@ type GoogleFrequencyConfig = {
   spreadsheetId: string
 }
 
+type GoogleSongsConfig = {
+  apiKey: string
+  spreadsheetId: string
+}
+
 const languageStorageKey = 'scholka-aureolka-language'
 const themeStorageKey = 'scholka-aureolka-theme'
 const eventSlugSearchParam = 'event'
@@ -523,6 +528,17 @@ function getGoogleDriveGalleryConfig(): GoogleDriveGalleryConfig | null {
 
 function getGoogleFrequencyConfig(): GoogleFrequencyConfig | null {
   const spreadsheetId = import.meta.env.VITE_GOOGLE_FREQUENCY_SHEET_ID?.trim()
+  const apiKey = getGoogleApiKey()
+
+  if (!apiKey || !spreadsheetId) {
+    return null
+  }
+
+  return { apiKey, spreadsheetId }
+}
+
+function getGoogleSongsConfig(): GoogleSongsConfig | null {
+  const spreadsheetId = import.meta.env.VITE_GOOGLE_SONGS_SHEET_ID?.trim()
   const apiKey = getGoogleApiKey()
 
   if (!apiKey || !spreadsheetId) {
@@ -847,7 +863,7 @@ function stripGalleryImageFileExtension(fileName: string) {
 
 function splitGalleryImageFileName(fileName: string) {
   const trimmedFileName = fileName.trim()
-  const extension = trimmedFileName.match(galleryImageFileExtensionPattern)?.[0] ?? ''
+  const extension = galleryImageFileExtensionPattern.exec(trimmedFileName)?.[0] ?? ''
 
   return {
     baseName: extension ? trimmedFileName.slice(0, -extension.length) : trimmedFileName,
@@ -2241,6 +2257,7 @@ function splitCalendarEvents(events: UpcomingEvent[]) {
 export {
   childrenMassCard,
   copyTextToClipboard,
+  createSlug,
   emptyGalleryPhotos,
   fetchConfiguredCalendarEvents,
   fetchGoogleDriveAlbumPhotos,
@@ -2270,6 +2287,7 @@ export {
   getGoogleCalendarConfig,
   getGoogleDriveGalleryConfig,
   getGoogleFrequencyConfig,
+  getGoogleSongsConfig,
   getHomeEventHref,
   getInitialLanguage,
   getInitialTheme,
@@ -2305,6 +2323,7 @@ export type {
   GoogleCalendarConfig,
   GoogleDriveGalleryConfig,
   GoogleFrequencyConfig,
+  GoogleSongsConfig,
   EventRelativeTime,
   UpcomingEvent,
 }

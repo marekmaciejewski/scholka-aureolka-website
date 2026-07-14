@@ -28,16 +28,12 @@ Use Vite's static multi-page app pattern. Current public pages:
 
 - `/` - Start
 - `/schedule/` - Ogarniajzer / Schedule
+- `/songs/` - Songs / listening materials
 - `/gallery/` - Gallery
 - `/frequency/` - Frequency / Attendance statistics
 - `/contact/` - Contact
 
 Each page has an HTML entry point and mounts the shared React app. React Router is not currently installed; keep direct links and refresh behavior simple on GitHub Pages.
-
-Likely future sections:
-
-- Achievements
-- Songs
 
 ## Language
 
@@ -71,11 +67,16 @@ Gallery config:
 - `VITE_GOOGLE_API_KEY`
 - `VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID`
 
+Songs config:
+
+- `VITE_GOOGLE_API_KEY`
+- `VITE_GOOGLE_SONGS_SHEET_ID`
+
 Event progress config:
 
 - `VITE_EVENT_PROGRESS_WINDOW_DAYS` - optional, defaults to 7
 
-The app fetches calendar events for the next 3 months. `[notice]` calendar events become home-page notices and are excluded from the schedule list. Gallery albums come from Drive subfolders.
+The app fetches calendar events for the next 3 months. `[notice]` calendar events become home-page notices and are excluded from the schedule list. Gallery albums come from Drive subfolders. Songs come from Google Sheet tabs named `Sections` and `Songs`; the public page shows titles and listening links, not lyrics or chords.
 
 Do not commit private credentials. Restrict the browser API key by HTTP referrer for production and local development.
 

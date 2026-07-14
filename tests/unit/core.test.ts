@@ -28,6 +28,7 @@ import {
   getGoogleCalendarConfig,
   getGoogleDriveGalleryConfig,
   getGoogleFrequencyConfig,
+  getGoogleSongsConfig,
   getHomeEventHref,
   getInitialLanguage,
   getInitialTheme,
@@ -154,11 +155,13 @@ describe('routing and page helpers', () => {
   test('resolves static page keys and document titles', () => {
     expect(getPageFromPath('/')).toBe('home')
     expect(getPageFromPath('/schedule/')).toBe('schedule')
+    expect(getPageFromPath('/songs/')).toBe('songs')
     expect(getPageFromPath('/gallery')).toBe('gallery')
     expect(getPageFromPath('/frequency/')).toBe('frequency')
     expect(getPageFromPath('/missing/')).toBe('home')
     expect(getPageDocumentTitle('home', 'en')).toBe('Scholka Aureolka')
     expect(getPageDocumentTitle('gallery', 'en')).toBe('Gallery | Scholka Aureolka')
+    expect(getPageDocumentTitle('songs', 'en')).toBe('Songs | Scholka Aureolka')
     expect(getPageDocumentTitle('frequency', 'en')).toBe('Attendance | Scholka Aureolka')
   })
 
@@ -216,6 +219,7 @@ describe('routing and page helpers', () => {
     vi.stubEnv('VITE_GOOGLE_CALENDAR_ID', 'main-calendar')
     vi.stubEnv('VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID', 'gallery-folder')
     vi.stubEnv('VITE_GOOGLE_FREQUENCY_SHEET_ID', 'frequency-sheet')
+    vi.stubEnv('VITE_GOOGLE_SONGS_SHEET_ID', 'songs-sheet')
 
     expect(getInitialLanguage()).toBe('en')
     expect(getInitialTheme()).toBe('dark')
@@ -231,11 +235,16 @@ describe('routing and page helpers', () => {
       apiKey: 'api-key',
       spreadsheetId: 'frequency-sheet',
     })
+    expect(getGoogleSongsConfig()).toEqual({
+      apiKey: 'api-key',
+      spreadsheetId: 'songs-sheet',
+    })
 
     vi.stubEnv('VITE_GOOGLE_API_KEY', '')
     vi.stubEnv('VITE_GOOGLE_CALENDAR_ID', '')
     vi.stubEnv('VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID', '')
     vi.stubEnv('VITE_GOOGLE_FREQUENCY_SHEET_ID', '')
+    vi.stubEnv('VITE_GOOGLE_SONGS_SHEET_ID', '')
     stubStorage()
     stubPreferredColorScheme(true)
 
@@ -244,6 +253,7 @@ describe('routing and page helpers', () => {
     expect(getGoogleCalendarConfig()).toBeNull()
     expect(getGoogleDriveGalleryConfig()).toBeNull()
     expect(getGoogleFrequencyConfig()).toBeNull()
+    expect(getGoogleSongsConfig()).toBeNull()
   })
 })
 
