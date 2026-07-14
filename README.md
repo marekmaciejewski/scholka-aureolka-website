@@ -10,10 +10,11 @@ The interface is intentionally parent oriented: a practical coordination hub for
 ## Stack
 
 - React, TypeScript, Vite
-- Static multi-page build: `/`, `/schedule/`, `/gallery/`, `/contact/`
+- Static multi-page build: `/`, `/schedule/`, `/songs/`, `/gallery/`, `/frequency/`, `/contact/`
 - GitHub Pages with a custom domain
 - Google Calendar for schedule and notices
 - Google Drive for gallery albums
+- Google Sheets for song listening links and attendance statistics
 - SonarQube Cloud, Vitest, Playwright, ESLint
 
 ## Local Development
@@ -47,6 +48,7 @@ VITE_GOOGLE_API_KEY=your-restricted-browser-api-key
 VITE_GOOGLE_CALENDAR_ID=your-public-calendar-id@group.calendar.google.com
 VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID=your-public-gallery-folder-id
 VITE_GOOGLE_FREQUENCY_SHEET_ID=your-public-frequency-spreadsheet-id
+VITE_GOOGLE_SONGS_SHEET_ID=your-public-songs-spreadsheet-id
 VITE_EVENT_PROGRESS_WINDOW_DAYS=7
 ```
 
@@ -62,7 +64,9 @@ Gallery albums come from Google Drive subfolders named:
 YYYY-MM-DD - Polish title -- English title
 ```
 
-Prefix an image filename with `[cover]` to use it as the album cover.
+Append `[cover]` before an image file extension to use it as the album cover, for example `001[cover].jpg`.
+
+Songs are loaded from a public Google Sheet with `Sections` and `Songs` tabs. `Sections` defines section labels and ordering; `Songs` defines `title`, `sectionKey`, optional link labels, URL, and `active` state. Song links can be shared with `/songs/?song=generated-song-slug`.
 
 ## Deployment
 
@@ -74,7 +78,7 @@ Required GitHub settings:
 
 - Pages source: GitHub Actions
 - Secret: `VITE_GOOGLE_API_KEY`
-- Variables: `VITE_GOOGLE_CALENDAR_ID`, `VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID`, `VITE_GOOGLE_FREQUENCY_SHEET_ID`
+- Variables: `VITE_GOOGLE_CALENDAR_ID`, `VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID`, `VITE_GOOGLE_FREQUENCY_SHEET_ID`, `VITE_GOOGLE_SONGS_SHEET_ID`
 - Optional variable: `VITE_EVENT_PROGRESS_WINDOW_DAYS` defaults to `7`
 
 The current custom-domain deployment uses Vite `base: '/'`. Change that only if the site moves back to a repository path such as `/scholka-aureolka-website/`.

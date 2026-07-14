@@ -231,6 +231,11 @@ type GoogleFrequencyConfig = {
   spreadsheetId: string
 }
 
+type GoogleSongsConfig = {
+  apiKey: string
+  spreadsheetId: string
+}
+
 const languageStorageKey = 'scholka-aureolka-language'
 const themeStorageKey = 'scholka-aureolka-theme'
 const eventSlugSearchParam = 'event'
@@ -239,7 +244,7 @@ const galleryPhotoSearchParam = 'photo'
 const galleryAchievementsFolderId = '1regQdvW8Ebx5sGzXQ-4Goffde-ieW1cs'
 const galleryAchievementsAlbumSlug = 'achievements'
 const calendarNoticePrefixPattern = /^\s*\[notice]\s*:?\s*/i
-const galleryCoverPrefixPattern = /^\s*\[cover]/i
+const galleryCoverSuffixPattern = /\[cover]\s*$/i
 const galleryImageFileExtensionPattern =
   /\.(?:avif|bmp|gif|heic|heif|jpe?g|png|tiff?|webp)$/i
 const galleryImageRetryDelays = [450, 1400]
@@ -523,6 +528,17 @@ function getGoogleDriveGalleryConfig(): GoogleDriveGalleryConfig | null {
 
 function getGoogleFrequencyConfig(): GoogleFrequencyConfig | null {
   const spreadsheetId = import.meta.env.VITE_GOOGLE_FREQUENCY_SHEET_ID?.trim()
+  const apiKey = getGoogleApiKey()
+
+  if (!apiKey || !spreadsheetId) {
+    return null
+  }
+
+  return { apiKey, spreadsheetId }
+}
+
+function getGoogleSongsConfig(): GoogleSongsConfig | null {
+  const spreadsheetId = import.meta.env.VITE_GOOGLE_SONGS_SHEET_ID?.trim()
   const apiKey = getGoogleApiKey()
 
   if (!apiKey || !spreadsheetId) {
@@ -845,8 +861,26 @@ function stripGalleryImageFileExtension(fileName: string) {
   return fileName.replace(galleryImageFileExtensionPattern, '').trim()
 }
 
+function splitGalleryImageFileName(fileName: string) {
+  const trimmedFileName = fileName.trim()
+  const extension = galleryImageFileExtensionPattern.exec(trimmedFileName)?.[0] ?? ''
+
+  return {
+    baseName: extension ? trimmedFileName.slice(0, -extension.length) : trimmedFileName,
+    extension,
+  }
+}
+
+function isGalleryCoverFileName(fileName: string) {
+  const { baseName, extension } = splitGalleryImageFileName(fileName)
+
+  return Boolean(extension && galleryCoverSuffixPattern.test(baseName))
+}
+
 function stripGalleryPhotoMarkers(fileName: string) {
-  return fileName.replace(galleryCoverPrefixPattern, '').trim()
+  const { baseName, extension } = splitGalleryImageFileName(fileName)
+
+  return `${baseName.replace(galleryCoverSuffixPattern, '').trim()}${extension}`
 }
 
 function parseGalleryPhotoFileName(fileName: string) {
@@ -1162,7 +1196,7 @@ async function fetchGoogleDriveAlbumCover(
   })
   const coverPhoto = (coverData.files ?? [])
     .map(getGalleryPhotoFromDriveFile)
-    .find((photo): photo is GalleryPhoto => Boolean(photo && galleryCoverPrefixPattern.test(photo.name)))
+    .find((photo): photo is GalleryPhoto => Boolean(photo && isGalleryCoverFileName(photo.name)))
 
   if (coverPhoto) {
     return coverPhoto
@@ -2223,6 +2257,7 @@ function splitCalendarEvents(events: UpcomingEvent[]) {
 export {
   childrenMassCard,
   copyTextToClipboard,
+  createSlug,
   emptyGalleryPhotos,
   fetchConfiguredCalendarEvents,
   fetchGoogleDriveAlbumPhotos,
@@ -2252,6 +2287,7 @@ export {
   getGoogleCalendarConfig,
   getGoogleDriveGalleryConfig,
   getGoogleFrequencyConfig,
+  getGoogleSongsConfig,
   getHomeEventHref,
   getInitialLanguage,
   getInitialTheme,
@@ -2287,6 +2323,7 @@ export type {
   GoogleCalendarConfig,
   GoogleDriveGalleryConfig,
   GoogleFrequencyConfig,
+  GoogleSongsConfig,
   EventRelativeTime,
   UpcomingEvent,
 }

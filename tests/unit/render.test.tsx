@@ -16,6 +16,7 @@ import { FrequencyPage } from '../../src/pages/FrequencyPage'
 import { GalleryPage } from '../../src/pages/GalleryPage'
 import { HomePage } from '../../src/pages/HomePage'
 import { SchedulePage } from '../../src/pages/SchedulePage'
+import { SongsPage } from '../../src/pages/SongsPage'
 import type { GalleryAlbum, GalleryPhoto, UpcomingEvent } from '../../src/core'
 
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean })
@@ -213,6 +214,37 @@ function mockFrequencyFetch() {
   return fetchMock
 }
 
+function mockSongsFetch() {
+  const fetchMock = vi.fn(async () => ({
+    json: async () => ({
+      valueRanges: [
+        {
+          range: 'Sections!A1:E3',
+          values: [
+            ['key', 'titlePl', 'titleEn', 'order', 'active'],
+            ['general', 'Ogólne', 'General', '10', 'TRUE'],
+            ['koledy', 'Kolędy', 'Christmas Carols', '20', 'TRUE'],
+          ],
+        },
+        {
+          range: 'Songs!A1:F4',
+          values: [
+            ['title', 'sectionKey', 'labelPl', 'labelEn', 'url', 'active'],
+            ['Amen', 'general', '', '', '', 'TRUE'],
+            ['Barka', 'general', 'YouTube', 'Listening version', 'https://youtu.be/example', 'TRUE'],
+            ['Świeć, Gwiazdeczko', 'koledy', 'YouTube', '', 'https://youtu.be/star', 'TRUE'],
+          ],
+        },
+      ],
+    }),
+    ok: true,
+  }))
+
+  vi.stubGlobal('fetch', fetchMock)
+
+  return fetchMock
+}
+
 afterEach(() => {
   renderedTrees.splice(0).forEach(({ container, root }) => {
     act(() => {
@@ -389,6 +421,7 @@ describe('page components', () => {
   test('renders home modal, contact copy, and gallery unconfigured state', () => {
     vi.stubEnv('VITE_GOOGLE_API_KEY', '')
     vi.stubEnv('VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID', '')
+    vi.stubEnv('VITE_GOOGLE_SONGS_SHEET_ID', '')
 
     const { container } = render(
       <>
@@ -401,6 +434,7 @@ describe('page components', () => {
         <ContactPage language="en" />
         <FrequencyPage language="en" />
         <GalleryPage language="en" />
+        <SongsPage language="en" />
       </>,
     )
 
@@ -408,6 +442,7 @@ describe('page components', () => {
     expect(container.textContent).toContain('Contact')
     expect(container.textContent).toContain('Attendance sheet is not connected yet.')
     expect(container.textContent).toContain('Google Drive gallery is not connected yet.')
+    expect(container.textContent).toContain('The songs sheet is not connected yet.')
     expect(container.querySelector('.home-upcoming-section')?.textContent).not.toContain(
       'Choir room',
     )
@@ -567,6 +602,43 @@ describe('page components', () => {
       <SchedulePage calendarStatus="loading" language="en" upcomingEvents={[]} />,
     )
     expect(loading.container.textContent).toContain('Loading current events')
+  })
+
+  test('renders songs from the sheet and copies song links', async () => {
+    window.history.replaceState({}, '', '/songs/')
+    vi.stubEnv('VITE_GOOGLE_API_KEY', 'api-key')
+    vi.stubEnv('VITE_GOOGLE_SONGS_SHEET_ID', 'songs-sheet')
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { clipboard: { writeText } })
+    const fetchMock = mockSongsFetch()
+    const { container } = render(<SongsPage language="en" />)
+
+    await findElement<HTMLInputElement>(container, '#songs-search')
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(container.textContent).toContain('Barka')
+    expect(container.textContent).toContain('No listening materials yet')
+    expect(container.querySelector('.song-material-link')?.textContent).toContain(
+      'Listening version',
+    )
+
+    await act(async () => {
+      container
+        .querySelector('.song-copy-button')
+        ?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    })
+
+    expect(writeText).toHaveBeenCalledWith('http://localhost:3000/songs/?song=amen')
+
+    const searchInput = container.querySelector<HTMLInputElement>('#songs-search')
+
+    if (!searchInput) {
+      throw new Error('Songs search input was not rendered')
+    }
+
+    setFormValue(searchInput, 'barka')
+    expect(container.textContent).toContain('Barka')
+    expect(container.textContent).not.toContain('Amen')
   })
 
   test('renders the app shell for the current static path', () => {

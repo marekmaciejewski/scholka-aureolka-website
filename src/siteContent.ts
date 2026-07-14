@@ -2,7 +2,7 @@ export type Language = 'pl' | 'en'
 
 export type ThemeName = 'light' | 'dark'
 
-export type PageKey = 'home' | 'schedule' | 'gallery' | 'frequency' | 'contact'
+export type PageKey = 'home' | 'schedule' | 'songs' | 'gallery' | 'frequency' | 'contact'
 
 export type LocalizedText = Record<Language, string>
 
@@ -64,6 +64,7 @@ export const logoPaths: Record<
 export const navigationItems: NavigationItem[] = [
   { key: 'home', href: '/', label: { pl: 'Start', en: 'Home' } },
   { key: 'schedule', href: '/schedule/', label: { pl: 'Ogarniajzer', en: 'Schedule' } },
+  { key: 'songs', href: '/songs/', label: { pl: 'Piosenki', en: 'Songs' } },
   { key: 'gallery', href: '/gallery/', label: { pl: 'Galeria', en: 'Gallery' } },
   { key: 'frequency', href: '/frequency/', label: { pl: 'Frekwencja', en: 'Attendance' } },
   { key: 'contact', href: '/contact/', label: { pl: 'Kontakt', en: 'Contact' } },
@@ -247,6 +248,39 @@ export const frequencyText = {
   noData: { pl: 'Brak danych', en: 'No data' },
 }
 
+export const songsText = {
+  loading: {
+    pl: 'Pobieramy listę piosenek z arkusza Google.',
+    en: 'Loading the song list from Google Sheets.',
+  },
+  notConfiguredNotice: {
+    pl: 'Lista piosenek nie jest jeszcze podłączona.',
+    en: 'The songs sheet is not connected yet.',
+  },
+  errorNotice: {
+    pl: 'Nie udało się pobrać listy piosenek. Spróbuj odświeżyć stronę później.',
+    en: 'The song list could not be loaded. Try refreshing the page later.',
+  },
+  emptyState: {
+    pl: 'Brak piosenek dla wybranych filtrów.',
+    en: 'No songs match the selected filters.',
+  },
+  linkedSongNotFound: {
+    pl: 'Nie znaleziono piosenki z podanego linku.',
+    en: 'The song from this link was not found.',
+  },
+  allSections: { pl: 'Wszystkie', en: 'All' },
+  sectionNavigation: { pl: 'Sekcje piosenek', en: 'Song sections' },
+  searchLabel: { pl: 'Szukaj piosenki', en: 'Search songs' },
+  searchPlaceholder: { pl: 'Szukaj piosenki...', en: 'Search songs...' },
+  onlyWithLinks: { pl: 'Tylko z linkami', en: 'Only with links' },
+  noMaterials: { pl: 'Brak materiałów do odsłuchania', en: 'No listening materials yet' },
+  openMaterialFallback: { pl: 'Otwórz materiał', en: 'Open material' },
+  copySongLink: { pl: 'Kopiuj link do piosenki', en: 'Copy song link' },
+  songLinkCopied: { pl: 'Skopiowano link do piosenki', en: 'Song link copied' },
+  externalMaterial: { pl: 'Link zewnętrzny', en: 'External link' },
+}
+
 export const calendarEventHighlightText = {
   birthday: { pl: 'Urodziny', en: 'Birthday' },
   important: { pl: 'Wa\u017cne', en: 'Important' },
@@ -304,6 +338,14 @@ export const pageIntro: Record<
       en: 'Next 3 months',
     },
     title: { pl: 'Ogarniajzer', en: 'Schedule' },
+  },
+  songs: {
+    eyebrow: { pl: 'Materiały do osłuchania', en: 'Listening materials' },
+    title: { pl: 'Piosenki', en: 'Songs' },
+    lead: {
+      pl: 'Lista piosenek śpiewanych przez scholę z linkami do materiałów pomagających osłuchać się z melodią.',
+      en: 'Songs sung by the choir with links to listening materials that help families get familiar with the melody.',
+    },
   },
   contact: {
     eyebrow: { pl: 'Porozmawiajmy', en: 'Let’s talk' },

@@ -6,6 +6,7 @@ import { FrequencyPage } from './pages/FrequencyPage'
 import { GalleryPage } from './pages/GalleryPage'
 import { HomePage } from './pages/HomePage'
 import { SchedulePage } from './pages/SchedulePage'
+import { SongsPage } from './pages/SongsPage'
 import {
   fetchConfiguredCalendarEvents,
   getGoogleCalendarConfig,
@@ -41,6 +42,7 @@ const pageRenderers: Record<PageKey, (context: PageRenderContext) => ReactNode> 
   ),
   gallery: ({ language }) => <GalleryPage language={language} />,
   frequency: ({ language }) => <FrequencyPage language={language} />,
+  songs: ({ language }) => <SongsPage language={language} />,
   schedule: ({ language, scheduleEvents, calendarStatus }) => (
     <SchedulePage
       language={language}
