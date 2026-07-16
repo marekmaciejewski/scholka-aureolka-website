@@ -335,6 +335,7 @@ describe('event rendering components', () => {
     ).toBe('81%')
     expect(container.querySelector('.event-details')).toBeNull()
     expect(container.querySelector('.event-expand-button')).toBeNull()
+    expect(container.querySelector('.event-expand-status-chevron')).not.toBeNull()
 
     click(container.querySelector('.event-card-toggle'))
     expect(onExpandedEventChange).toHaveBeenCalledWith('event-1')

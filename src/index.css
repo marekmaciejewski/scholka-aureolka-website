@@ -1045,35 +1045,49 @@ main {
   line-height: 1;
 }
 
+.event-expand-status-chevron {
+  width: 1.05rem;
+  height: 1.05rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.35;
+}
+
 .event-action-button {
   min-width: 0;
   min-height: 0;
-  border: 1px solid color-mix(in srgb, var(--event-accent) 58%, var(--color-border));
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  color: var(--color-heading);
-  background: color-mix(in srgb, var(--event-accent) 18%, var(--color-surface));
+  color: var(--color-muted);
+  background: var(--color-surface-muted);
   text-decoration: none;
 }
 
 .event-action-button:hover,
-.event-action-button:focus-visible {
+.event-action-button:focus-visible,
+.event-copy-link-button.is-copied {
   outline: 0;
-  background: color-mix(in srgb, var(--event-accent) 32%, var(--color-surface));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--event-accent) 36%, transparent);
+  color: var(--color-heading);
+  border-color: color-mix(in srgb, var(--color-gold) 72%, var(--color-border));
+  background: color-mix(in srgb, var(--color-gold) 30%, var(--color-surface));
 }
 
 .event-copy-link-button {
   display: grid;
   place-items: center;
-  width: 1.9rem;
-  height: 1.9rem;
+  width: 2rem;
+  height: 2rem;
   padding: 0;
-}
-
-.event-copy-link-button.is-copied {
-  border-color: color-mix(in srgb, var(--color-gold) 75%, var(--color-border));
-  color: #211800;
-  background: var(--color-gold);
+  clip-path: none;
+  transform-origin: center;
+  transition:
+    transform 220ms cubic-bezier(0.2, 1.34, 0.38, 1),
+    color 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .event-action-icon {
@@ -1084,6 +1098,35 @@ main {
   stroke-width: 2.25;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+@media (hover: hover) and (pointer: fine) and (min-width: 761px) {
+  .event-card-clickable .event-copy-link-button {
+    color: color-mix(in srgb, var(--color-muted) 76%, transparent);
+    border-color: transparent;
+    pointer-events: none;
+    background: transparent;
+    transform: translateX(0.12rem) scale(0.52);
+  }
+
+  .event-card-clickable:hover .event-copy-link-button,
+  .event-card-clickable:focus-within .event-copy-link-button,
+  .event-card-clickable .event-copy-link-button:focus-visible,
+  .event-card-clickable .event-copy-link-button.is-copied {
+    color: var(--color-muted);
+    border-color: var(--color-border);
+    pointer-events: auto;
+    background: var(--color-surface-muted);
+    transform: translateX(0);
+  }
+
+  .event-card-clickable .event-copy-link-button:hover,
+  .event-card-clickable .event-copy-link-button:focus-visible,
+  .event-card-clickable .event-copy-link-button.is-copied {
+    color: var(--color-heading);
+    border-color: color-mix(in srgb, var(--color-gold) 72%, var(--color-border));
+    background: color-mix(in srgb, var(--color-gold) 30%, var(--color-surface));
+  }
 }
 
 .event-details {
@@ -2105,6 +2148,13 @@ main {
   padding: 0;
   color: var(--color-muted);
   background: var(--color-surface-muted);
+  clip-path: none;
+  transform-origin: center;
+  transition:
+    transform 220ms cubic-bezier(0.2, 1.34, 0.38, 1),
+    color 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
 }
 
 .song-copy-button:hover,
@@ -2113,6 +2163,34 @@ main {
   color: var(--color-heading);
   border-color: color-mix(in srgb, var(--color-gold) 72%, var(--color-border));
   background: color-mix(in srgb, var(--color-gold) 30%, var(--color-surface));
+}
+
+@media (hover: hover) and (pointer: fine) and (min-width: 761px) {
+  .song-card .song-copy-button {
+    color: color-mix(in srgb, var(--color-muted) 76%, transparent);
+    border-color: transparent;
+    pointer-events: none;
+    background: transparent;
+    transform: translateX(0.12rem) scale(0.52);
+  }
+
+  .song-card:hover .song-copy-button,
+  .song-card .song-copy-button:focus-visible,
+  .song-card .song-copy-button.is-copied {
+    color: var(--color-muted);
+    border-color: var(--color-border);
+    pointer-events: auto;
+    background: var(--color-surface-muted);
+    transform: translateX(0);
+  }
+
+  .song-card .song-copy-button:hover,
+  .song-card .song-copy-button:focus-visible,
+  .song-card .song-copy-button.is-copied {
+    color: var(--color-heading);
+    border-color: color-mix(in srgb, var(--color-gold) 72%, var(--color-border));
+    background: color-mix(in srgb, var(--color-gold) 30%, var(--color-surface));
+  }
 }
 
 .song-action-icon,
