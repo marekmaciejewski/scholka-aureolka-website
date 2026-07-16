@@ -51,6 +51,7 @@ type EventCardProps = EventListOptions &
   }>
 
 type EventTitleActionsProps = Readonly<{
+  canExpandEvent: boolean
   canCopyEventLink: boolean
   event: UpcomingEvent
   isBirthdayEvent: boolean
@@ -78,6 +79,19 @@ function CopyLinkIcon({ isCopied }: Readonly<{ isCopied: boolean }>) {
           <path d="m15.5 7.5 1.25-1.25a4 4 0 0 1 5.66 5.66l-2.12 2.12a4 4 0 0 1-5.66 0" />
         </>
       )}
+    </svg>
+  )
+}
+
+function EventExpandStatusIcon({ isExpanded }: Readonly<{ isExpanded: boolean }>) {
+  return (
+    <svg
+      className="event-expand-status-chevron"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d={isExpanded ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'} />
     </svg>
   )
 }
@@ -254,6 +268,7 @@ function getEventTimeChipStyle(progressPercent: number) {
 }
 
 function EventTitleActions({
+  canExpandEvent,
   canCopyEventLink,
   event,
   isBirthdayEvent,
@@ -294,7 +309,7 @@ function EventTitleActions({
       )}
       {shouldShowDetailSymbol && (
         <span className="event-expand-status-icon" aria-hidden="true">
-          {isExpanded ? '-' : '+'}
+          {canExpandEvent ? <EventExpandStatusIcon isExpanded={isExpanded} /> : '+'}
         </span>
       )}
     </div>
@@ -413,6 +428,7 @@ function EventCard({
           <div className="event-title-row">
             <h3>{event.title}</h3>
             <EventTitleActions
+              canExpandEvent={canExpandEvent}
               canCopyEventLink={canCopyEventLink}
               event={event}
               isBirthdayEvent={isBirthdayEvent}

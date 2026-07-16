@@ -40,6 +40,16 @@ type EventActionLayoutMetrics = {
   titleTop: number
 }
 
+type EventCopyButtonState = {
+  backgroundColor: string
+  borderColor: string
+  clipPath: string
+  color: string
+  opacity: string
+  pointerEvents: string
+  transform?: string
+}
+
 function trackUnexpectedPageErrors(page: Page) {
   const errors: string[] = []
 
@@ -160,6 +170,10 @@ async function injectEventActionFixture(page: Page, variant: 'compact-home' | 's
       fixtureVariant === 'schedule'
         ? '<button class="event-action-button event-copy-link-button" type="button" aria-label="Copy link"><svg class="event-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 13.5 13.5 10.5" /></svg></button>'
         : ''
+    const detailSymbol =
+      fixtureVariant === 'schedule'
+        ? '<span class="event-expand-status-icon" aria-hidden="true"><svg class="event-expand-status-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></span>'
+        : '<span class="event-expand-status-icon" aria-hidden="true">+</span>'
 
     main.innerHTML = `
       <section class="content-section">
@@ -178,7 +192,7 @@ async function injectEventActionFixture(page: Page, variant: 'compact-home' | 's
                     <h3>PRZYWIDZ</h3>
                     <div class="event-title-actions">
                       ${copyButton}
-                      <span class="event-expand-status-icon" aria-hidden="true">+</span>
+                      ${detailSymbol}
                     </div>
                   </div>
                   <p class="muted">Zielona Brama wesela, stadnina, pierogarnia, Gdańska 26</p>
@@ -190,6 +204,37 @@ async function injectEventActionFixture(page: Page, variant: 'compact-home' | 's
       </section>
     `
   }, variant)
+}
+
+async function injectSongCopyFixture(page: Page) {
+  await page.goto('/songs/')
+  await page.evaluate(() => {
+    const main = document.querySelector('main')
+
+    if (!main) {
+      throw new Error('Main content was not rendered')
+    }
+
+    main.innerHTML = `
+      <section class="content-section">
+        <div class="content-width">
+          <div class="song-list">
+            <article class="song-card">
+              <div class="song-card-heading">
+                <h3>Amen</h3>
+                <button class="song-copy-button" type="button" aria-label="Copy song link">
+                  <svg class="song-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M10.5 13.5 13.5 10.5"></path>
+                  </svg>
+                </button>
+              </div>
+              <p class="song-empty-materials">No listening materials yet</p>
+            </article>
+          </div>
+        </div>
+      </section>
+    `
+  })
 }
 
 async function getEventActionLayoutMetrics(page: Page) {
@@ -221,6 +266,89 @@ async function getEventActionLayoutMetrics(page: Page) {
       titleTop: titleRect.top,
     }
   })
+}
+
+async function getEventCopyButtonState(page: Page) {
+  return page.locator('.event-copy-link-button').evaluate((button): EventCopyButtonState => {
+    const buttonStyle = getComputedStyle(button)
+
+    return {
+      backgroundColor: buttonStyle.backgroundColor,
+      borderColor: buttonStyle.borderColor,
+      clipPath: buttonStyle.clipPath,
+      color: buttonStyle.color,
+      opacity: buttonStyle.opacity,
+      pointerEvents: buttonStyle.pointerEvents,
+      transform: buttonStyle.transform,
+    }
+  })
+}
+
+async function getSongCopyButtonState(page: Page) {
+  return page.locator('.song-copy-button').evaluate((button): EventCopyButtonState => {
+    const buttonStyle = getComputedStyle(button)
+
+    return {
+      backgroundColor: buttonStyle.backgroundColor,
+      borderColor: buttonStyle.borderColor,
+      clipPath: buttonStyle.clipPath,
+      color: buttonStyle.color,
+      opacity: buttonStyle.opacity,
+      pointerEvents: buttonStyle.pointerEvents,
+      transform: buttonStyle.transform,
+    }
+  })
+}
+
+function isCopyButtonUnclipped(state: EventCopyButtonState) {
+  return state.clipPath === 'none' || /^inset\(0px(?: 0px){0,3}\)$/.test(state.clipPath)
+}
+
+function isTransparentColor(value: string) {
+  return value === 'transparent' || /^rgba\(\d+, \d+, \d+, 0\)$/.test(value)
+}
+
+function getCopyButtonScale(state: EventCopyButtonState) {
+  if (!state.transform || state.transform === 'none') {
+    return 1
+  }
+
+  const matrixParts = state.transform.match(/^matrix\(([^)]+)\)$/)?.[1]?.split(',').map(Number)
+
+  if (!matrixParts || matrixParts.length < 4 || matrixParts.some(Number.isNaN)) {
+    return 1
+  }
+
+  return Math.max(Math.abs(matrixParts[0]), Math.abs(matrixParts[3]))
+}
+
+function expectCopyButtonOpen(state: EventCopyButtonState) {
+  expect(isCopyButtonUnclipped(state), state.clipPath).toBe(true)
+  expect(getCopyButtonScale(state), state.transform).toBeGreaterThan(0.95)
+  expect(isTransparentColor(state.backgroundColor), state.backgroundColor).toBe(false)
+  expect(isTransparentColor(state.borderColor), state.borderColor).toBe(false)
+  expect(state.opacity).toBe('1')
+  expect(state.pointerEvents).toBe('auto')
+}
+
+function expectCopyButtonSeed(state: EventCopyButtonState) {
+  expect(isCopyButtonUnclipped(state), state.clipPath).toBe(true)
+  expect(getCopyButtonScale(state), state.transform).toBeLessThan(0.75)
+  expect(isTransparentColor(state.backgroundColor), state.backgroundColor).toBe(true)
+  expect(isTransparentColor(state.borderColor), state.borderColor).toBe(true)
+  expect(state.opacity).toBe('1')
+  expect(state.pointerEvents).toBe('none')
+}
+
+function isCopyButtonOpen(state: EventCopyButtonState) {
+  return (
+    isCopyButtonUnclipped(state) &&
+    getCopyButtonScale(state) > 0.95 &&
+    !isTransparentColor(state.backgroundColor) &&
+    !isTransparentColor(state.borderColor) &&
+    state.opacity === '1' &&
+    state.pointerEvents === 'auto'
+  )
 }
 
 function expectActionsInsideCard(metrics: EventActionLayoutMetrics) {
@@ -346,13 +474,42 @@ test('event action symbols stay anchored to event cards', async ({ page }) => {
 
   await injectEventActionFixture(page, 'schedule')
   const scheduleMetrics = await getEventActionLayoutMetrics(page)
+  const copyButtonState = await getEventCopyButtonState(page)
 
   if (isMobile) {
     expectActionsAnchoredToCardFrame(scheduleMetrics)
+    expectCopyButtonOpen(copyButtonState)
   } else {
     expect(scheduleMetrics.actionPosition).toBe('static')
     expectActionsInsideCard(scheduleMetrics)
     expect(scheduleMetrics.actionLeft).toBeGreaterThanOrEqual(scheduleMetrics.titleRight)
+    expectCopyButtonSeed(copyButtonState)
+
+    await page.locator('.event-card').hover()
+    await expect.poll(async () => isCopyButtonOpen(await getEventCopyButtonState(page))).toBe(true)
+  }
+})
+
+test('song copy buttons emerge on desktop hover only', async ({ page }) => {
+  const viewportWidth = page.viewportSize()?.width ?? 1280
+  const isMobile = viewportWidth <= 760
+
+  await injectSongCopyFixture(page)
+  const copyButtonState = await getSongCopyButtonState(page)
+
+  if (isMobile) {
+    expectCopyButtonOpen(copyButtonState)
+  } else {
+    expectCopyButtonSeed(copyButtonState)
+
+    await page.locator('.song-card').hover()
+    await expect.poll(async () => isCopyButtonOpen(await getSongCopyButtonState(page))).toBe(true)
+
+    await page.locator('.song-copy-button').evaluate((button) => {
+      button.classList.add('is-copied')
+    })
+    await page.mouse.move(0, 0)
+    await expect.poll(async () => isCopyButtonOpen(await getSongCopyButtonState(page))).toBe(true)
   }
 })
 
