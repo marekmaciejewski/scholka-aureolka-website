@@ -147,6 +147,37 @@ async function expectOverlayInsideViewport(page: Page, selector: string) {
   expect(metrics.width).toBeGreaterThan(0)
 }
 
+async function expectScheduleReady(page: Page) {
+  await expect(
+    page
+      .locator(
+        '.event-card, .schedule-empty, .schedule-status.error, .schedule-status.unconfigured',
+      )
+      .first(),
+  ).toBeVisible({ timeout: 15_000 })
+}
+
+async function expectGalleryReady(page: Page) {
+  await expect(
+    page
+      .locator(
+        '.gallery-album-card, .gallery-status.error, .gallery-status.ready, .gallery-status.unconfigured',
+      )
+      .first(),
+  ).toBeVisible({ timeout: 15_000 })
+}
+
+async function expandFirstEventCard(page: Page) {
+  const firstExpandableCard = page.locator('.event-card-clickable').first()
+
+  await firstExpandableCard.evaluate((card) => {
+    card.scrollIntoView({ block: 'center' })
+  })
+  await firstExpandableCard.locator('.event-card-toggle').click({
+    position: { x: 24, y: 72 },
+  })
+}
+
 async function injectEventActionFixture(page: Page, variant: 'compact-home' | 'schedule') {
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1, name: 'Scholka Aureolka' })).toBeVisible()
@@ -441,7 +472,7 @@ test('schedule page handles configured and unconfigured calendar states', async 
   await page.goto('/schedule/')
 
   await expect(page.getByRole('heading', { level: 1, name: 'Schedule' })).toBeVisible()
-  await page.waitForLoadState('networkidle')
+  await expectScheduleReady(page)
   await expectNoHorizontalOverflow(page)
 
   const eventCards = page.locator('.event-card')
@@ -456,7 +487,7 @@ test('schedule page handles configured and unconfigured calendar states', async 
     const expandableCount = await expandableCards.count()
 
     if (expandableCount > 0) {
-      await expandableCards.first().locator('.event-card-toggle').click()
+      await expandFirstEventCard(page)
       await expect(page.locator('.event-details')).toBeVisible()
       await expectNoHorizontalOverflow(page)
     }
@@ -518,7 +549,7 @@ test('gallery album navigation and lightbox stay within the viewport', async ({ 
   await page.goto('/gallery/')
 
   await expect(page.getByRole('heading', { level: 1, name: 'Gallery' })).toBeVisible()
-  await page.waitForLoadState('networkidle')
+  await expectGalleryReady(page)
   await expectNoHorizontalOverflow(page)
 
   const albumCards = page.locator('.gallery-album-card')
