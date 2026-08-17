@@ -22,6 +22,7 @@ type UpcomingEvent = {
   endDate?: Date
   title: string
   location?: string
+  locationBlocks?: CalendarRichBlock[]
   note?: string
   noteBlocks?: CalendarRichBlock[]
   attachments?: CalendarEventAttachment[]
@@ -2101,7 +2102,8 @@ function mapGoogleCalendarEvent(
     getDisplayCalendarEventTitle(displayTitle, eventHighlight, language),
     language,
   )
-  const location = formatLocalizedText(normalizeCalendarText(event.location), language)
+  const locationBlocks = getCalendarRichBlocks(event.location)
+  const location = formatLocalizedText(getCalendarBlocksText(locationBlocks), language)
   const noteMetadata = extractCalendarNoteMetadata(getCalendarRichBlocks(event.description))
   const noteBlocks = isNotice
     ? getLocalizedCalendarBlocks(noteMetadata.blocks, language)
@@ -2125,6 +2127,7 @@ function mapGoogleCalendarEvent(
     endDate: end?.date,
     title,
     location: location || undefined,
+    locationBlocks: locationBlocks.length > 0 ? locationBlocks : undefined,
     note: note || undefined,
     noteBlocks: noteBlocks.length > 0 ? noteBlocks : undefined,
     attachments: attachments.length > 0 ? attachments : undefined,

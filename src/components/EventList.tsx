@@ -191,6 +191,22 @@ function CalendarRichContent({
   )
 }
 
+function hasCalendarRichLinks(blocks: CalendarRichBlock[] | undefined) {
+  return (
+    blocks?.some((block) => {
+      if (block.kind === 'paragraph') {
+        return block.html.includes('<a ')
+      }
+
+      if (block.kind === 'spacer') {
+        return false
+      }
+
+      return block.items.some((item) => item.html.includes('<a '))
+    }) ?? false
+  )
+}
+
 function AttachmentList({
   attachments,
   language,
@@ -224,6 +240,32 @@ function AttachmentList({
       </ul>
     </div>
   )
+}
+
+function EventLocation({
+  event,
+  eventHref,
+  language,
+}: Readonly<{
+  event: UpcomingEvent
+  eventHref: string | undefined
+  language: Language
+}>) {
+  if (!event.location) {
+    return null
+  }
+
+  if (!eventHref && hasCalendarRichLinks(event.locationBlocks)) {
+    return (
+      <CalendarRichContent
+        blocks={event.locationBlocks}
+        language={language}
+        className="muted event-location calendar-rich-text"
+      />
+    )
+  }
+
+  return <p className="muted event-location">{event.location}</p>
 }
 
 function getEventDetailsId(event: UpcomingEvent) {
@@ -439,7 +481,9 @@ function EventCard({
               onCopyEventLink={handleCopyEventLink}
             />
           </div>
-          {showLocation && event.location && <p className="muted">{event.location}</p>}
+          {showLocation && (
+            <EventLocation event={event} eventHref={eventHref} language={language} />
+          )}
           {!compact && !expandable && !eventHref && (
             <>
               <CalendarRichContent
