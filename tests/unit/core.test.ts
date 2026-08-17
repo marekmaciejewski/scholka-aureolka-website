@@ -450,6 +450,7 @@ describe('schedule helpers', () => {
       location: 'Room',
       slug: 'proba-grill',
     })
+    expect(getCalendarBlocksHtml(events[0].locationBlocks)).not.toContain('<a ')
     expect(events[1].isNotice).toBe(true)
     expect(events[1].eventHighlight).toBeUndefined()
   })
@@ -485,6 +486,7 @@ describe('schedule helpers', () => {
               </div>
             `,
             id: 'rich',
+            location: 'https://maps.app.goo.gl/rich-event',
             start: { date: '2026-07-02' },
             summary: '!Important choir!',
           },
@@ -522,6 +524,7 @@ describe('schedule helpers', () => {
     expect(richEvent).toMatchObject({
       eventColor: { background: '#abcdef', foreground: undefined },
       isAllDay: true,
+      location: 'https://maps.app.goo.gl/rich-event',
       slug: 'rich-html-event',
       title: 'Important choir!',
     })
@@ -546,6 +549,9 @@ describe('schedule helpers', () => {
     )
     expect(plainTextCalendarHtml).toContain(
       '<a href="https://example.com/info" target="_blank" rel="noreferrer">https://example.com/info</a>',
+    )
+    expect(getCalendarBlocksHtml(richEvent?.locationBlocks)).toContain(
+      '<a href="https://maps.app.goo.gl/rich-event" target="_blank" rel="noreferrer">https://maps.app.goo.gl/rich-event</a>',
     )
     expect(fallbackTitleEvent?.title).toBe('Event')
     expect(fallbackTitleEvent?.slug).toContain('event')

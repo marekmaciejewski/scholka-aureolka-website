@@ -353,11 +353,42 @@ describe('event rendering components', () => {
 
     expect(container.querySelector('.event-details')?.textContent).toContain('Bring water')
     expect(container.querySelector('.event-card-summary')?.textContent).toContain('Choir room')
+    expect(container.querySelector('.event-location a')).toBeNull()
     expect(container.querySelector('.event-details')?.textContent).not.toContain('Choir room')
     expect(container.querySelector('.event-attachments')?.textContent).toContain('Plan')
 
     click(container.querySelector('.event-copy-link-button'))
     expect(onEventLinkCopy).toHaveBeenCalledWith(event)
+  })
+
+  test('renders explicit venue links without toggling expandable cards', () => {
+    const onExpandedEventChange = vi.fn()
+    const event = createEvent({
+      location: 'https://maps.app.goo.gl/choir-room',
+      locationBlocks: [
+        {
+          html: '<a href="https://maps.app.goo.gl/choir-room" target="_blank" rel="noreferrer">https://maps.app.goo.gl/choir-room</a>',
+          kind: 'paragraph',
+          text: 'https://maps.app.goo.gl/choir-room',
+        },
+      ],
+    })
+    const { container } = render(
+      <EventList
+        events={[event]}
+        language="en"
+        expandable
+        onExpandedEventChange={onExpandedEventChange}
+      />,
+    )
+    const locationLink = container.querySelector<HTMLAnchorElement>('.event-location a')
+
+    expect(locationLink?.href).toBe('https://maps.app.goo.gl/choir-room')
+    expect(locationLink?.target).toBe('_blank')
+    expect(locationLink?.rel).toBe('noreferrer')
+
+    click(locationLink)
+    expect(onExpandedEventChange).not.toHaveBeenCalled()
   })
 })
 

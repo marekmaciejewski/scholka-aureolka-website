@@ -878,6 +878,29 @@ main {
   color: var(--color-link);
 }
 
+.event-location {
+  overflow-wrap: anywhere;
+}
+
+.event-location a {
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration-thickness: 0.06em;
+  text-underline-offset: 0.16em;
+}
+
+.event-location a:hover,
+.event-location a:focus-visible {
+  color: var(--color-link);
+}
+
+.event-card-clickable .event-location a {
+  position: relative;
+  z-index: 3;
+  pointer-events: auto;
+}
+
 .event-summary-note {
   margin-top: 0.45rem;
 }
