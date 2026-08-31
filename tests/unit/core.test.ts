@@ -2,31 +2,20 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import {
   copyTextToClipboard,
   fetchConfiguredCalendarEvents,
-  fetchGoogleDriveAlbumPhotos,
-  fetchGoogleDriveGalleryAlbums,
-  fetchGoogleDriveThumbnailUrl,
+  fetchGoogleAchievementsPhotos,
   formatEventDate,
   formatEventRelativeTime,
   formatEventTime,
-  formatGalleryAlbumDate,
-  formatGalleryPhotoCount,
-  formatGalleryPhotoPosition,
-  formatGalleryTimelinePhotoDate,
   formatLocalizedHtml,
   getEventCardStyle,
   getEventDomId,
   getEventRelativeProgressWindowDays,
   getEventRelativeTime,
   getEventSlugFromLocation,
-  getGalleryAlbumHref,
   getGalleryAlbumSlugFromLocation,
-  getGalleryPhotoAlt,
-  getGalleryPhotoAspectStyle,
-  getGalleryPhotoDisplayTitle,
-  getGalleryPhotoHref,
   getGalleryPhotoIdFromLocation,
+  getGoogleAchievementsConfig,
   getGoogleCalendarConfig,
-  getGoogleDriveGalleryConfig,
   getGoogleFrequencyConfig,
   getGoogleSongsConfig,
   getHomeEventHref,
@@ -35,6 +24,8 @@ import {
   getLogoForTheme,
   getPageDocumentTitle,
   getPageFromPath,
+  getPrivateGalleryUrl,
+  getPublicAchievementsAlbum,
   groupEventsByMonth,
   isExpandableScheduleEvent,
   replaceScheduleEventUrl,
@@ -43,10 +34,8 @@ import {
   translateOptional,
   updateGalleryUrl,
   withBasePath,
-  type GalleryAlbum,
-  type GalleryPhoto,
   type GoogleCalendarConfig,
-  type GoogleDriveGalleryConfig,
+  type GoogleAchievementsConfig,
   type UpcomingEvent,
 } from '../../src/core'
 
@@ -93,19 +82,6 @@ function getCalendarBlocksHtml(blocks: UpcomingEvent['noteBlocks']) {
       })
       .join(' ') ?? ''
   )
-}
-
-function createAlbum(overrides: Partial<GalleryAlbum> = {}): GalleryAlbum {
-  return {
-    coverPhoto: undefined,
-    date: new Date(2026, 2, 26),
-    folderName: '2026-03-26 - Warsztaty -- Workshop',
-    id: 'album-1',
-    kind: 'standard',
-    slug: 'warsztaty-workshop',
-    title: { pl: 'Warsztaty', en: 'Workshop' },
-    ...overrides,
-  }
 }
 
 type MockJsonFetchResponse = {
@@ -165,19 +141,7 @@ describe('routing and page helpers', () => {
     expect(getPageDocumentTitle('frequency', 'en')).toBe('Attendance | Scholka Aureolka')
   })
 
-  test('reads and writes schedule and gallery query-state URLs', () => {
-    stubLocation('http://localhost:5173/gallery/?album=Warsztaty 2026&photo=photo-1')
-
-    expect(getGalleryAlbumSlugFromLocation()).toBe('warsztaty-2026')
-    expect(getGalleryPhotoIdFromLocation()).toBe('photo-1')
-
-    updateGalleryUrl('cecyliada', 'photo 2')
-    expect(window.location.pathname).toBe('/gallery/')
-    expect(window.location.search).toBe('?album=cecyliada&photo=photo+2')
-
-    updateGalleryUrl('debeki', null, true)
-    expect(window.location.search).toBe('?album=debeki')
-
+  test('reads and writes schedule query-state URLs', () => {
     stubLocation('http://localhost:5173/schedule/?event=Proba Grill')
     expect(getEventSlugFromLocation()).toBe('proba-grill')
     replaceScheduleEventUrl('koncert-koled')
@@ -188,14 +152,9 @@ describe('routing and page helpers', () => {
   })
 
   test('handles empty query-state URLs and clipboard availability', async () => {
-    stubLocation('http://localhost:5173/gallery/')
+    stubLocation('http://localhost:5173/schedule/')
 
-    expect(getGalleryAlbumSlugFromLocation()).toBeNull()
     expect(getEventSlugFromLocation()).toBeNull()
-
-    updateGalleryUrl(null, null, true)
-    expect(window.location.pathname).toBe('/gallery/')
-    expect(window.location.search).toBe('')
 
     const writeText = vi.fn().mockResolvedValue(undefined)
     vi.stubGlobal('navigator', { clipboard: { writeText } })
@@ -217,7 +176,7 @@ describe('routing and page helpers', () => {
     stubPreferredColorScheme(false)
     vi.stubEnv('VITE_GOOGLE_API_KEY', 'api-key')
     vi.stubEnv('VITE_GOOGLE_CALENDAR_ID', 'main-calendar')
-    vi.stubEnv('VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID', 'gallery-folder')
+    vi.stubEnv('VITE_PRIVATE_GALLERY_URL', 'https://sites.google.com/view/private-gallery')
     vi.stubEnv('VITE_GOOGLE_FREQUENCY_SHEET_ID', 'frequency-sheet')
     vi.stubEnv('VITE_GOOGLE_SONGS_SHEET_ID', 'songs-sheet')
 
@@ -227,9 +186,10 @@ describe('routing and page helpers', () => {
       apiKey: 'api-key',
       calendars: [{ calendarId: 'main-calendar', source: 'google-calendar' }],
     })
-    expect(getGoogleDriveGalleryConfig()).toEqual({
+    expect(getPrivateGalleryUrl()).toBe('https://sites.google.com/view/private-gallery')
+    expect(getGoogleAchievementsConfig()).toEqual({
       apiKey: 'api-key',
-      folderId: 'gallery-folder',
+      folderId: getPublicAchievementsAlbum().id,
     })
     expect(getGoogleFrequencyConfig()).toEqual({
       apiKey: 'api-key',
@@ -242,7 +202,7 @@ describe('routing and page helpers', () => {
 
     vi.stubEnv('VITE_GOOGLE_API_KEY', '')
     vi.stubEnv('VITE_GOOGLE_CALENDAR_ID', '')
-    vi.stubEnv('VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID', '')
+    vi.stubEnv('VITE_PRIVATE_GALLERY_URL', '')
     vi.stubEnv('VITE_GOOGLE_FREQUENCY_SHEET_ID', '')
     vi.stubEnv('VITE_GOOGLE_SONGS_SHEET_ID', '')
     stubStorage()
@@ -251,9 +211,69 @@ describe('routing and page helpers', () => {
     expect(getInitialLanguage()).toBe('pl')
     expect(getInitialTheme()).toBe('dark')
     expect(getGoogleCalendarConfig()).toBeNull()
-    expect(getGoogleDriveGalleryConfig()).toBeNull()
+    expect(getPrivateGalleryUrl()).toBeNull()
+    expect(getGoogleAchievementsConfig()).toBeNull()
     expect(getGoogleFrequencyConfig()).toBeNull()
     expect(getGoogleSongsConfig()).toBeNull()
+  })
+
+  test('reads and writes only the public Achievements gallery route', () => {
+    stubLocation('http://localhost:5173/gallery/?album=achievements&photo=diploma-1')
+    expect(getGalleryAlbumSlugFromLocation()).toBe('achievements')
+    expect(getGalleryPhotoIdFromLocation()).toBe('diploma-1')
+
+    updateGalleryUrl(true, 'diploma-2')
+    expect(window.location.pathname).toBe('/gallery/')
+    expect(window.location.search).toBe('?album=achievements&photo=diploma-2')
+
+    updateGalleryUrl(false, null)
+    expect(window.location.search).toBe('')
+
+    stubLocation('http://localhost:5173/gallery/?album=children')
+    expect(getGalleryAlbumSlugFromLocation()).toBeNull()
+  })
+})
+
+describe('public Achievements integration', () => {
+  test('loads and sorts only images from the fixed public folder', async () => {
+    const album = getPublicAchievementsAlbum()
+    const config: GoogleAchievementsConfig = { apiKey: 'api-key', folderId: album.id }
+    const fetchMock = mockJsonFetch([
+      {
+        files: [
+          {
+            id: 'older',
+            name: '2025-11-22 - Złoty Dyplom -- Golden Diploma.jpg',
+            thumbnailLink: 'https://example.com/older=s220',
+            imageMediaMetadata: { width: 1200, height: 800 },
+          },
+          {
+            id: 'newer',
+            name: '2026-05-18 - Wyróżnienie -- Distinction [cover].jpg',
+            thumbnailLink: 'https://example.com/newer=s220',
+            imageMediaMetadata: { width: 800, height: 1200 },
+          },
+        ],
+      },
+    ])
+
+    const photos = await fetchGoogleAchievementsPhotos(config)
+
+    expect(fetchMock).toHaveBeenCalledOnce()
+    const requestedUrl = new URL(String(fetchMock.mock.calls[0][0]))
+    expect(requestedUrl.pathname).toBe('/drive/v3/files')
+    expect(requestedUrl.searchParams.get('q')).toContain(`'${album.id}' in parents`)
+    expect(requestedUrl.searchParams.get('q')).toContain("mimeType contains 'image/'")
+    expect(photos.map((photo) => photo.id)).toEqual(['newer', 'older'])
+    expect(photos[0].title).toEqual({ pl: 'Wyróżnienie', en: 'Distinction' })
+    expect(photos[0].thumbnailUrl).toBe('https://example.com/newer=w720')
+    expect(photos[0].largeUrl).toBe('https://example.com/newer=w1800')
+  })
+
+  test('rejects any attempt to point the Achievements loader at another folder', async () => {
+    await expect(
+      fetchGoogleAchievementsPhotos({ apiKey: 'api-key', folderId: 'another-folder' }),
+    ).rejects.toThrow('Unexpected achievements folder')
   })
 })
 
@@ -571,233 +591,6 @@ describe('schedule helpers', () => {
 
     await expect(fetchConfiguredCalendarEvents(config, 'en')).rejects.toThrow(
       'Google Calendar requests failed',
-    )
-  })
-})
-
-describe('gallery helpers', () => {
-  test('formats album dates, counts, positions, and alt text', () => {
-    const album = createAlbum()
-
-    expect(formatGalleryAlbumDate(album, 'en')).toBe('March 26, 2026')
-    expect(formatGalleryAlbumDate(createAlbum({ date: undefined }), 'en')).toBe(
-      '2026-03-26 - Warsztaty -- Workshop',
-    )
-    expect(formatGalleryPhotoCount(1, 'en')).toBe('1 photo')
-    expect(formatGalleryPhotoCount(3, 'en')).toBe('3 photos')
-    expect(formatGalleryPhotoCount(1, 'pl')).toBe('1 zdjęcie')
-    expect(formatGalleryPhotoCount(2, 'pl')).toBe('2 zdjęcia')
-    expect(formatGalleryPhotoCount(4, 'pl')).toBe('4 zdjęcia')
-    expect(formatGalleryPhotoCount(5, 'pl')).toBe('5 zdjęć')
-    expect(formatGalleryPhotoCount(12, 'pl')).toBe('12 zdjęć')
-    expect(formatGalleryPhotoCount(22, 'pl')).toBe('22 zdjęcia')
-    expect(formatGalleryPhotoCount(25, 'pl')).toBe('25 zdjęć')
-    expect(formatGalleryPhotoPosition(1, 3, 'en')).toBe('1 of 3')
-    expect(getGalleryPhotoAlt(album, 'en')).toBe('Photo from album Workshop')
-  })
-
-  test('builds gallery URLs and photo aspect ratios', () => {
-    const photoWithSize: GalleryPhoto = {
-      height: 1200,
-      id: 'photo 1',
-      largeUrl: 'large',
-      name: 'photo.jpg',
-      thumbnailUrl: 'thumb',
-      width: 1600,
-    }
-    const photoWithoutSize: GalleryPhoto = {
-      id: 'photo 2',
-      largeUrl: 'large',
-      name: 'photo.jpg',
-      thumbnailUrl: 'thumb',
-    }
-
-    expect(getGalleryAlbumHref('warsztaty-workshop')).toBe('/gallery/?album=warsztaty-workshop')
-    expect(getGalleryPhotoHref('warsztaty-workshop', 'photo 1')).toBe(
-      '/gallery/?album=warsztaty-workshop&photo=photo%201',
-    )
-    expect(getGalleryPhotoAspectStyle(photoWithSize)).toEqual({ aspectRatio: '1600 / 1200' })
-    expect(getGalleryPhotoAspectStyle(photoWithoutSize)).toBeUndefined()
-  })
-
-  test('returns sorted Google Drive albums, covers, photos, and thumbnail refreshes', async () => {
-    const config: GoogleDriveGalleryConfig = { apiKey: 'api-key', folderId: 'root-folder' }
-    mockJsonFetch([
-      {
-        files: [
-          { id: 'album-old', name: '2025-11-23 - Cecyliada' },
-          { id: 'album-new', name: '2026-03-26 - Warsztaty -- Workshop' },
-          { id: '', name: 'Missing id' },
-        ],
-      },
-      {
-        files: [
-          {
-            id: 'cover-old',
-            imageMediaMetadata: { height: 768, width: 1024 },
-            name: 'old[cover].jpg',
-            thumbnailLink: 'https://drive/thumb=s220',
-          },
-        ],
-      },
-      {
-        files: [
-          {
-            id: 'cover-new',
-            imageMediaMetadata: { height: 1200, width: 1600 },
-            name: 'new[cover].jpg',
-            thumbnailLink: 'https://drive/thumb=s220',
-          },
-        ],
-      },
-      {
-        files: [
-          {
-            id: 'photo-1',
-            imageMediaMetadata: { height: 900, width: 1200 },
-            name: 'photo.jpg',
-            thumbnailLink: 'https://drive/photo=w220',
-          },
-          {
-            id: 'bad-photo',
-            name: 'missing-thumb.jpg',
-          },
-        ],
-      },
-      {
-        id: 'photo-1',
-        thumbnailLink: 'https://drive/photo=s220-c',
-      },
-    ])
-
-    const albums = await fetchGoogleDriveGalleryAlbums(config)
-    const photos = await fetchGoogleDriveAlbumPhotos(config, albums[0])
-    const refreshedThumbnail = await fetchGoogleDriveThumbnailUrl('api-key', 'photo-1', 1800)
-
-    expect(albums.map((album) => album.title.en)).toEqual(['Workshop', 'Cecyliada'])
-    expect(albums[0].coverPhoto?.thumbnailUrl).toBe('https://drive/thumb=w720')
-    expect(
-      albums[0].coverPhoto ? getGalleryPhotoDisplayTitle(albums[0].coverPhoto, 'en') : undefined,
-    ).toBe('new')
-    expect(photos).toHaveLength(1)
-    expect(photos[0].largeUrl).toBe('https://drive/photo=w1800')
-    expect(refreshedThumbnail).toBe('https://drive/photo=w1800')
-  })
-
-  test('promotes the achievements album and parses dated timeline photos', async () => {
-    const achievementsFolderId = '1regQdvW8Ebx5sGzXQ-4Goffde-ieW1cs'
-    const config: GoogleDriveGalleryConfig = { apiKey: 'api-key', folderId: 'root-folder' }
-    mockJsonFetch([
-      {
-        files: [
-          { id: 'regular-album', name: '2026-06-01 - Regular Album' },
-          { id: achievementsFolderId, name: 'Drive folder title can change' },
-        ],
-      },
-      {
-        files: [
-          {
-            id: 'regular-cover',
-            imageMediaMetadata: { height: 768, width: 1024 },
-            name: 'regular[cover].jpg',
-            thumbnailLink: 'https://drive/regular=s220',
-          },
-        ],
-      },
-      {
-        files: [
-          {
-            id: 'undated-diploma',
-            imageMediaMetadata: { height: 900, width: 1200 },
-            name: 'Dyplom bez daty.jpg',
-            thumbnailLink: 'https://drive/undated=s220',
-          },
-          {
-            id: 'old-diploma',
-            imageMediaMetadata: { height: 900, width: 1200 },
-            name: '2025-11-23 - Konkurs piosenki religijnej -- Religious song contest.jpg',
-            thumbnailLink: 'https://drive/old=s220',
-          },
-          {
-            id: 'new-diploma',
-            imageMediaMetadata: { height: 900, width: 1200 },
-            name: '2026-05-18 - Cecyliada, wyróżnienie -- Cecyliada, distinction.jpg',
-            thumbnailLink: 'https://drive/new=s220',
-          },
-        ],
-      },
-    ])
-
-    const albums = await fetchGoogleDriveGalleryAlbums(config)
-    const photos = await fetchGoogleDriveAlbumPhotos(config, albums[0])
-
-    expect(albums[0]).toMatchObject({
-      date: undefined,
-      id: achievementsFolderId,
-      kind: 'achievements',
-      slug: 'achievements',
-      title: { pl: 'Osiągnięcia', en: 'Achievements' },
-      coverPhoto: undefined,
-    })
-    expect(albums.map((album) => album.slug)).toEqual([
-      'achievements',
-      '2026-06-01-regular-album',
-    ])
-    expect(formatGalleryAlbumDate(albums[0], 'en')).toBe('Contests and festivals')
-    expect(photos.map((photo) => getGalleryPhotoDisplayTitle(photo, 'en'))).toEqual([
-      'Cecyliada, distinction',
-      'Religious song contest',
-      'Dyplom bez daty',
-    ])
-    expect(formatGalleryTimelinePhotoDate(photos[0], 'en')).toBe('May 18, 2026')
-    expect(formatGalleryTimelinePhotoDate(photos[2], 'en')).toBe('Undated')
-  })
-
-  test('uses Google Drive pagination and falls back to the first album photo as cover', async () => {
-    const config: GoogleDriveGalleryConfig = { apiKey: 'api-key', folderId: "root'folder" }
-    const fetchMock = mockJsonFetch([
-      {
-        files: [],
-        nextPageToken: 'next-page',
-      },
-      {
-        files: [{ id: 'album-page-2', name: '2026-01-02 - Page Two' }],
-      },
-      {
-        files: [],
-      },
-      {
-        files: [
-          {
-            id: 'first-photo',
-            imageMediaMetadata: { height: 800, width: 1000 },
-            name: 'first.jpg',
-            thumbnailLink: 'https://drive/first-thumb',
-          },
-        ],
-      },
-    ])
-
-    const albums = await fetchGoogleDriveGalleryAlbums(config)
-
-    expect(fetchMock).toHaveBeenCalledTimes(4)
-    expect(String(fetchMock.mock.calls[1][0])).toContain('pageToken=next-page')
-    expect(albums).toHaveLength(1)
-    expect(albums[0].coverPhoto?.id).toBe('first-photo')
-    expect(albums[0].coverPhoto?.thumbnailUrl).toBe('https://drive/first-thumb')
-  })
-
-  test('surfaces Google Drive API errors', async () => {
-    const config: GoogleDriveGalleryConfig = { apiKey: 'api-key', folderId: 'root-folder' }
-
-    mockJsonFetch([{ body: { error: { message: 'Drive failed' } }, ok: true }])
-
-    await expect(fetchGoogleDriveGalleryAlbums(config)).rejects.toThrow('Drive failed')
-
-    mockJsonFetch([{ body: { error: { message: 'File failed' } }, ok: false }])
-
-    await expect(fetchGoogleDriveThumbnailUrl('api-key', 'photo-1', 720)).rejects.toThrow(
-      'File failed',
     )
   })
 })

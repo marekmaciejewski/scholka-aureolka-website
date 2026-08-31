@@ -157,16 +157,6 @@ async function expectScheduleReady(page: Page) {
   ).toBeVisible({ timeout: 15_000 })
 }
 
-async function expectGalleryReady(page: Page) {
-  await expect(
-    page
-      .locator(
-        '.gallery-album-card, .gallery-status.error, .gallery-status.ready, .gallery-status.unconfigured',
-      )
-      .first(),
-  ).toBeVisible({ timeout: 15_000 })
-}
-
 async function expandFirstEventCard(page: Page) {
   const firstExpandableCard = page.locator('.event-card-clickable').first()
 
@@ -544,47 +534,92 @@ test('song copy buttons emerge on desktop hover only', async ({ page }) => {
   }
 })
 
-test('gallery album navigation and lightbox stay within the viewport', async ({ page }) => {
+test('gallery landing separates public Achievements from private child photos', async ({ page }) => {
   const errors = trackUnexpectedPageErrors(page)
+  const driveRequests: string[] = []
+
+  page.on('request', (request) => {
+    if (request.url().includes('www.googleapis.com/drive/v3/')) {
+      driveRequests.push(request.url())
+    }
+  })
+
   await page.goto('/gallery/')
 
   await expect(page.getByRole('heading', { level: 1, name: 'Gallery' })).toBeVisible()
-  await expectGalleryReady(page)
+  await expect(page.getByRole('heading', { level: 2, name: 'The gallery is private' })).toBeVisible()
+  await expect(page.locator('.private-gallery-card')).toContainText('approved accounts')
+  await expect(
+    page.locator('.private-gallery-card .private-gallery-privacy-note'),
+  ).toContainText("Let's protect children's privacy")
+  await expect(page.locator('.private-gallery-card')).not.toContainText('opens in a new tab')
+  await expect(page.locator('.achievements-card-featured')).toContainText('Achievements')
+  await expect(page.locator('.achievements-card-featured')).not.toContainText(
+    'contains no photos of children',
+  )
+  await expect(page.locator('.achievements-card-featured')).not.toContainText('Open album')
+  await expect(page.locator('.achievements-card-featured')).toHaveAttribute(
+    'href',
+    '/gallery/?album=achievements',
+  )
+  await expect(page.locator('.private-gallery-privacy-note')).toContainText(
+    "Let's protect children's privacy",
+  )
   await expectNoHorizontalOverflow(page)
 
-  const albumCards = page.locator('.gallery-album-card')
-  const albumCount = await albumCards.count()
-
-  if (albumCount === 0) {
-    await expect(page.locator('.gallery-status')).toBeVisible()
-    expect(errors).toEqual([])
-    return
+  const privateGalleryLink = page.locator('.private-gallery-button')
+  if ((await privateGalleryLink.count()) > 0) {
+    await expect(privateGalleryLink).toHaveAttribute('href', /^https:\/\/sites\.google\.com\//)
+    await expect(privateGalleryLink).toHaveAttribute('target', '_blank')
+    await expect(privateGalleryLink).toHaveAttribute('rel', 'noreferrer')
+  } else {
+    await expect(page.locator('.private-gallery-status')).toContainText(
+      'The private gallery is being prepared.',
+    )
   }
 
-  await page.evaluate(() => globalThis.scrollTo({ top: 360, behavior: 'instant' }))
-  await albumCards.first().click()
-  await expect(page.locator('.gallery-album-header')).toBeVisible()
-  await expect(page).toHaveURL(/album=/)
-  await expect.poll(() => page.evaluate(() => Math.round(globalThis.scrollY))).toBe(0)
+  expect(driveRequests).toEqual([])
+  expect(errors).toEqual([])
+})
+
+test('Achievements keeps its on-site album route and dated timeline behavior', async ({ page }) => {
+  const errors = trackUnexpectedPageErrors(page)
+
+  await page.route('**/drive/v3/files**', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        files: [
+          {
+            id: 'playwright-diploma',
+            name: '2026-05-18 - Wyróżnienie -- Distinction.jpg',
+            thumbnailLink:
+              'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="600"%3E%3Crect width="800" height="600" fill="%23ffb400"/%3E%3C/svg%3E',
+            imageMediaMetadata: { width: 800, height: 600 },
+          },
+        ],
+      }),
+    })
+  })
+
+  await page.goto('/gallery/')
+  await page.locator('.achievements-card-featured').click()
+
+  await expect(page).toHaveURL(/\/gallery\/\?album=achievements$/)
+  await expect(page.getByRole('heading', { level: 2, name: 'Achievements' })).toBeVisible()
   await expectNoHorizontalOverflow(page)
 
-  const photoTiles = page.locator('.photo-tile')
-  const photoCount = await photoTiles.count()
-
-  if (photoCount > 0) {
-    await photoTiles.first().click()
-    await expect(page.locator('.gallery-lightbox')).toBeVisible()
-    await expectOverlayInsideViewport(page, '.gallery-lightbox-backdrop')
-    await expectOverlayInsideViewport(page, '.gallery-lightbox')
-    await page.locator('.gallery-lightbox').getByRole('button', { name: 'Close photo' }).click()
-    await expect(page.locator('.gallery-lightbox')).toHaveCount(0)
+  const unconfiguredStatus = page.locator('.gallery-status.unconfigured')
+  if ((await unconfiguredStatus.count()) > 0) {
+    await expect(unconfiguredStatus).toContainText('not connected yet')
+  } else {
+    await expect(page.locator('.achievements-timeline')).toContainText('May 18, 2026')
+    await expect(page.locator('.achievement-card')).toContainText('Distinction')
   }
 
-  await page.getByRole('button', { name: 'Back to albums' }).click()
-  await expect(page).not.toHaveURL(/album=/)
-  await expect.poll(() => page.evaluate(() => Math.round(globalThis.scrollY))).toBe(0)
-  await expectNoHorizontalOverflow(page)
-
+  await page.locator('.gallery-back-button').click()
+  await expect(page).toHaveURL(/\/gallery\/$/)
+  await expect(page.locator('.private-gallery-card')).toBeVisible()
   expect(errors).toEqual([])
 })
 

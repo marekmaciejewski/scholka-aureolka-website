@@ -20,7 +20,6 @@ import {
   getGalleryPhotoAspectStyle,
   getGalleryPhotoDisplayTitle,
   getGalleryPhotoHref,
-  getLogoForTheme,
   translate,
   withBasePath,
   type GalleryAlbum,
@@ -34,14 +33,10 @@ function GalleryStatusMessage({
   status,
   children,
 }: Readonly<{
-  status: GalleryLoadStatus | 'warning'
+  status: GalleryLoadStatus
   children: string
 }>) {
-  return (
-    <output className={`gallery-status ${status}`}>
-      {children}
-    </output>
-  )
+  return <output className={`gallery-status ${status}`}>{children}</output>
 }
 
 function GalleryImageLoadingLogo() {
@@ -73,7 +68,7 @@ function GalleryImage({
   refreshSrc?: () => Promise<string | undefined>
   alt: string
   loading?: 'eager' | 'lazy'
-  variant: 'cover' | 'thumbnail' | 'lightbox'
+  variant: 'thumbnail' | 'lightbox'
   style?: CSSProperties
 }>) {
   const [attempt, setAttempt] = useState({ retryCount: 0, src })
@@ -85,39 +80,23 @@ function GalleryImage({
   )
   const loadingStartedAtRef = useRef(0)
   const isMountedRef = useRef(true)
-  const imageStatusClassName = getGalleryImageStatusClassName(status)
-  const imageClassName = [
-    'gallery-image',
-    `gallery-image-${variant}`,
-    imageStatusClassName,
-  ]
-    .filter(Boolean)
-    .join(' ')
-  const imageFrameStyle: CSSProperties | undefined = naturalAspectRatio
-    ? { ...style, aspectRatio: naturalAspectRatio }
-    : style
 
-  useEffect(
-    () => {
-      isMountedRef.current = true
-      loadingStartedAtRef.current = Date.now()
+  useEffect(() => {
+    isMountedRef.current = true
+    loadingStartedAtRef.current = Date.now()
 
-      return () => {
-        isMountedRef.current = false
+    return () => {
+      isMountedRef.current = false
 
-        if (retryTimeoutRef.current) {
-          globalThis.clearTimeout(retryTimeoutRef.current)
-          retryTimeoutRef.current = undefined
-        }
-
-        if (loadCompleteTimeoutRef.current) {
-          globalThis.clearTimeout(loadCompleteTimeoutRef.current)
-          loadCompleteTimeoutRef.current = undefined
-        }
+      if (retryTimeoutRef.current) {
+        globalThis.clearTimeout(retryTimeoutRef.current)
       }
-    },
-    [],
-  )
+
+      if (loadCompleteTimeoutRef.current) {
+        globalThis.clearTimeout(loadCompleteTimeoutRef.current)
+      }
+    }
+  }, [])
 
   function scheduleRetry(nextRetryCount: number, delay: number) {
     if (retryTimeoutRef.current) {
@@ -128,7 +107,6 @@ function GalleryImage({
     loadingStartedAtRef.current = Date.now()
     retryTimeoutRef.current = globalThis.setTimeout(async () => {
       retryTimeoutRef.current = undefined
-
       let nextSrc = attempt.src
 
       if (refreshSrc) {
@@ -139,14 +117,9 @@ function GalleryImage({
         }
       }
 
-      if (!isMountedRef.current) {
-        return
+      if (isMountedRef.current) {
+        setAttempt({ retryCount: nextRetryCount, src: nextSrc })
       }
-
-      setAttempt({
-        retryCount: nextRetryCount,
-        src: nextSrc,
-      })
     }, delay)
   }
 
@@ -155,27 +128,18 @@ function GalleryImage({
 
     if (nextRetryCount <= galleryImageRetryDelays.length) {
       scheduleRetry(nextRetryCount, galleryImageRetryDelays[nextRetryCount - 1])
-      return
+    } else {
+      setStatus('failed')
     }
-
-    setStatus('failed')
   }
 
   function completeImageLoad() {
-    if (loadingStartedAtRef.current === 0) {
-      loadingStartedAtRef.current = Date.now()
-    }
-
-    const remainingSpinnerTime =
+    const remainingTime =
       galleryImageLogoSpinnerMinimumMs - (Date.now() - loadingStartedAtRef.current)
 
-    if (remainingSpinnerTime <= 0) {
+    if (remainingTime <= 0) {
       setStatus('loaded')
       return
-    }
-
-    if (loadCompleteTimeoutRef.current) {
-      globalThis.clearTimeout(loadCompleteTimeoutRef.current)
     }
 
     loadCompleteTimeoutRef.current = globalThis.setTimeout(() => {
@@ -184,7 +148,7 @@ function GalleryImage({
       if (isMountedRef.current) {
         setStatus('loaded')
       }
-    }, remainingSpinnerTime)
+    }, remainingTime)
   }
 
   function handleImageLoad(event: ReactSyntheticEvent<HTMLImageElement>) {
@@ -208,7 +172,10 @@ function GalleryImage({
   }
 
   return (
-    <span className={imageClassName} style={imageFrameStyle}>
+    <span
+      className={`gallery-image gallery-image-${variant} is-${status}`}
+      style={naturalAspectRatio ? { ...style, aspectRatio: naturalAspectRatio } : style}
+    >
       <span className="gallery-image-spinner" aria-hidden="true">
         <GalleryImageLoadingLogo />
       </span>
@@ -225,18 +192,6 @@ function GalleryImage({
       />
     </span>
   )
-}
-
-function getGalleryImageStatusClassName(status: GalleryImageStatus) {
-  if (status === 'loaded') {
-    return 'is-loaded'
-  }
-
-  if (status === 'failed') {
-    return 'is-failed'
-  }
-
-  return 'is-loading'
 }
 
 function AchievementsAlbumSymbol() {
@@ -260,80 +215,36 @@ function AchievementsAlbumSymbol() {
   )
 }
 
-function AlbumGrid({
-  albums,
-  apiKey,
+function AchievementsCard({
+  album,
   language,
-  onAlbumSelect,
+  onOpen,
 }: Readonly<{
-  albums: GalleryAlbum[]
-  apiKey?: string
+  album: GalleryAlbum
   language: Language
-  onAlbumSelect: (albumSlug: string) => void
+  onOpen: () => void
 }>) {
+  const albumTitle = translate(album.title, language)
+
+  function handleClick(event: ReactMouseEvent<HTMLAnchorElement>) {
+    event.preventDefault()
+    onOpen()
+  }
+
   return (
-    <div className="card-grid album-grid">
-      {albums.map((album) => {
-        const albumTitle = translate(album.title, language)
-        const coverPhoto = album.coverPhoto
-        const openAlbumLabel = `${translate(galleryText.openAlbum, language)}: ${albumTitle}`
-        const albumClassName = [
-          'album-card',
-          'gallery-album-card',
-          album.kind === 'achievements' ? 'gallery-album-card-featured' : undefined,
-        ]
-          .filter(Boolean)
-          .join(' ')
-
-        function handleAlbumClick(event: ReactMouseEvent<HTMLAnchorElement>) {
-          event.preventDefault()
-          onAlbumSelect(album.slug)
-        }
-
-        let albumCover
-
-        if (album.kind === 'achievements') {
-          albumCover = <AchievementsAlbumSymbol />
-        } else if (coverPhoto) {
-          albumCover = (
-            <GalleryImage
-              key={`${coverPhoto.id}-${coverPhoto.thumbnailUrl}`}
-              src={coverPhoto.thumbnailUrl}
-              refreshSrc={
-                apiKey ? () => fetchGoogleDriveThumbnailUrl(apiKey, coverPhoto.id, 720) : undefined
-              }
-              alt=""
-              loading="lazy"
-              variant="cover"
-            />
-          )
-        } else {
-          albumCover = (
-            <img
-              className="album-cover-placeholder"
-              src={withBasePath(getLogoForTheme('light', 'purple'))}
-              alt=""
-            />
-          )
-        }
-
-        return (
-          <a
-            className={albumClassName}
-            key={album.id}
-            href={getGalleryAlbumHref(album.slug)}
-            aria-label={openAlbumLabel}
-            onClick={handleAlbumClick}
-          >
-            <div className="album-cover">{albumCover}</div>
-            <div className="album-body">
-              <p className="eyebrow">{formatGalleryAlbumDate(album, language)}</p>
-              <h3>{albumTitle}</h3>
-            </div>
-          </a>
-        )
-      })}
-    </div>
+    <a
+      className="gallery-access-card achievements-card-featured"
+      href={getGalleryAlbumHref()}
+      aria-label={`${translate(galleryText.openAlbum, language)}: ${albumTitle}`}
+      onClick={handleClick}
+    >
+      <AchievementsAlbumSymbol />
+      <span className="gallery-access-copy">
+        <span className="eyebrow">{formatGalleryAlbumDate(album, language)}</span>
+        <strong className="gallery-access-title">{albumTitle}</strong>
+        <span>{translate(galleryText.achievementsDescription, language)}</span>
+      </span>
+    </a>
   )
 }
 
@@ -381,28 +292,6 @@ function getTimelinePhotoDateKey(photo: GalleryPhoto) {
   return `${photo.date.getFullYear()}-${month}-${day}`
 }
 
-function getAchievementTimelineGroups(photos: GalleryPhoto[], language: Language) {
-  const groups = new Map<string, { key: string; label: string; photos: GalleryPhoto[] }>()
-
-  photos.forEach((photo) => {
-    const key = getTimelinePhotoDateKey(photo)
-    const group = groups.get(key)
-
-    if (group) {
-      group.photos.push(photo)
-      return
-    }
-
-    groups.set(key, {
-      key,
-      label: formatGalleryTimelinePhotoDate(photo, language),
-      photos: [photo],
-    })
-  })
-
-  return Array.from(groups.values())
-}
-
 function AchievementsTimeline({
   album,
   apiKey,
@@ -416,27 +305,31 @@ function AchievementsTimeline({
   photos: GalleryPhoto[]
   onPhotoSelect: (photoId: string) => void
 }>) {
-  const photoAlt = getGalleryPhotoAlt(album, language)
-  const groups = getAchievementTimelineGroups(photos, language)
+  const groups = new Map<string, { label: string; photos: GalleryPhoto[] }>()
+
+  photos.forEach((photo) => {
+    const key = getTimelinePhotoDateKey(photo)
+    const group = groups.get(key)
+
+    if (group) {
+      group.photos.push(photo)
+    } else {
+      groups.set(key, { label: formatGalleryTimelinePhotoDate(photo, language), photos: [photo] })
+    }
+  })
 
   return (
     <ol className="achievements-timeline">
-      {groups.map((group) => (
-        <li className="achievements-timeline-group" key={group.key}>
+      {Array.from(groups.entries()).map(([key, group]) => (
+        <li className="achievements-timeline-group" key={key}>
           <p className="achievement-date">{group.label}</p>
           <div
-            className={[
-              'achievement-grid',
-              group.photos.length > 1 ? 'achievement-grid-scrollable' : undefined,
-            ]
-              .filter(Boolean)
-              .join(' ')}
+            className={`achievement-grid${group.photos.length > 1 ? ' achievement-grid-scrollable' : ''}`}
           >
             {group.photos.map((photo) => {
               const photoTitle = getGalleryPhotoDisplayTitle(photo, language)
-              const photoAspectStyle = getGalleryPhotoAspectStyle(photo)
 
-              function handlePhotoClick(event: ReactMouseEvent<HTMLAnchorElement>) {
+              function handleClick(event: ReactMouseEvent<HTMLAnchorElement>) {
                 event.preventDefault()
                 onPhotoSelect(photo.id)
               }
@@ -445,9 +338,9 @@ function AchievementsTimeline({
                 <a
                   className="achievement-card"
                   key={photo.id}
-                  href={getGalleryPhotoHref(album.slug, photo.id)}
+                  href={getGalleryPhotoHref(photo.id)}
                   aria-label={`${translate(galleryText.openPhoto, language)}: ${photoTitle}`}
-                  onClick={handlePhotoClick}
+                  onClick={handleClick}
                 >
                   <span className="achievement-thumbnail">
                     <GalleryImage
@@ -458,10 +351,9 @@ function AchievementsTimeline({
                           ? () => fetchGoogleDriveThumbnailUrl(apiKey, photo.id, 720)
                           : undefined
                       }
-                      alt={photoAlt}
-                      loading="lazy"
+                      alt={getGalleryPhotoAlt(album, language)}
                       variant="thumbnail"
-                      style={photoAspectStyle}
+                      style={getGalleryPhotoAspectStyle(photo)}
                     />
                   </span>
                   <strong>{photoTitle}</strong>
@@ -472,69 +364,6 @@ function AchievementsTimeline({
         </li>
       ))}
     </ol>
-  )
-}
-
-function PhotoGrid({
-  album,
-  apiKey,
-  language,
-  photos,
-  onPhotoSelect,
-}: Readonly<{
-  album: GalleryAlbum
-  apiKey?: string
-  language: Language
-  photos: GalleryPhoto[]
-  onPhotoSelect: (photoId: string) => void
-}>) {
-  const photoAlt = getGalleryPhotoAlt(album, language)
-
-  if (album.kind === 'achievements') {
-    return (
-      <AchievementsTimeline
-        album={album}
-        apiKey={apiKey}
-        language={language}
-        photos={photos}
-        onPhotoSelect={onPhotoSelect}
-      />
-    )
-  }
-
-  return (
-    <div className="photo-grid">
-      {photos.map((photo, index) => {
-        const photoAspectStyle = getGalleryPhotoAspectStyle(photo)
-
-        function handlePhotoClick(event: ReactMouseEvent<HTMLAnchorElement>) {
-          event.preventDefault()
-          onPhotoSelect(photo.id)
-        }
-
-        return (
-          <a
-            className="photo-tile"
-            key={photo.id}
-            href={getGalleryPhotoHref(album.slug, photo.id)}
-            aria-label={`${translate(galleryText.openPhoto, language)} ${index + 1}`}
-            style={photoAspectStyle}
-            onClick={handlePhotoClick}
-          >
-            <GalleryImage
-              key={`${photo.id}-${photo.thumbnailUrl}`}
-              src={photo.thumbnailUrl}
-              refreshSrc={
-                apiKey ? () => fetchGoogleDriveThumbnailUrl(apiKey, photo.id, 720) : undefined
-              }
-              alt={photoAlt}
-              loading="lazy"
-              variant="thumbnail"
-            />
-          </a>
-        )
-      })}
-    </div>
   )
 }
 
@@ -564,17 +393,9 @@ function GalleryLightbox({
     const previousOverflow = document.body.style.overflow
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        onClose()
-      }
-
-      if (event.key === 'ArrowLeft' && previousPhoto) {
-        onPhotoSelect(previousPhoto.id)
-      }
-
-      if (event.key === 'ArrowRight' && nextPhoto) {
-        onPhotoSelect(nextPhoto.id)
-      }
+      if (event.key === 'Escape') onClose()
+      if (event.key === 'ArrowLeft' && previousPhoto) onPhotoSelect(previousPhoto.id)
+      if (event.key === 'ArrowRight' && nextPhoto) onPhotoSelect(nextPhoto.id)
     }
 
     document.body.style.overflow = 'hidden'
@@ -656,4 +477,10 @@ function GalleryLightbox({
   )
 }
 
-export { AlbumGrid, GalleryAlbumHeader, GalleryLightbox, GalleryStatusMessage, PhotoGrid }
+export {
+  AchievementsCard,
+  AchievementsTimeline,
+  GalleryAlbumHeader,
+  GalleryLightbox,
+  GalleryStatusMessage,
+}

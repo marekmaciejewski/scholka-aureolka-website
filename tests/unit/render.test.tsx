@@ -3,13 +3,6 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import App from '../../src/App'
 import { EventList, ImportantNotice } from '../../src/components/EventList'
-import {
-  AlbumGrid,
-  GalleryAlbumHeader,
-  GalleryLightbox,
-  GalleryStatusMessage,
-  PhotoGrid,
-} from '../../src/components/Gallery'
 import { Footer, Header, PageHeading } from '../../src/components/Layout'
 import { ContactPage } from '../../src/pages/ContactPage'
 import { FrequencyPage } from '../../src/pages/FrequencyPage'
@@ -17,7 +10,7 @@ import { GalleryPage } from '../../src/pages/GalleryPage'
 import { HomePage } from '../../src/pages/HomePage'
 import { SchedulePage } from '../../src/pages/SchedulePage'
 import { SongsPage } from '../../src/pages/SongsPage'
-import type { GalleryAlbum, GalleryPhoto, UpcomingEvent } from '../../src/core'
+import type { UpcomingEvent } from '../../src/core'
 
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean })
   .IS_REACT_ACT_ENVIRONMENT = true
@@ -97,12 +90,6 @@ function setFormValue(element: HTMLInputElement | HTMLSelectElement, value: stri
   })
 }
 
-function keydown(key: string) {
-  act(() => {
-    globalThis.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key }))
-  })
-}
-
 function createEvent(overrides: Partial<UpcomingEvent> = {}): UpcomingEvent {
   return {
     date: new Date(2026, 5, 25, 18, 30),
@@ -113,30 +100,6 @@ function createEvent(overrides: Partial<UpcomingEvent> = {}): UpcomingEvent {
     slug: 'rehearsal',
     source: 'google-calendar',
     title: 'Rehearsal',
-    ...overrides,
-  }
-}
-
-function createAlbum(overrides: Partial<GalleryAlbum> = {}): GalleryAlbum {
-  return {
-    coverPhoto: createPhoto({ id: 'cover' }),
-    date: new Date(2026, 2, 26),
-    folderName: '2026-03-26 - Workshop',
-    id: 'album-1',
-    slug: 'workshop',
-    title: { pl: 'Warsztaty', en: 'Workshop' },
-    ...overrides,
-  }
-}
-
-function createPhoto(overrides: Partial<GalleryPhoto> = {}): GalleryPhoto {
-  return {
-    height: 900,
-    id: 'photo-1',
-    largeUrl: 'https://example.com/large.jpg',
-    name: 'photo.jpg',
-    thumbnailUrl: 'https://example.com/thumb.jpg',
-    width: 1200,
     ...overrides,
   }
 }
@@ -392,67 +355,10 @@ describe('event rendering components', () => {
   })
 })
 
-describe('gallery components', () => {
-  test('renders album and photo grids with selection callbacks', () => {
-    const onAlbumSelect = vi.fn()
-    const onPhotoSelect = vi.fn()
-    const onBack = vi.fn()
-    const album = createAlbum()
-    const photo = createPhoto()
-    const { container } = render(
-      <>
-        <GalleryStatusMessage status="loading">Loading</GalleryStatusMessage>
-        <AlbumGrid albums={[album]} language="en" onAlbumSelect={onAlbumSelect} />
-        <GalleryAlbumHeader album={album} language="en" photoCount={1} onBack={onBack} />
-        <PhotoGrid album={album} language="en" photos={[photo]} onPhotoSelect={onPhotoSelect} />
-      </>,
-    )
-
-    expect(container.textContent).toContain('Loading')
-    expect(container.textContent).toContain('Workshop')
-    expect(container.textContent).toContain('1 photo')
-
-    click(container.querySelector('.gallery-album-card'))
-    expect(onAlbumSelect).toHaveBeenCalledWith('workshop')
-
-    click(container.querySelector('.gallery-back-button'))
-    expect(onBack).toHaveBeenCalled()
-
-    click(container.querySelector('.photo-tile'))
-    expect(onPhotoSelect).toHaveBeenCalledWith('photo-1')
-  })
-
-  test('renders the lightbox and handles keyboard navigation', () => {
-    const onClose = vi.fn()
-    const onPhotoSelect = vi.fn()
-    const album = createAlbum()
-    const photos = [createPhoto({ id: 'first' }), createPhoto({ id: 'second' })]
-    const { container } = render(
-      <GalleryLightbox
-        album={album}
-        language="en"
-        photoId="first"
-        photos={photos}
-        onClose={onClose}
-        onPhotoSelect={onPhotoSelect}
-      />,
-    )
-
-    expect(document.body.style.overflow).toBe('hidden')
-    expect(container.querySelector('.gallery-lightbox')?.textContent).toContain('1 of 2')
-
-    keydown('ArrowRight')
-    expect(onPhotoSelect).toHaveBeenCalledWith('second')
-
-    keydown('Escape')
-    expect(onClose).toHaveBeenCalled()
-  })
-})
-
 describe('page components', () => {
-  test('renders home modal, contact copy, and gallery unconfigured state', () => {
+  test('renders home modal, contact copy, and private gallery fallback', () => {
     vi.stubEnv('VITE_GOOGLE_API_KEY', '')
-    vi.stubEnv('VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID', '')
+    vi.stubEnv('VITE_PRIVATE_GALLERY_URL', '')
     vi.stubEnv('VITE_GOOGLE_SONGS_SHEET_ID', '')
 
     const { container } = render(
@@ -473,7 +379,7 @@ describe('page components', () => {
     expect(container.textContent).toContain('Scholka Aureolka')
     expect(container.textContent).toContain('Contact')
     expect(container.textContent).toContain('Attendance sheet is not connected yet.')
-    expect(container.textContent).toContain('Google Drive gallery is not connected yet.')
+    expect(container.textContent).toContain('The private gallery is being prepared.')
     expect(container.textContent).toContain('The songs sheet is not connected yet.')
     expect(container.querySelector('.home-upcoming-section')?.textContent).not.toContain(
       'Choir room',

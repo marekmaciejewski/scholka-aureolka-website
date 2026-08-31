@@ -138,45 +138,53 @@ export const scheduleText = {
 }
 
 export const galleryText = {
-  loadingAlbums: {
-    pl: 'Pobieramy albumy z Dysku Google.',
-    en: 'Loading albums from Google Drive.',
+  accessEyebrow: { pl: 'Dla rodziców i opiekunów', en: 'For parents and guardians' },
+  accessTitle: { pl: 'Galeria jest prywatna', en: 'The gallery is private' },
+  accessDescription: {
+    pl: 'Zdjęcia Scholki Aureolki są dostępne w chronionej Witrynie Google tylko dla zatwierdzonych kont.',
+    en: 'Scholka Aureolka photos are available in a protected Google Site only to approved accounts.',
   },
+  signInNote: {
+    pl: 'Po otwarciu galerii zaloguj się na konto Google zatwierdzone przez opiekuna scholi.',
+    en: 'After opening the gallery, sign in with the Google Account approved by the choir leader.',
+  },
+  openPrivateGallery: { pl: 'Otwórz prywatną galerię', en: 'Open private gallery' },
   notConfiguredNotice: {
-    pl: 'Galeria z Dysku Google nie jest jeszcze podłączona.',
-    en: 'Google Drive gallery is not connected yet.',
+    pl: 'Prywatna galeria jest przygotowywana. Spróbuj ponownie później.',
+    en: 'The private gallery is being prepared. Please try again later.',
   },
-  errorNotice: {
-    pl: 'Nie udało się pobrać galerii z Dysku Google. Spróbuj odświeżyć stronę później.',
-    en: 'The Google Drive gallery could not be loaded. Try refreshing the page later.',
-  },
-  emptyAlbums: {
-    pl: 'Nie ma jeszcze opublikowanych albumów.',
-    en: 'There are no published albums yet.',
-  },
-  albumNotFound: {
-    pl: 'Nie znaleziono albumu z podanego linku.',
-    en: 'The album from this link was not found.',
-  },
-  loadingPhotos: {
-    pl: 'Pobieramy zdjęcia z albumu.',
-    en: 'Loading photos from the album.',
-  },
-  errorPhotos: {
-    pl: 'Nie udało się pobrać zdjęć z tego albumu.',
-    en: 'Photos from this album could not be loaded.',
-  },
-  emptyPhotos: {
-    pl: 'Ten album nie ma jeszcze zdjęć.',
-    en: 'This album does not have photos yet.',
+  privacyTitle: { pl: 'Dbajmy o prywatność dzieci', en: "Let's protect children's privacy" },
+  privacyDescription: {
+    pl: 'Nie przekazuj zdjęć, linków ani dostępu osobom spoza zatwierdzonej grupy rodziców i opiekunów.',
+    en: 'Do not share photos, links, or access with anyone outside the approved parent and guardian group.',
   },
   achievementsAlbumTitle: { pl: 'Osiągnięcia', en: 'Achievements' },
   achievementsAlbumEyebrow: {
     pl: 'Konkursy i festiwale',
     en: 'Contests and festivals',
   },
+  achievementsDescription: {
+    pl: 'Dyplomy, nagrody i pamiątki z występów scholi są dostępne publicznie.',
+    en: 'Diplomas, awards, and keepsakes from choir performances are publicly available.',
+  },
+  loadingPhotos: {
+    pl: 'Pobieramy osiągnięcia z Dysku Google.',
+    en: 'Loading achievements from Google Drive.',
+  },
+  achievementsNotConfigured: {
+    pl: 'Publiczny album osiągnięć nie jest jeszcze podłączony.',
+    en: 'The public Achievements album is not connected yet.',
+  },
+  errorPhotos: {
+    pl: 'Nie udało się pobrać albumu osiągnięć. Spróbuj ponownie później.',
+    en: 'The Achievements album could not be loaded. Please try again later.',
+  },
+  emptyPhotos: {
+    pl: 'Album osiągnięć nie ma jeszcze zdjęć.',
+    en: 'The Achievements album does not have photos yet.',
+  },
   achievementsUndatedGroup: { pl: 'Bez daty', en: 'Undated' },
-  backToAlbums: { pl: 'Wróć do albumów', en: 'Back to albums' },
+  backToAlbums: { pl: 'Wróć do galerii', en: 'Back to gallery' },
   openAlbum: { pl: 'Otwórz album', en: 'Open album' },
   openPhoto: { pl: 'Otwórz zdjęcie', en: 'Open photo' },
   closePhoto: { pl: 'Zamknij zdjęcie', en: 'Close photo' },

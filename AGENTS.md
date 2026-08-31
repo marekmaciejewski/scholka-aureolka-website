@@ -17,7 +17,7 @@ This is a parent-oriented UI: a practical coordination hub for schedules, notice
 - Vite
 - Static multi-page output hosted on GitHub Pages
 - Google Calendar for schedule and notices
-- Google Drive for gallery albums
+- Restricted Google Site and private Google Drive folders for gallery albums
 - SonarQube Cloud, Vitest, Playwright, ESLint
 
 The current deployment uses a custom domain at the site root, so Vite's production base path must remain `/`. Do not use `/scholka-aureolka-website/` unless the site moves back to a GitHub Pages repository URL.
@@ -62,10 +62,14 @@ Calendar config:
 - `VITE_GOOGLE_API_KEY`
 - `VITE_GOOGLE_CALENDAR_ID`
 
-Gallery config:
+Private gallery config:
+
+- `VITE_PRIVATE_GALLERY_URL`
+
+Public Achievements config:
 
 - `VITE_GOOGLE_API_KEY`
-- `VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID`
+- The fixed child-free Achievements folder is intentionally public; do not broaden this exception to other gallery folders.
 
 Songs config:
 
@@ -76,7 +80,7 @@ Event progress config:
 
 - `VITE_EVENT_PROGRESS_WINDOW_DAYS` - optional, defaults to 7
 
-The app fetches calendar events for the next 3 months. `[notice]` calendar events become home-page notices and are excluded from the schedule list. Gallery albums come from Drive subfolders. Songs come from Google Sheet tabs named `Sections` and `Songs`; the public page shows titles and listening links, not lyrics or chords.
+The app fetches calendar events for the next 3 months. `[notice]` calendar events become home-page notices and are excluded from the schedule list. The gallery page links child photographs to a restricted Google Site configured with `VITE_PRIVATE_GALLERY_URL`. Its only public Drive integration is the fixed child-free Achievements folder, shown with the legacy on-site timeline and lightbox. Songs come from Google Sheet tabs named `Sections` and `Songs`; the public page shows titles and listening links, not lyrics or chords.
 
 Do not commit private credentials. Restrict the browser API key by HTTP referrer for production and local development.
 

@@ -13,7 +13,7 @@ The interface is intentionally parent oriented: a practical coordination hub for
 - Static multi-page build: `/`, `/schedule/`, `/songs/`, `/gallery/`, `/frequency/`, `/contact/`
 - GitHub Pages with a custom domain
 - Google Calendar for schedule and notices
-- Google Drive for gallery albums
+- Restricted Google Site and private Google Drive folders for gallery albums
 - Google Sheets for song listening links and attendance statistics
 - SonarQube Cloud, Vitest, Playwright, ESLint
 
@@ -46,7 +46,7 @@ Local Google config belongs in `.env.local`:
 ```bash
 VITE_GOOGLE_API_KEY=your-restricted-browser-api-key
 VITE_GOOGLE_CALENDAR_ID=your-public-calendar-id@group.calendar.google.com
-VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID=your-public-gallery-folder-id
+VITE_PRIVATE_GALLERY_URL=https://sites.google.com/view/your-restricted-gallery
 VITE_GOOGLE_FREQUENCY_SHEET_ID=your-public-frequency-spreadsheet-id
 VITE_GOOGLE_SONGS_SHEET_ID=your-public-songs-spreadsheet-id
 VITE_EVENT_PROGRESS_WINDOW_DAYS=7
@@ -58,13 +58,7 @@ Calendar events are loaded for the next 3 months. Event titles starting with `[n
 
 Event time chips fill as progress bars before the event. `VITE_EVENT_PROGRESS_WINDOW_DAYS` controls how many days before the event the fill starts; invalid or missing values fall back to 7.
 
-Gallery albums come from Google Drive subfolders named:
-
-```text
-YYYY-MM-DD - Polish title -- English title
-```
-
-Append `[cover]` before an image file extension to use it as the album cover, for example `001[cover].jpg`.
+`/gallery/` separates two paths. The child-free **Achievements** album remains public and keeps its on-site Drive-backed timeline; its public folder and photo identifiers are necessarily visible. All child photographs move behind the restricted Google Site linked by `VITE_PRIVATE_GALLERY_URL`, and the public app never requests their Drive folders or files. The Site URL is visible by design and access must be enforced by Google account permissions, not URL secrecy. See [Private gallery operations](docs/private-gallery.md).
 
 Songs are loaded from a public Google Sheet with `Sections` and `Songs` tabs. `Sections` defines section labels and ordering; `Songs` defines `title`, `sectionKey`, optional link labels, URL, and `active` state. Song links can be shared with `/songs/?song=generated-song-slug`.
 
@@ -78,7 +72,7 @@ Required GitHub settings:
 
 - Pages source: GitHub Actions
 - Secret: `VITE_GOOGLE_API_KEY`
-- Variables: `VITE_GOOGLE_CALENDAR_ID`, `VITE_GOOGLE_DRIVE_GALLERY_FOLDER_ID`, `VITE_GOOGLE_FREQUENCY_SHEET_ID`, `VITE_GOOGLE_SONGS_SHEET_ID`
+- Variables: `VITE_GOOGLE_CALENDAR_ID`, `VITE_PRIVATE_GALLERY_URL`, `VITE_GOOGLE_FREQUENCY_SHEET_ID`, `VITE_GOOGLE_SONGS_SHEET_ID`
 - Optional variable: `VITE_EVENT_PROGRESS_WINDOW_DAYS` defaults to `7`
 
 The current custom-domain deployment uses Vite `base: '/'`. Change that only if the site moves back to a repository path such as `/scholka-aureolka-website/`.
