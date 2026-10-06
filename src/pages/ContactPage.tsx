@@ -5,6 +5,18 @@ import { copyTextToClipboard, translate, translateOptional } from '../core'
 
 type EmailCopyStatus = 'idle' | 'copied' | 'failed'
 
+function getEmailCopyLabel(status: EmailCopyStatus) {
+  if (status === 'copied') {
+    return contactDetails.email.copiedLabel
+  }
+
+  if (status === 'failed') {
+    return contactDetails.email.copyFailedLabel
+  }
+
+  return contactDetails.email.copyLabel
+}
+
 function CopyLinkIcon({ isCopied }: Readonly<{ isCopied: boolean }>) {
   return (
     <svg
@@ -30,14 +42,7 @@ function ContactPage({ language }: Readonly<{ language: Language }>) {
   const [emailCopyStatus, setEmailCopyStatus] = useState<EmailCopyStatus>('idle')
   const emailAddress = contactDetails.email.address
   const emailHref = `mailto:${emailAddress}`
-  const copyButtonLabel = translate(
-    emailCopyStatus === 'copied'
-      ? contactDetails.email.copiedLabel
-      : emailCopyStatus === 'failed'
-        ? contactDetails.email.copyFailedLabel
-        : contactDetails.email.copyLabel,
-    language,
-  )
+  const copyButtonLabel = translate(getEmailCopyLabel(emailCopyStatus), language)
 
   function copyEmailAddress() {
     copyTextToClipboard(emailAddress)
