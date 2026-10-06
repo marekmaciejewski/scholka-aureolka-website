@@ -96,9 +96,9 @@ Rules to preserve:
 
 ## Contact and Privacy
 
-Do not add contact forms, phone numbers, or email addresses.
+Do not add contact forms, phone numbers, or personal email addresses. The only public email address is the official choir address `scholka.aureolka@gmail.com`.
 
-Contact should remain in-person only, naming the responsible people and pointing visitors to scheduled choir meetings or parish links.
+Contact should prioritize the official choir address and in-person conversations, naming the responsible people and pointing visitors to scheduled choir meetings or parish links.
 
 Parents have signed photo consents, so gallery support is allowed. Still keep child-related public content minimal and parent-approved.
 

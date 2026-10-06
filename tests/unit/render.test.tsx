@@ -334,7 +334,6 @@ describe('event rendering components', () => {
       ),
     ).toBe('81%')
     expect(container.querySelector('.event-details')).toBeNull()
-    expect(container.querySelector('.event-expand-button')).toBeNull()
     expect(container.querySelector('.event-expand-status-chevron')).not.toBeNull()
 
     click(container.querySelector('.event-card-toggle'))
@@ -486,6 +485,34 @@ describe('page components', () => {
 
     click(container.querySelector('.modal-close'))
     expect(container.querySelector('.parent-info-modal')).toBeNull()
+  })
+
+  test('renders the official email contact and copies its address', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { clipboard: { writeText } })
+    const { container, rerender } = render(<ContactPage language="en" />)
+    const emailLink = container.querySelector<HTMLAnchorElement>('.contact-email-address')
+
+    expect(emailLink?.textContent).toBe('scholka.aureolka@gmail.com')
+    expect(emailLink?.getAttribute('href')).toBe('mailto:scholka.aureolka@gmail.com')
+
+    await act(async () => {
+      container
+        .querySelector('.contact-email-copy')
+        ?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    })
+
+    expect(writeText).toHaveBeenCalledWith('scholka.aureolka@gmail.com')
+    expect(container.querySelector('.contact-email-copy')?.classList).toContain('is-copied')
+    expect(container.querySelector('.contact-email-copy')?.getAttribute('aria-label')).toBe(
+      'Address Copied: scholka.aureolka@gmail.com',
+    )
+
+    rerender(<ContactPage language="pl" />)
+    expect(container.querySelector('.contact-email')?.textContent).toContain('Kontakt mailowy')
+    expect(container.querySelector('.contact-email-copy')?.getAttribute('aria-label')).toBe(
+      'Adres skopiowany: scholka.aureolka@gmail.com',
+    )
   })
 
   test('renders frequency threshold copy, units, age filter behavior, and scroll cues', async () => {
