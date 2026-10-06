@@ -588,13 +588,18 @@ test('gallery album navigation and lightbox stay within the viewport', async ({ 
   expect(errors).toEqual([])
 })
 
-test('contact page stays in-person only', async ({ page }) => {
+test('contact page exposes the official email without forms or phone numbers', async ({ page }) => {
   const errors = trackUnexpectedPageErrors(page)
+  const emailAddress = 'scholka.aureolka@gmail.com'
   await page.goto('/contact/')
 
   await expect(page.getByRole('heading', { level: 1, name: 'Contact' })).toBeVisible()
+  await expect(page.getByRole('link', { name: emailAddress })).toHaveAttribute(
+    'href',
+    `mailto:${emailAddress}`,
+  )
+  await expect(page.getByRole('button', { name: `Copy Address: ${emailAddress}` })).toBeVisible()
   await expect(page.locator('form')).toHaveCount(0)
-  await expect(page.locator('a[href^="mailto:"]')).toHaveCount(0)
   await expect(page.locator('a[href^="tel:"]')).toHaveCount(0)
   await expect(page.getByText('You can speak with the organizer in person')).toBeVisible()
   await expectNoHorizontalOverflow(page)

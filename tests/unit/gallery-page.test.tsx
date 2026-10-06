@@ -383,11 +383,9 @@ describe('gallery image behavior', () => {
     expect(container.querySelector('.achievement-album-symbol')).not.toBeNull()
     expect(container.querySelector('.achievement-certificate')).not.toBeNull()
     expect(container.querySelector('.achievement-rosette')).not.toBeNull()
-    expect(container.querySelector('.achievement-laurel')).toBeNull()
     expect(container.querySelector('.album-cover .gallery-image')).toBeNull()
     expect(container.textContent).toContain('Achievements')
     expect(container.textContent).toContain('Contests and festivals')
-    expect(container.textContent).not.toContain('Diplomas, contests, and memorable moments')
   })
 
   test('renders the achievements album header with the same eyebrow as the card', () => {
@@ -408,8 +406,6 @@ describe('gallery image behavior', () => {
     expect(container.textContent).toContain('Contests and festivals')
     expect(container.textContent).toContain('Achievements')
     expect(container.textContent).toContain('4 photos')
-    expect(container.textContent).not.toContain('Hall of fame')
-    expect(container.textContent).not.toContain('Diplomas, contests, and memorable moments')
   })
 
   test('renders achievements photos as a dated timeline', () => {

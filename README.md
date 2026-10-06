@@ -99,5 +99,5 @@ The workflow builds, lints, runs Vitest coverage, runs Playwright tests, and the
 
 ## Notes
 
-- Contact stays in-person only: no forms, phone numbers, or email addresses.
+- Contact is available in person and through the official choir address `scholka.aureolka@gmail.com`; do not add forms, phone numbers, or personal email addresses.
 - Polish is the primary language; English UI/content should stay complete.

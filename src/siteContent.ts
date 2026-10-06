@@ -351,8 +351,8 @@ export const pageIntro: Record<
     eyebrow: { pl: 'Porozmawiajmy', en: 'Let’s talk' },
     title: { pl: 'Kontakt', en: 'Contact' },
     lead: {
-      pl: 'Z osobą prowadzącą można porozmawiać osobiście, najlepiej przed próbą scholi zarówno w czwartek jak i niedzielę.',
-      en: 'You can speak with the organizer in person, preferably before choir rehearsal on both Thursday and Sunday.',
+      pl: 'Z osobą prowadzącą można porozmawiać osobiście, najlepiej przed próbą scholi zarówno w czwartek, jak i w niedzielę, albo napisać na oficjalny adres scholi.',
+      en: 'You can speak with the organizer in person, preferably before choir rehearsal on Thursday or Sunday, or write to the choir’s official email address.',
     },
   },
 }
@@ -483,6 +483,13 @@ export const firstStepsModal: {
 }
 
 export const contactDetails = {
+  email: {
+    address: 'scholka.aureolka@gmail.com',
+    label: { pl: 'Kontakt mailowy', en: 'Email Contact' },
+    copyLabel: { pl: 'Kopiuj adres', en: 'Copy Address' },
+    copiedLabel: { pl: 'Adres skopiowany', en: 'Address Copied' },
+    copyFailedLabel: { pl: 'Nie udało się skopiować', en: 'Copy Failed' },
+  },
   people: [
     {
       role: { pl: 'Prowadzący', en: 'Lead Organizer' },
