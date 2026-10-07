@@ -1090,21 +1090,21 @@ async function fetchAllGoogleDriveFiles(
     orderBy?: string
     pageSize?: number
   },
-) {
-  const files: GoogleDriveFile[] = []
-  let pageToken: string | undefined
+  pageToken?: string,
+): Promise<GoogleDriveFile[]> {
+  const data = await fetchGoogleDriveFiles(apiKey, {
+    ...options,
+    pageToken,
+  })
+  const files = data.files ?? []
 
-  do {
-    const data = await fetchGoogleDriveFiles(apiKey, {
-      ...options,
-      pageToken,
-    })
+  if (!data.nextPageToken) {
+    return files
+  }
 
-    files.push(...(data.files ?? []))
-    pageToken = data.nextPageToken
-  } while (pageToken)
+  const remainingFiles = await fetchAllGoogleDriveFiles(apiKey, options, data.nextPageToken)
 
-  return files
+  return [...files, ...remainingFiles]
 }
 
 function resizeGoogleThumbnail(thumbnailLink: string | undefined, width: number) {
