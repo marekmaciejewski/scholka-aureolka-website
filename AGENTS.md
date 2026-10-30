@@ -84,6 +84,8 @@ Do not commit private credentials. Restrict the browser API key by HTTP referrer
 
 Frequency data comes from the configured Google Sheet and is shown only as aggregate statistics.
 
+The `Dane` metadata tab has a header row and fixed columns: A = member ID, B = join date, C = optional departure date, D = birth date. Departure dates use the same format as join dates. The previous three-column layout is not supported. Year-named attendance tabs retain their existing layout.
+
 Rules to preserve:
 
 - Ignore members with missing birth dates completely.
@@ -91,8 +93,10 @@ Rules to preserve:
 - Duplicate date columns are separate events, even when the date is the same.
 - The first Thursday event on a date is a rehearsal, the first Sunday event on a date is a Mass, and later same-day events are `other`; non-default events still count in all-event statistics.
 - Age is calculated against the current/reference date.
-- "Recently active" is an inactivity buffer based on the latest event in the whole sheet up to the current/reference date, not on the selected period end. A member is active when their last presence is on or after `latest global event - activeWindowMonths`; the boundary is inclusive.
-- Frequency percentages are calculated over eligible events after the member join date. Active members use the selected period's last event as their end boundary; inactive members use their last presence, narrowed to the selected period when needed.
+- Evaluate member status for both the active-member count and percentage calculations at `min(selected period end, current/reference date)`. A later departure must not make the member inactive in an earlier period.
+- The departure date is the last presence date and the last included membership day. A member becomes explicitly inactive on the following day, regardless of the inactivity threshold.
+- Until a departure takes effect, infer activity from the latest presence up to the status date. The inactivity buffer uses the latest event in the whole sheet up to that same date, independently of the selected period start and event-type filter. A member is active when their last presence is on or after `latest global event - activeWindowMonths`; the boundary is inclusive.
+- Frequency percentages are calculated over eligible events from the member join date through the departure date, both inclusive, within the selected period. Active members use the selected period's last event as their end boundary; members inactive by the inferred rule use their last presence, narrowed to the selected period when needed. Explicit departure dates provide the inclusive end boundary for departed members.
 
 ## Contact and Privacy
 

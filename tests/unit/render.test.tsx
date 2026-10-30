@@ -154,13 +154,13 @@ function mockFrequencyFetch() {
     {
       valueRanges: [
         {
-          range: 'Dane!A1:C10',
+          range: 'Dane!A1:D10',
           values: [
-            ['id', 'data dołączenia', 'data urodzenia'],
-            ['1', '01.01.2026', '01.01.2019'],
-            ['2', '01.01.2026', '01.01.2018'],
-            ['3', '01.01.2026', '01.01.2017'],
-            ['4', '01.01.2026', '01.01.2016'],
+            ['id', 'data dołączenia', 'data odejścia', 'data urodzenia'],
+            ['1', '01.01.2024', '02.04.2026', '01.01.2019'],
+            ['2', '01.01.2024', '', '01.01.2018'],
+            ['3', '01.01.2024', '', '01.01.2017'],
+            ['4', '01.01.2024', '', '01.01.2016'],
           ],
         },
         {
@@ -538,6 +538,10 @@ describe('page components', () => {
     expect(activeWindowField?.querySelector('.frequency-help')?.getAttribute('aria-label')).toBe(
       'Jak długo przed ostatnim spotkaniem może wypadać ostatnia obecność aktywnego uczestnika.',
     )
+    const activeMemberMetric = Array.from(container.querySelectorAll('.frequency-metric')).find(
+      (metric) => metric.querySelector('dt')?.textContent === 'Aktywni na koniec okresu',
+    )
+    expect(activeMemberMetric?.querySelector('dd')?.textContent).toBe('3')
     expect(container.querySelectorAll('.frequency-scroll-frame')).toHaveLength(2)
     expect(container.querySelectorAll('.frequency-scroll-cue-left')).toHaveLength(2)
     expect(container.querySelectorAll('.frequency-scroll-cue-right')).toHaveLength(2)
@@ -549,6 +553,7 @@ describe('page components', () => {
     setFormValue(activeWindowInput, '11')
     expect(activeWindowInput.value).toBe('11')
     expect(activeWindowInput.selectedOptions[0]?.textContent).toBe('11 mies.')
+    expect(activeMemberMetric?.querySelector('dd')?.textContent).toBe('3')
 
     const periodPreset = container.querySelector<HTMLSelectElement>('#frequency-period')
     const schoolYearStart = container.querySelector<HTMLSelectElement>(
@@ -568,6 +573,7 @@ describe('page components', () => {
     expect(periodPreset.value).toBe('school-year')
     expect(schoolYearStart.value).toBe('2024')
     expect(schoolYearEnd.value).toBe('2024')
+    expect(activeMemberMetric?.querySelector('dd')?.textContent).toBe('1')
 
     setFormValue(schoolYearEnd, '2025')
     expect(periodPreset.value).toBe('custom')
@@ -592,6 +598,7 @@ describe('page components', () => {
     expect(periodPreset.value).toBe('calendar-year')
     expect(calendarYearStart.value).toBe('2025')
     expect(calendarYearEnd.value).toBe('2025')
+    expect(activeMemberMetric?.querySelector('dd')?.textContent).toBe('2')
 
     setFormValue(calendarYearEnd, '2026')
     expect(periodPreset.value).toBe('custom')
@@ -624,6 +631,7 @@ describe('page components', () => {
     expect(activeWindowField?.querySelector('.frequency-help')?.getAttribute('aria-label')).toBe(
       'How long before the latest meeting a member can last attend and still count as active.',
     )
+    expect(activeMemberMetric?.querySelector('dt')?.textContent).toBe('Active at period end')
     expect(activeWindowInput.selectedOptions[0]?.textContent).toBe('11 months')
 
     setFormValue(activeWindowInput, '1')

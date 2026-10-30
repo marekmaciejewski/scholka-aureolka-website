@@ -35,6 +35,7 @@ type FrequencyMember = {
   id: number
   joinDate: Date
   lastPresenceDate: Date | null
+  leaveDate: Date | null
 }
 
 type FrequencyEvent = {
@@ -289,12 +290,17 @@ function getMemberStatus(
   member: FrequencyMember,
   activeWindowMonths: number,
   referenceDate: Date,
+  activityReferenceDate = referenceDate,
 ) {
-  if (!member.lastPresenceDate) {
+  if (
+    !member.lastPresenceDate ||
+    compareLocalDays(member.joinDate, referenceDate) > 0 ||
+    (member.leaveDate && compareLocalDays(member.leaveDate, referenceDate) < 0)
+  ) {
     return 'inactive' as const
   }
 
-  const activeSince = addCalendarMonths(referenceDate, -Math.max(1, activeWindowMonths))
+  const activeSince = addCalendarMonths(activityReferenceDate, -Math.max(1, activeWindowMonths))
 
   return compareLocalDays(member.lastPresenceDate, activeSince) >= 0 ? 'active' : 'inactive'
 }
@@ -308,7 +314,8 @@ function parseFrequencyMembers(rows: string[][], referenceDate: Date) {
     const rowNumber = index + 2
     const memberId = Number(row[0]?.trim())
     const joinDate = row[1] ? parseSheetDate(row[1]) : null
-    const birthDate = row[2] ? parseSheetDate(row[2]) : null
+    const leaveDate = row[2] ? parseSheetDate(row[2]) : null
+    const birthDate = row[3] ? parseSheetDate(row[3]) : null
 
     if (!Number.isInteger(memberId) || !joinDate) {
       warnings.push(`Ignored member metadata row ${rowNumber}.`)
@@ -325,6 +332,7 @@ function parseFrequencyMembers(rows: string[][], referenceDate: Date) {
       birthDate,
       id: memberId,
       joinDate,
+      leaveDate,
     })
   })
 
@@ -673,7 +681,7 @@ function getLastEventDate(events: FrequencyEvent[], fallbackDate: Date) {
   return events.at(-1)?.date ?? fallbackDate
 }
 
-function getGlobalActivityReferenceDate(dataset: FrequencyDataset, referenceDate: Date) {
+function getActivityReferenceDate(dataset: FrequencyDataset, referenceDate: Date) {
   const pastEvents = dataset.events.filter((event) => compareLocalDays(event.date, referenceDate) <= 0)
 
   return getLastEventDate(pastEvents, referenceDate)
@@ -682,20 +690,25 @@ function getGlobalActivityReferenceDate(dataset: FrequencyDataset, referenceDate
 function createMemberAnalyses(
   members: FrequencyMember[],
   filters: FrequencyFilters,
+  analysisDate: Date,
   activityReferenceDate: Date,
   calculationEndDate: Date,
   lastPresenceByMemberId: Map<number, Date>,
 ) {
-  const activeSince = addCalendarMonths(activityReferenceDate, -Math.max(1, filters.activeWindowMonths))
-
   return members.map((member): FrequencyMemberAnalysis => {
-    const lastPresenceDate = lastPresenceByMemberId.get(member.id)
-    const isActive = lastPresenceDate
-      ? compareLocalDays(lastPresenceDate, activeSince) >= 0
-      : false
+    const lastPresenceDate = lastPresenceByMemberId.get(member.id) ?? null
+    const isActive = getMemberStatus(
+      { ...member, lastPresenceDate },
+      filters.activeWindowMonths,
+      analysisDate,
+      activityReferenceDate,
+    ) === 'active'
+    const endDate = isActive || !lastPresenceDate
+      ? calculationEndDate
+      : minDate(calculationEndDate, lastPresenceDate)
 
     return {
-      endDate: isActive || !lastPresenceDate ? calculationEndDate : minDate(calculationEndDate, lastPresenceDate),
+      endDate: member.leaveDate ? minDate(endDate, member.leaveDate) : endDate,
       isActive,
       member,
     }
@@ -715,14 +728,16 @@ function createFrequencyViewModel(
   language: Language,
   referenceDate = new Date(),
 ): FrequencyViewModel {
+  const analysisDate = minDate(filters.periodEnd, referenceDate)
   const periodEvents = getPeriodEvents(dataset, filters, referenceDate)
-  const calculationEndDate = getLastEventDate(periodEvents, minDate(filters.periodEnd, referenceDate))
-  const activityReferenceDate = getGlobalActivityReferenceDate(dataset, referenceDate)
-  const lastPresenceByMemberId = getLastPresenceDatesAtReferenceDate(dataset, activityReferenceDate)
+  const calculationEndDate = getLastEventDate(periodEvents, analysisDate)
+  const activityReferenceDate = getActivityReferenceDate(dataset, analysisDate)
+  const lastPresenceByMemberId = getLastPresenceDatesAtReferenceDate(dataset, analysisDate)
   const filteredMembers = getAgeFilteredMembers(dataset, filters)
   const memberAnalyses = createMemberAnalyses(
     filteredMembers,
     filters,
+    analysisDate,
     activityReferenceDate,
     calculationEndDate,
     lastPresenceByMemberId,
