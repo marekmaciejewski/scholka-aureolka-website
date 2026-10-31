@@ -671,6 +671,53 @@ describe('page components', () => {
     expect(loading.container.textContent).toContain('Loading current events')
   })
 
+  test.each([
+    { reducedMotion: true, behavior: 'instant' },
+    { reducedMotion: false, behavior: 'smooth' },
+  ])('scrolls to a linked event with $behavior behavior', ({ reducedMotion, behavior }) => {
+    vi.useFakeTimers()
+    window.history.replaceState({}, '', '/schedule/?event=rehearsal')
+    const matchMedia = vi.fn(() => ({ matches: reducedMotion }))
+    vi.stubGlobal('matchMedia', matchMedia)
+    const { container } = render(
+      <SchedulePage calendarStatus="ready" language="en" upcomingEvents={[createEvent()]} />,
+    )
+    const linkedEvent = container.querySelector<HTMLElement>('.event-card.is-linked')
+
+    if (!linkedEvent) {
+      throw new Error('Linked event was not rendered')
+    }
+
+    const scrollIntoView = vi.fn()
+    linkedEvent.scrollIntoView = scrollIntoView
+    act(() => vi.runOnlyPendingTimers())
+
+    expect(matchMedia).toHaveBeenCalledWith('(prefers-reduced-motion: reduce)')
+    expect(scrollIntoView).toHaveBeenCalledExactlyOnceWith({ block: 'center', behavior })
+  })
+
+  test.each([
+    { reducedMotion: true, behavior: 'instant' },
+    { reducedMotion: false, behavior: 'smooth' },
+  ])('scrolls to a linked song with $behavior behavior', async ({ reducedMotion, behavior }) => {
+    vi.useFakeTimers()
+    window.history.replaceState({}, '', '/songs/?song=barka')
+    vi.stubEnv('VITE_GOOGLE_API_KEY', 'api-key')
+    vi.stubEnv('VITE_GOOGLE_SONGS_SHEET_ID', 'songs-sheet')
+    const matchMedia = vi.fn(() => ({ matches: reducedMotion }))
+    vi.stubGlobal('matchMedia', matchMedia)
+    mockSongsFetch()
+    const { container } = render(<SongsPage language="en" />)
+    const linkedSong = await findElement<HTMLElement>(container, '.song-card.is-linked')
+    const scrollIntoView = vi.fn()
+    linkedSong.scrollIntoView = scrollIntoView
+    act(() => vi.runOnlyPendingTimers())
+
+    expect(linkedSong.textContent).toContain('Barka')
+    expect(matchMedia).toHaveBeenCalledWith('(prefers-reduced-motion: reduce)')
+    expect(scrollIntoView).toHaveBeenCalledExactlyOnceWith({ block: 'center', behavior })
+  })
+
   test('renders songs from the sheet and copies song links', async () => {
     window.history.replaceState({}, '', '/songs/')
     vi.stubEnv('VITE_GOOGLE_API_KEY', 'api-key')

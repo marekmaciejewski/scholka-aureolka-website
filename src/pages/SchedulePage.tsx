@@ -108,9 +108,11 @@ function SchedulePage({
     }
 
     const scrollTimeout = globalThis.setTimeout(() => {
+      const prefersReducedMotion = globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches
+
       document
         .getElementById(getEventDomId(linkedEvent))
-        ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        ?.scrollIntoView({ block: 'center', behavior: prefersReducedMotion ? 'instant' : 'smooth' })
     }, 0)
 
     return () => {
