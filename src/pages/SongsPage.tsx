@@ -340,9 +340,11 @@ function SongsReadyContent({
     }
 
     const scrollTimeout = globalThis.setTimeout(() => {
+      const prefersReducedMotion = globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches
+
       document
         .getElementById(getSongDomId(linkedSong))
-        ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        ?.scrollIntoView({ block: 'center', behavior: prefersReducedMotion ? 'instant' : 'smooth' })
     }, 0)
 
     return () => {

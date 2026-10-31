@@ -166,7 +166,6 @@ p {
   color: var(--color-heading);
   background: var(--color-gold);
   transform: translateY(-180%);
-  transition: transform 160ms ease;
 }
 
 .skip-link:focus {
@@ -358,7 +357,6 @@ p {
   background: var(--color-hero);
   box-shadow: 0 2px 8px rgb(0 0 0 / 22%);
   overflow: hidden;
-  transition: transform 160ms ease;
 }
 
 .switch-thumb img {
@@ -487,13 +485,6 @@ main {
   color: var(--color-hero-text);
   border-color: color-mix(in srgb, var(--color-hero-text) 42%, transparent);
   background: transparent;
-}
-
-.button:hover,
-.button:focus-visible,
-.text-link:hover,
-.text-link:focus-visible {
-  transform: translateY(-1px);
 }
 
 .hero-schedule-ribbon {
@@ -958,8 +949,7 @@ main {
   transition:
     border-color 160ms ease,
     background 160ms ease,
-    box-shadow 160ms ease,
-    transform 160ms ease;
+    box-shadow 160ms ease;
 }
 
 .event-card.event-card-link,
@@ -977,7 +967,6 @@ main {
   border-left-color: var(--event-accent);
   background: color-mix(in srgb, var(--event-accent) 10%, var(--color-surface));
   outline: 0;
-  transform: translateY(-1px);
 }
 
 .event-card.event-card-link:focus-visible,
@@ -1106,7 +1095,6 @@ main {
   clip-path: none;
   transform-origin: center;
   transition:
-    transform 220ms cubic-bezier(0.2, 1.34, 0.38, 1),
     color 160ms ease,
     border-color 160ms ease,
     background 160ms ease,
@@ -1123,7 +1111,16 @@ main {
   stroke-linejoin: round;
 }
 
-@media (hover: hover) and (pointer: fine) and (min-width: 761px) {
+@media (hover: hover) and (pointer: fine) and (min-width: 761px) and (prefers-reduced-motion: no-preference) {
+  .event-copy-link-button {
+    transition:
+      transform 220ms cubic-bezier(0.2, 1.34, 0.38, 1),
+      color 160ms ease,
+      border-color 160ms ease,
+      background 160ms ease,
+      box-shadow 160ms ease;
+  }
+
   .event-card-clickable .event-copy-link-button {
     color: color-mix(in srgb, var(--color-muted) 76%, transparent);
     border-color: transparent;
@@ -1293,8 +1290,7 @@ main {
   transition:
     border-color 160ms ease,
     background 160ms ease,
-    box-shadow 160ms ease,
-    transform 160ms ease;
+    box-shadow 160ms ease;
 }
 
 .gallery-album-card:hover,
@@ -1302,7 +1298,6 @@ main {
   border-color: color-mix(in srgb, var(--color-gold) 74%, var(--color-border));
   outline: 0;
   background: color-mix(in srgb, var(--color-gold) 8%, var(--color-surface));
-  transform: translateY(-1px);
 }
 
 .gallery-album-card:focus-visible {
@@ -1574,15 +1569,13 @@ main {
   overflow: hidden;
   transition:
     border-color 160ms ease,
-    box-shadow 160ms ease,
-    transform 160ms ease;
+    box-shadow 160ms ease;
 }
 
 .photo-tile:hover,
 .photo-tile:focus-visible {
   border-color: color-mix(in srgb, var(--color-gold) 74%, var(--color-border));
   outline: 0;
-  transform: translateY(-1px);
 }
 
 .photo-tile:focus-visible {
@@ -1646,8 +1639,7 @@ main {
   transition:
     border-color 160ms ease,
     background 160ms ease,
-    box-shadow 160ms ease,
-    transform 160ms ease;
+    box-shadow 160ms ease;
 }
 
 .achievement-card:hover,
@@ -1655,7 +1647,6 @@ main {
   border-color: color-mix(in srgb, var(--color-gold) 78%, var(--color-border));
   outline: 0;
   background: color-mix(in srgb, var(--color-gold) 9%, var(--color-surface));
-  transform: translateY(-1px);
 }
 
 .achievement-card:focus-visible {
@@ -1836,9 +1827,7 @@ main {
   place-items: center;
   width: 2.35rem;
   height: 2.35rem;
-  animation: gallery-image-spin 1.05s linear infinite;
   transform-origin: center;
-  will-change: transform;
 }
 
 .gallery-image-cover .gallery-image-loading-logo {
@@ -1905,12 +1894,6 @@ main {
 @keyframes gallery-image-spin {
   to {
     transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .gallery-image-loading-logo {
-    animation-duration: 1.8s;
   }
 }
 
@@ -2174,7 +2157,6 @@ main {
   clip-path: none;
   transform-origin: center;
   transition:
-    transform 220ms cubic-bezier(0.2, 1.34, 0.38, 1),
     color 160ms ease,
     border-color 160ms ease,
     background 160ms ease;
@@ -2188,7 +2170,15 @@ main {
   background: color-mix(in srgb, var(--color-gold) 30%, var(--color-surface));
 }
 
-@media (hover: hover) and (pointer: fine) and (min-width: 761px) {
+@media (hover: hover) and (pointer: fine) and (min-width: 761px) and (prefers-reduced-motion: no-preference) {
+  .song-copy-button {
+    transition:
+      transform 220ms cubic-bezier(0.2, 1.34, 0.38, 1),
+      color 160ms ease,
+      border-color 160ms ease,
+      background 160ms ease;
+  }
+
   .song-card .song-copy-button,
   .contact-email .song-copy-button {
     color: color-mix(in srgb, var(--color-muted) 76%, transparent);
@@ -2264,7 +2254,6 @@ main {
   color: var(--color-heading);
   border-color: color-mix(in srgb, var(--color-gold) 72%, var(--color-border));
   background: color-mix(in srgb, var(--color-gold) 18%, var(--color-surface));
-  transform: translateY(-1px);
 }
 
 .song-empty-materials,
@@ -2791,7 +2780,6 @@ main {
 .contact-link:hover,
 .contact-link:focus-visible {
   color: var(--color-gold);
-  transform: translateY(-1px);
 }
 
 .site-footer {
@@ -2847,6 +2835,60 @@ main {
 
 .footer-meta {
   white-space: nowrap;
+}
+
+/* Keep functional positioning and focus feedback available without motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .skip-link,
+  .switch-thumb {
+    transition: transform 160ms ease;
+  }
+
+  .event-card.has-details,
+  .event-card.event-card-link,
+  .event-card.event-card-clickable,
+  .gallery-album-card,
+  .achievement-card {
+    transition:
+      border-color 160ms ease,
+      background 160ms ease,
+      box-shadow 160ms ease,
+      transform 160ms ease;
+  }
+
+  .photo-tile {
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease,
+      transform 160ms ease;
+  }
+
+  .button:hover,
+  .button:focus-visible,
+  .text-link:hover,
+  .text-link:focus-visible,
+  .event-card.event-card-link:hover,
+  .event-card.event-card-link:focus-visible,
+  .event-card.event-card-clickable:hover,
+  .event-card.event-card-clickable:focus-visible,
+  .event-card.event-card-clickable:has(.event-card-toggle:focus-visible),
+  .gallery-album-card:hover,
+  .gallery-album-card:focus-visible,
+  .photo-tile:hover,
+  .photo-tile:focus-visible,
+  .achievement-card:hover,
+  .achievement-card:focus-visible,
+  .song-material-link:hover,
+  .song-material-link:focus-visible,
+  .contact-link:hover,
+  .contact-link:focus-visible {
+    transform: translateY(-1px);
+  }
+
+  .gallery-image-loading-logo {
+    animation: gallery-image-spin 1.05s linear infinite;
+    will-change: transform;
+  }
 }
 
 @media (max-width: 960px) {
