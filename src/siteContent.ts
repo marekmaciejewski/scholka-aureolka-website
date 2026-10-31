@@ -233,7 +233,7 @@ export const frequencyText = {
   averageAttendance: { pl: 'Średnio', en: 'Average' },
   averageFrequency: { pl: 'Średnia frekwencja', en: 'Average frequency' },
   eventsCount: { pl: 'Spotkania', en: 'Events' },
-  activeMembers: { pl: 'Aktywni', en: 'Active' },
+  activeMembers: { pl: 'Aktywni na koniec okresu', en: 'Active at period end' },
   medianFrequency: { pl: 'Mediana frekwencji', en: 'Median frequency' },
   attendanceOverTime: { pl: 'Obecność w czasie', en: 'Attendance over time' },
   timelineModeLabel: { pl: 'Rozstawienie słupków', en: 'Bar spacing' },

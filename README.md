@@ -68,6 +68,19 @@ Append `[cover]` before an image file extension to use it as the album cover, fo
 
 Songs are loaded from a public Google Sheet with `Sections` and `Songs` tabs. `Sections` defines section labels and ordering; `Songs` defines `title`, `sectionKey`, optional link labels, URL, and `active` state. Song links can be shared with `/songs/?song=generated-song-slug`.
 
+Attendance uses `VITE_GOOGLE_FREQUENCY_SHEET_ID`. The `Dane` tab must have a header row and these columns in order:
+
+| Column | Value |
+| --- | --- |
+| A | Member ID |
+| B | Join date |
+| C | Optional departure date |
+| D | Birth date |
+
+Use the same date format for departure and join dates, for example `02.04.2026`. The departure date is the last day the member attended; that day is included in attendance calculations, and the member is inactive from the following day. Leave C empty when there is no departure date. This version requires the updated four-column layout. Year-named attendance tabs keep member IDs in column A and meeting dates in the remaining columns.
+
+Active counts and attendance percentages use the member's status at the selected period end, capped at today. Before a departure takes effect, the inactivity threshold still applies. Age filters continue to use current age.
+
 ## Deployment
 
 Production: [https://scholka.urszula-gdynia.pl/](https://scholka.urszula-gdynia.pl/)
