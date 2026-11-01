@@ -606,6 +606,9 @@ describe('page components', () => {
     const agePreset = container.querySelector<HTMLSelectElement>('#frequency-age-preset')
     const ageStart = container.querySelector<HTMLSelectElement>('#frequency-age-start')
     const ageEnd = container.querySelector<HTMLSelectElement>('#frequency-age-end')
+    const averageFrequencyMetric = Array.from(container.querySelectorAll('.frequency-metric')).find(
+      (metric) => metric.querySelector('dt')?.textContent === 'Średnia frekwencja',
+    )
 
     if (!agePreset || !ageStart || !ageEnd) {
       throw new Error('Age filters were not rendered')
@@ -615,16 +618,22 @@ describe('page components', () => {
     expect(agePreset.value).toBe('age-8')
     expect(ageStart.value).toBe('8')
     expect(ageEnd.value).toBe('8')
+    expect(activeMemberMetric?.querySelector('dd')?.textContent).toBe('1')
+    expect(averageFrequencyMetric?.querySelector('dd')?.textContent).toBe('50%')
 
     setFormValue(ageEnd, '10')
     expect(agePreset.value).toBe('custom')
     expect(ageStart.value).toBe('8')
     expect(ageEnd.value).toBe('10')
+    expect(activeMemberMetric?.querySelector('dd')?.textContent).toBe('3')
+    expect(averageFrequencyMetric?.querySelector('dd')?.textContent).toBe('33%')
 
     setFormValue(ageEnd, '7')
     expect(agePreset.value).toBe('age-7')
     expect(ageStart.value).toBe('7')
     expect(ageEnd.value).toBe('7')
+    expect(activeMemberMetric?.querySelector('dd')?.textContent).toBe('0')
+    expect(averageFrequencyMetric?.querySelector('dd')?.textContent).toBe('100%')
 
     rerender(<FrequencyPage language="en" />)
     expect(activeWindowField?.textContent).toContain('Inactivity threshold')

@@ -37,6 +37,8 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
+Playwright starts an isolated Vite server at `http://127.0.0.1:5174/` with dummy Google configuration and mocked API responses. It does not reuse the development server or require Google credentials.
+
 Use `npm run preview` to serve the production build locally.
 
 ## Google Integration

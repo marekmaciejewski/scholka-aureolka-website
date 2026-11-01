@@ -139,6 +139,91 @@ describe('frequency data rules', () => {
     ])
   })
 
+  test.each([
+    {
+      selection: 'one age',
+      minAge: 8,
+      maxAge: 8,
+      memberCount: 1,
+      averageAttendance: 3 / 4,
+      frequency: 3 / 4,
+      attendanceCounts: [1, 1, 1, 0],
+      attendanceByAge: [{ label: '8 yo', value: 3 / 4 }],
+    },
+    {
+      selection: 'an inclusive age range',
+      minAge: 8,
+      maxAge: 10,
+      memberCount: 3,
+      averageAttendance: 3 / 2,
+      frequency: 1 / 2,
+      attendanceCounts: [3, 2, 1, 0],
+      attendanceByAge: [
+        { label: '8 yo', value: 3 / 4 },
+        { label: '9 yo', value: 1 / 2 },
+        { label: '10 yo', value: 1 / 4 },
+      ],
+    },
+    {
+      selection: 'an age range with no members',
+      minAge: 12,
+      maxAge: 13,
+      memberCount: 0,
+      averageAttendance: 0,
+      frequency: null,
+      attendanceCounts: [0, 0, 0, 0],
+      attendanceByAge: [],
+    },
+  ])('filters aggregate counts and percentages for $selection', ({
+    minAge,
+    maxAge,
+    memberCount,
+    averageAttendance,
+    frequency,
+    attendanceCounts,
+    attendanceByAge,
+  }) => {
+    const dataset = parseFrequencySheetValues(
+      [
+        {
+          range: 'Dane!A1:D6',
+          values: [
+            ['id', 'data dołączenia', 'data odejścia', 'data urodzenia'],
+            ['1', '01.01.2026', '', '01.01.2019'],
+            ['2', '01.01.2026', '', '01.01.2018'],
+            ['3', '01.01.2026', '', '01.01.2017'],
+            ['4', '01.01.2026', '', '01.01.2016'],
+            ['5', '01.01.2026', '', '01.01.2015'],
+          ],
+        },
+        {
+          range: "'2026'!A1:E6",
+          values: [
+            ['id', '04.06.2026', '11.06.2026', '18.06.2026', '25.06.2026'],
+            ['1', '1', '1', '1', '1'],
+            ['2', '1', '1', '1', ''],
+            ['3', '1', '1', '', ''],
+            ['4', '1', '', '', ''],
+            ['5', '', '', '', ''],
+          ],
+        },
+      ],
+      referenceDate,
+    )
+    const filters = { ...getFrequencyDefaultFilters(dataset, referenceDate), minAge, maxAge }
+    const viewModel = createFrequencyViewModel(dataset, filters, 'en', referenceDate)
+
+    expect(viewModel.totalEventCount).toBe(4)
+    expect(viewModel.filteredMemberCount).toBe(memberCount)
+    expect(viewModel.activeMemberCount).toBe(memberCount)
+    expect(viewModel.averageAttendance).toBe(averageAttendance)
+    expect(viewModel.averageFrequency).toBe(frequency)
+    expect(viewModel.medianFrequency).toBe(frequency)
+    expect(viewModel.attendanceOverTime.map((event) => event.count)).toEqual(attendanceCounts)
+    expect(viewModel.attendanceByAge).toEqual(attendanceByAge)
+    expect(viewModel.monthlyRows[0].attendanceRate).toBe(frequency)
+  })
+
   test('uses historical activity for both the active count and frequency percentages', () => {
     const dataset = createSingleMemberDataset(
       ['26.04.2026', '26.05.2026', '26.06.2026'],

@@ -120,7 +120,7 @@ Useful commands:
 - `npm run test:coverage`
 - `npm run test:e2e`
 
-Playwright starts/reuses the Vite dev server through `playwright.config.ts`. Install Chromium locally with `npx playwright install chromium` before running e2e tests for the first time.
+Playwright starts an isolated Vite server at `http://127.0.0.1:5174/` through `playwright.config.ts`, with dummy Google configuration and mocked API responses. It must not reuse the normal development server or call live Google services. Keep configured success cases deterministic and assert that their required events, albums, and photos are present; test empty, error, and unconfigured states separately. Install Chromium locally with `npx playwright install chromium` before running e2e tests for the first time.
 
 ## Local Development Assumptions
 

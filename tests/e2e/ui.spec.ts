@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
+import { expect, test } from './fixtures'
 
 const languageStorageKey = 'scholka-aureolka-language'
 const themeStorageKey = 'scholka-aureolka-theme'
@@ -145,26 +146,6 @@ async function expectOverlayInsideViewport(page: Page, selector: string) {
   expect(metrics.right).toBeLessThanOrEqual(metrics.viewportWidth + 1)
   expect(metrics.height).toBeGreaterThan(0)
   expect(metrics.width).toBeGreaterThan(0)
-}
-
-async function expectScheduleReady(page: Page) {
-  await expect(
-    page
-      .locator(
-        '.event-card, .schedule-empty, .schedule-status.error, .schedule-status.unconfigured',
-      )
-      .first(),
-  ).toBeVisible({ timeout: 15_000 })
-}
-
-async function expectGalleryReady(page: Page) {
-  await expect(
-    page
-      .locator(
-        '.gallery-album-card, .gallery-status.error, .gallery-status.ready, .gallery-status.unconfigured',
-      )
-      .first(),
-  ).toBeVisible({ timeout: 15_000 })
 }
 
 async function expandFirstEventCard(page: Page) {
@@ -467,33 +448,47 @@ test('language, theme, and first-steps dialog remain usable', async ({ page }) =
   expect(errors).toEqual([])
 })
 
-test('schedule page handles configured and unconfigured calendar states', async ({ page }) => {
+test('schedule page opens and closes the configured event details', async ({ page }) => {
   const errors = trackUnexpectedPageErrors(page)
   await page.goto('/schedule/')
 
   await expect(page.getByRole('heading', { level: 1, name: 'Schedule' })).toBeVisible()
-  await expectScheduleReady(page)
+  const event = page.locator('.event-card').filter({ hasText: 'Fixture rehearsal' })
+  await expect(event).toHaveCount(1)
+  await expect(event).toBeVisible()
   await expectNoHorizontalOverflow(page)
-
-  const eventCards = page.locator('.event-card')
-  const eventCount = await eventCards.count()
-
-  if (eventCount === 0) {
-    await expect(page.locator('.schedule-status, .schedule-empty')).toBeVisible()
-  } else {
-    await expect(eventCards.first()).toBeVisible()
-
-    const expandableCards = page.locator('.event-card-clickable')
-    const expandableCount = await expandableCards.count()
-
-    if (expandableCount > 0) {
-      await expandFirstEventCard(page)
-      await expect(page.locator('.event-details')).toBeVisible()
-      await expectNoHorizontalOverflow(page)
-    }
-  }
+  await expect(event.locator('.event-card-toggle')).toHaveAttribute('aria-expanded', 'false')
+  await expandFirstEventCard(page)
+  await expect(event.locator('.event-card-toggle')).toHaveAttribute('aria-expanded', 'true')
+  await expect(event.locator('.event-details')).toBeVisible()
+  await expect(event.locator('.event-details')).toContainText('Bring the blue folder.')
+  await expectNoHorizontalOverflow(page)
+  await expandFirstEventCard(page)
+  await expect(event.locator('.event-card-toggle')).toHaveAttribute('aria-expanded', 'false')
+  await expect(event.locator('.event-details')).toHaveCount(0)
 
   expect(errors).toEqual([])
+})
+
+test('schedule page shows the empty state when the calendar has no events', async ({ page, googleApi }) => {
+  googleApi.calendar = 'empty'
+  await page.goto('/schedule/')
+
+  await expect(page.locator('.schedule-empty')).toHaveText(
+    'There are no scheduled events in the next 3 months.',
+  )
+  await expect(page.locator('.event-card')).toHaveCount(0)
+  await expect(page.locator('.schedule-status.error')).toHaveCount(0)
+})
+
+test('schedule page shows a calendar request failure', async ({ page, googleApi }) => {
+  googleApi.calendar = 'error'
+  await page.goto('/schedule/')
+
+  await expect(page.locator('.schedule-status.error')).toHaveText(
+    'Google Calendar events could not be loaded. Try refreshing the page later.',
+  )
+  await expect(page.locator('.event-card, .schedule-empty')).toHaveCount(0)
 })
 
 test('event action symbols stay anchored to event cards', async ({ page }) => {
@@ -544,41 +539,37 @@ test('song copy buttons emerge on desktop hover only', async ({ page }) => {
   }
 })
 
-test('gallery album navigation and lightbox stay within the viewport', async ({ page }) => {
+test('gallery album navigation and lightbox stay within the viewport', async ({ page, googleApi }) => {
   const errors = trackUnexpectedPageErrors(page)
+  const releasePhotos = googleApi.holdPhotoResponses()
   await page.goto('/gallery/')
 
   await expect(page.getByRole('heading', { level: 1, name: 'Gallery' })).toBeVisible()
-  await expectGalleryReady(page)
+  const albumCard = page.getByRole('link', { name: 'Open album: Workshop', exact: true })
+  await expect(albumCard).toBeVisible()
   await expectNoHorizontalOverflow(page)
 
-  const albumCards = page.locator('.gallery-album-card')
-  const albumCount = await albumCards.count()
-
-  if (albumCount === 0) {
-    await expect(page.locator('.gallery-status')).toBeVisible()
-    expect(errors).toEqual([])
-    return
-  }
-
   await page.evaluate(() => globalThis.scrollTo({ top: 360, behavior: 'instant' }))
-  await albumCards.first().click()
+  await albumCard.click()
   await expect(page.locator('.gallery-album-header')).toBeVisible()
   await expect(page).toHaveURL(/album=/)
   await expect.poll(() => page.evaluate(() => Math.round(globalThis.scrollY))).toBe(0)
   await expectNoHorizontalOverflow(page)
 
-  const photoTiles = page.locator('.photo-tile')
-  const photoCount = await photoTiles.count()
-
-  if (photoCount > 0) {
-    await photoTiles.first().click()
-    await expect(page.locator('.gallery-lightbox')).toBeVisible()
-    await expectOverlayInsideViewport(page, '.gallery-lightbox-backdrop')
-    await expectOverlayInsideViewport(page, '.gallery-lightbox')
-    await page.locator('.gallery-lightbox').getByRole('button', { name: 'Close photo' }).click()
-    await expect(page.locator('.gallery-lightbox')).toHaveCount(0)
-  }
+  await expect(page.getByText('Loading photos from the album.', { exact: true })).toBeVisible()
+  await expect(page.locator('.photo-tile')).toHaveCount(0)
+  releasePhotos()
+  await expect(page.locator('.photo-tile')).toHaveCount(2)
+  const photo = page.getByRole('link', { name: 'Open photo 1', exact: true })
+  await expect(photo).toBeVisible()
+  await photo.click()
+  await expect(page).toHaveURL(/photo=photo-1/)
+  await expect(page.locator('.gallery-lightbox')).toBeVisible()
+  await expectOverlayInsideViewport(page, '.gallery-lightbox-backdrop')
+  await expectOverlayInsideViewport(page, '.gallery-lightbox')
+  await page.locator('.gallery-lightbox').getByRole('button', { name: 'Close photo' }).click()
+  await expect(page.locator('.gallery-lightbox')).toHaveCount(0)
+  await expect(page).not.toHaveURL(/photo=/)
 
   await page.getByRole('button', { name: 'Back to albums' }).click()
   await expect(page).not.toHaveURL(/album=/)
@@ -586,6 +577,25 @@ test('gallery album navigation and lightbox stay within the viewport', async ({ 
   await expectNoHorizontalOverflow(page)
 
   expect(errors).toEqual([])
+})
+
+test('gallery page shows the empty state when no albums are published', async ({ page, googleApi }) => {
+  googleApi.gallery = 'empty'
+  await page.goto('/gallery/')
+
+  await expect(page.locator('.gallery-status.ready')).toHaveText('There are no published albums yet.')
+  await expect(page.locator('.gallery-album-card')).toHaveCount(0)
+  await expect(page.locator('.gallery-status.error')).toHaveCount(0)
+})
+
+test('gallery page shows an album request failure', async ({ page, googleApi }) => {
+  googleApi.gallery = 'error'
+  await page.goto('/gallery/')
+
+  await expect(page.locator('.gallery-status.error')).toHaveText(
+    'The Google Drive gallery could not be loaded. Try refreshing the page later.',
+  )
+  await expect(page.locator('.gallery-album-card, .gallery-status.ready')).toHaveCount(0)
 })
 
 test('contact page exposes the official email without forms or phone numbers', async ({ page }) => {

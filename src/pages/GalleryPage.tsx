@@ -213,6 +213,7 @@ function GalleryPage({ language }: Readonly<{ language: Language }>) {
   const [photoId, setPhotoId] = useState<string | null>(getGalleryPhotoIdFromLocation)
   const [photoStates, setPhotoStates] = useState<Record<string, GalleryPhotosState>>({})
   const photoStatesRef = useRef(photoStates)
+  const photoRequestGenerationRef = useRef(0)
   const activeAlbum = albumSlug
     ? galleryState.albums.find((album) => album.slug === albumSlug)
     : undefined
@@ -237,6 +238,12 @@ function GalleryPage({ language }: Readonly<{ language: Language }>) {
   useEffect(() => {
     photoStatesRef.current = photoStates
   }, [photoStates])
+
+  useEffect(() => {
+    return () => {
+      photoRequestGenerationRef.current += 1
+    }
+  }, [])
 
   useEffect(() => {
     if (!googleDriveGalleryConfig) {
@@ -290,8 +297,6 @@ function GalleryPage({ language }: Readonly<{ language: Language }>) {
       return
     }
 
-    let isActive = true
-
     setPhotoStates((currentPhotoStates) => ({
       ...currentPhotoStates,
       [activeAlbum.id]: {
@@ -300,9 +305,11 @@ function GalleryPage({ language }: Readonly<{ language: Language }>) {
       },
     }))
 
+    // Album switches keep requests alive to finish the cache; unmount invalidates them.
+    const requestGeneration = photoRequestGenerationRef.current
     fetchGoogleDriveAlbumPhotos(googleDriveGalleryConfig, activeAlbum)
       .then((photos) => {
-        if (!isActive) {
+        if (requestGeneration !== photoRequestGenerationRef.current) {
           return
         }
 
@@ -315,7 +322,7 @@ function GalleryPage({ language }: Readonly<{ language: Language }>) {
         }))
       })
       .catch(() => {
-        if (!isActive) {
+        if (requestGeneration !== photoRequestGenerationRef.current) {
           return
         }
 
@@ -327,10 +334,6 @@ function GalleryPage({ language }: Readonly<{ language: Language }>) {
           },
         }))
       })
-
-    return () => {
-      isActive = false
-    }
   }, [activeAlbum, googleDriveGalleryConfig])
 
   return (
