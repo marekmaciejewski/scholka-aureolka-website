@@ -1,4 +1,4 @@
-import { act, type ReactElement } from 'react'
+import { act, StrictMode, type ReactElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -83,6 +83,17 @@ async function flushEffects(cycles = 4) {
       await Promise.resolve()
     })
   }
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason: Error) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+
+  return { promise, resolve, reject }
 }
 
 function click(element: Element | null) {
@@ -306,60 +317,137 @@ describe('gallery page data states', () => {
     expect(emptyPhotosTree.container.textContent).toContain('This album does not have photos yet.')
   })
 
-  test('shows photo loading errors and ignores stale gallery responses', async () => {
+  test('shows photo loading errors', async () => {
     const album = createAlbum()
-    let resolveAlbums: (nextAlbums: GalleryAlbum[]) => void = () => undefined
-
-    coreMocks.fetchGoogleDriveGalleryAlbums.mockReturnValueOnce(
-      new Promise<GalleryAlbum[]>((resolve) => {
-        resolveAlbums = resolve
-      }),
-    )
-
-    const staleAlbumsTree = render(<GalleryPage language="en" />)
-
-    cleanupTree(staleAlbumsTree)
-
-    await act(async () => {
-      resolveAlbums([album])
-      await Promise.resolve()
-    })
-
     window.history.replaceState({}, '', '/gallery/?album=workshop')
     coreMocks.fetchGoogleDriveGalleryAlbums.mockResolvedValueOnce([album])
     coreMocks.fetchGoogleDriveAlbumPhotos.mockRejectedValueOnce(new Error('Photos unavailable'))
-
-    const photoErrorTree = render(<GalleryPage language="en" />)
+    const { container } = render(<GalleryPage language="en" />)
 
     await flushEffects(6)
 
-    expect(photoErrorTree.container.textContent).toContain(
-      'Photos from this album could not be loaded.',
-    )
-
-    let resolvePhotos: (nextPhotos: GalleryPhoto[]) => void = () => undefined
-
-    cleanupTree(photoErrorTree)
-    window.history.replaceState({}, '', '/gallery/?album=workshop')
-    coreMocks.fetchGoogleDriveGalleryAlbums.mockResolvedValueOnce([album])
-    coreMocks.fetchGoogleDriveAlbumPhotos.mockReturnValueOnce(
-      new Promise<GalleryPhoto[]>((resolve) => {
-        resolvePhotos = resolve
-      }),
-    )
-
-    const stalePhotosTree = render(<GalleryPage language="en" />)
-
-    await flushEffects()
-    cleanupTree(stalePhotosTree)
-
-    await act(async () => {
-      resolvePhotos([createPhoto()])
-      await Promise.resolve()
-    })
-
-    expect(coreMocks.fetchGoogleDriveAlbumPhotos).toHaveBeenCalled()
+    expect(container.textContent).toContain('Photos from this album could not be loaded.')
   })
+
+  test.each(['success', 'error'] as const)(
+    'keeps the current albums when a superseded StrictMode request settles with %s',
+    async (outcome) => {
+      const staleRequest = deferred<GalleryAlbum[]>()
+      const currentRequest = deferred<GalleryAlbum[]>()
+      const currentAlbum = createAlbum()
+      const staleAlbum = createAlbum({
+        id: 'stale-album',
+        slug: 'stale',
+        title: { pl: 'Nieaktualny album', en: 'Stale album' },
+      })
+      coreMocks.fetchGoogleDriveGalleryAlbums
+        .mockReturnValueOnce(staleRequest.promise)
+        .mockReturnValueOnce(currentRequest.promise)
+      const { container } = render(
+        <StrictMode>
+          <GalleryPage language="en" />
+        </StrictMode>,
+      )
+
+      expect(coreMocks.fetchGoogleDriveGalleryAlbums).toHaveBeenCalledTimes(2)
+      await act(async () => currentRequest.resolve([currentAlbum]))
+      expect(container.querySelector('.gallery-album-card h3')?.textContent).toBe('Workshop')
+
+      await act(async () => {
+        if (outcome === 'success') {
+          staleRequest.resolve([staleAlbum])
+        } else {
+          staleRequest.reject(new Error('Superseded request failed'))
+        }
+      })
+
+      expect(container.querySelectorAll('.gallery-album-card')).toHaveLength(1)
+      expect(container.querySelector('.gallery-album-card h3')?.textContent).toBe('Workshop')
+      expect(container.textContent).not.toContain('Stale album')
+      expect(container.querySelector('.gallery-status.error')).toBeNull()
+    },
+  )
+
+  test.each([
+    { outcome: 'success', returnTiming: 'before' },
+    { outcome: 'success', returnTiming: 'after' },
+    { outcome: 'error', returnTiming: 'before' },
+    { outcome: 'error', returnTiming: 'after' },
+  ] as const)(
+    'finishes an album request with $outcome when returning $returnTiming it settles',
+    async ({ outcome, returnTiming }) => {
+      const firstAlbum = createAlbum()
+      const secondAlbum = createAlbum({
+        id: 'album-2',
+        slug: 'concert',
+        title: { pl: 'Koncert', en: 'Concert' },
+      })
+      const firstRequest = deferred<GalleryPhoto[]>()
+      const secondRequest = deferred<GalleryPhoto[]>()
+      const firstPhoto = createPhoto({ id: 'workshop-photo' })
+      const secondPhoto = createPhoto({ id: 'concert-photo' })
+      coreMocks.fetchGoogleDriveGalleryAlbums.mockResolvedValue([firstAlbum, secondAlbum])
+      coreMocks.fetchGoogleDriveAlbumPhotos.mockImplementation(
+        (_config: GoogleDriveGalleryConfig, album: GalleryAlbum) =>
+          album.id === firstAlbum.id ? firstRequest.promise : secondRequest.promise,
+      )
+      const { container } = render(<GalleryPage language="en" />)
+      await flushEffects()
+
+      click(container.querySelector('.gallery-album-card[href$="album=workshop"]'))
+      await flushEffects()
+      expect(container.textContent).toContain('Loading photos from the album.')
+
+      click(container.querySelector('.gallery-back-button'))
+      click(container.querySelector('.gallery-album-card[href$="album=concert"]'))
+      await flushEffects()
+      await act(async () => secondRequest.resolve([secondPhoto]))
+      expect(container.querySelector('.photo-tile')?.getAttribute('href')).toContain(
+        'photo=concert-photo',
+      )
+
+      function returnToFirstAlbum() {
+        click(container.querySelector('.gallery-back-button'))
+        click(container.querySelector('.gallery-album-card[href$="album=workshop"]'))
+      }
+
+      if (returnTiming === 'before') {
+        returnToFirstAlbum()
+        expect(container.textContent).toContain('Loading photos from the album.')
+      }
+
+      await act(async () => {
+        if (outcome === 'success') {
+          firstRequest.resolve([firstPhoto])
+        } else {
+          firstRequest.reject(new Error('Workshop photos unavailable'))
+        }
+      })
+
+      if (returnTiming === 'after') {
+        expect(container.querySelector('.gallery-album-header h2')?.textContent).toBe('Concert')
+        expect(container.querySelector('.photo-tile')?.getAttribute('href')).toContain(
+          'photo=concert-photo',
+        )
+        expect(container.querySelector('.gallery-status.error')).toBeNull()
+        returnToFirstAlbum()
+      }
+
+      expect(container.querySelector('.gallery-album-header h2')?.textContent).toBe('Workshop')
+      expect(window.location.search).toBe('?album=workshop')
+      expect(container.querySelector('.gallery-status.loading')).toBeNull()
+      if (outcome === 'success') {
+        expect(container.querySelectorAll('.photo-tile')).toHaveLength(1)
+        expect(container.querySelector('.photo-tile')?.getAttribute('href')).toContain(
+          'photo=workshop-photo',
+        )
+      } else {
+        expect(container.textContent).toContain('Photos from this album could not be loaded.')
+        expect(container.querySelector('.photo-tile')).toBeNull()
+      }
+      expect(coreMocks.fetchGoogleDriveAlbumPhotos).toHaveBeenCalledTimes(2)
+    },
+  )
 })
 
 describe('gallery image behavior', () => {
@@ -470,7 +558,9 @@ describe('gallery image behavior', () => {
       />,
     )
 
-    dispatchImageEvent(getGalleryImage(container), 'load')
+    const originalImage = getGalleryImage(container)
+    expect(originalImage.src).toBe('https://example.com/thumb.jpg')
+    dispatchImageEvent(originalImage, 'load')
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(galleryImageRetryDelays[0])
@@ -483,6 +573,7 @@ describe('gallery image behavior', () => {
     )
 
     const retriedImage = getGalleryImage(container)
+    expect(retriedImage.src).toBe('https://example.com/refreshed-thumb.jpg')
     setNaturalWidth(retriedImage, 800)
     dispatchImageEvent(retriedImage, 'load')
 
